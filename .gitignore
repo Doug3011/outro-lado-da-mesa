@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.exe
+server/dist
+desktop/dist
+desktop/server.cjs
+desktop/release
+desktop/node_modules
+.env
+.env.local
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json

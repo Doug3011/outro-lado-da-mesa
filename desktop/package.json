@@ -1,0 +1,47 @@
+{
+  "name": "outro-lado-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "O Outro Lado da Mesa — tabletop de Ordem Paranormal (app de mesa/rede local)",
+  "main": "main.js",
+  "scripts": {
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.outrolado.tabletop",
+    "productName": "O Outro Lado da Mesa",
+    "icon": "build/icon.ico",
+    "asar": true,
+    "compression": "maximum",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.cjs",
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "O Outro Lado da Mesa",
+      "artifactName": "OutroLado-Setup.exe"
+    }
+  }
+}

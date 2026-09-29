@@ -1,0 +1,9 @@
+{
+  "name": "outro-lado-server",
+  "private": true,
+  "version": "1.0.0",
+  "main": "main.cjs",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
