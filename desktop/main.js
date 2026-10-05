@@ -5,7 +5,8 @@
 'use strict';
 
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 
 // O servidor abre a própria janela via `start msedge --app=...` quando rodado
 // como .exe portátil — aqui quem cria a janela é o Electron, então isso é desligado.
@@ -22,6 +23,35 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 require('./server.cjs');
 
 const PORT = Number(process.env.ORDEM_PORT) || 47300;
+
+// Auto-update (GitHub Releases via electron-builder --publish) — pedido do
+// usuário, mesmo esquema já usado em outro app Electron dele ("Suvaco da
+// Jinx"). Baixa sozinho em segundo plano; só pergunta na hora de REINICIAR
+// (não trava o uso no meio de uma sessão — quem tá numa mesa não quer ser
+// interrompido). `autoInstallOnAppQuit` cobre quem nunca clica em
+// "Reiniciar agora": aplica ao fechar o app normalmente de qualquer jeito.
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+autoUpdater.on('update-downloaded', (info) => {
+  dialog
+    .showMessageBox({
+      type: 'info',
+      title: 'Atualização pronta',
+      message: `Uma nova versão (${info.version}) foi baixada.`,
+      detail: 'Reiniciar agora pra aplicar, ou continuar usando e aplicar só quando fechar o app.',
+      buttons: ['Reiniciar agora', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    .then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+});
+
+autoUpdater.on('error', (err) => {
+  console.warn('[auto-update] erro ao checar/baixar atualização:', err.message);
+});
 
 let win;
 // `frame` do BrowserWindow só pode ser definido na criação — não dá pra
@@ -128,7 +158,17 @@ ipcMain.handle('window:set-windowed', () => {
   }
 });
 
-app.whenReady().then(() => createWindow());
+app.whenReady().then(() => {
+  createWindow();
+  // só em produção de verdade — `npm start`/dev não tem feed de update
+  // nenhum (não veio de um instalador publicado), então checar daria erro
+  // à toa toda vez.
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn('[auto-update] não deu pra checar atualização agora:', err.message);
+    });
+  }
+});
 
 app.on('window-all-closed', () => {
   app.quit();

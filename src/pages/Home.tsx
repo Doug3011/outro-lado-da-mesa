@@ -13,6 +13,7 @@ import { CharacterLibrary } from '../components/CharacterLibrary';
 import { MatchHistoryPanel } from '../components/MatchHistoryPanel';
 import { DailyChallengePanel } from '../components/DailyChallengePanel';
 import { MusicLibraryManager } from '../components/MusicLibraryManager';
+import { AmbientLibraryManager } from '../components/AmbientLibraryManager';
 import { TokenLibraryManager } from '../components/TokenLibraryManager';
 import { MapLibraryManager } from '../components/MapLibraryManager';
 import { PlaceLibraryManager } from '../components/PlaceLibraryManager';
@@ -25,7 +26,7 @@ import { useMenuMusicStore } from '../state/menuMusic';
 
 type Role = 'gm' | 'player';
 type View = 'hub' | 'profile' | 'library' | 'connect' | 'history' | 'daily' | 'gm-area' | 'extras';
-type GmAreaTab = 'music' | 'tokens' | 'maps' | 'places';
+type GmAreaTab = 'music' | 'ambient' | 'tokens' | 'maps' | 'places';
 type ExtrasTab = 'minigames';
 
 const PALETTE = ['#e01e2b', '#7b2cbf', '#2fae66', '#e8b21e', '#3f7fd6', '#ff8fab', '#d4a373'];
@@ -165,7 +166,7 @@ export function Home() {
   if (view === 'extras') {
     return (
       <div className="daily-page gm-area-page">
-        <img className="daily-sigil-corner" src="/sigils/sigil-white.png" alt="" aria-hidden />
+        <img className="daily-sigil-corner" src="/sigils/sigil-ornate.png" alt="" aria-hidden />
 
         <div className="daily-topbar">
           <Sigil />
@@ -226,7 +227,7 @@ export function Home() {
   if (view === 'gm-area') {
     return (
       <div className="daily-page gm-area-page">
-        <img className="daily-sigil-corner" src="/sigils/sigil-white.png" alt="" aria-hidden />
+        <img className="daily-sigil-corner" src="/sigils/sigil-circle.png" alt="" aria-hidden />
 
         <div className="daily-topbar">
           <Sigil />
@@ -252,6 +253,12 @@ export function Home() {
               onClick={() => setGmAreaTab('music')}
             >
               🎵 Músicas
+            </span>
+            <span
+              className={`chip ${gmAreaTab === 'ambient' ? 'on' : ''}`}
+              onClick={() => setGmAreaTab('ambient')}
+            >
+              🔊 Sons Ambiente
             </span>
             <span
               className={`chip ${gmAreaTab === 'tokens' ? 'on' : ''}`}
@@ -316,6 +323,20 @@ export function Home() {
                 aqui; pra tocar pra mesa toda, use a aba Músicas dentro da mesa.
               </p>
               <MusicLibraryManager mode="preview" />
+            </>
+          )}
+
+          {gmAreaTab === 'ambient' && (
+            <>
+              <div className="section-title" style={{ marginTop: 0 }}>
+                Sons ambiente
+              </div>
+              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
+                Importe efeitos do seu computador (porta abrindo, trovão, passos...) e organize em
+                pastas — área separada da música. Pra disparar pra mesa toda durante a sessão, use a
+                aba "Sons" dentro da mesa.
+              </p>
+              <AmbientLibraryManager mode="preview" />
             </>
           )}
 
@@ -425,7 +446,7 @@ export function Home() {
 
   return (
     <div className="daily-page connect-page">
-      <img className="daily-sigil-corner" src="/sigils/sigil-white.png" alt="" aria-hidden />
+      <img className="daily-sigil-corner" src="/sigils/sigil-crimson.png" alt="" aria-hidden />
 
       <div className="daily-topbar">
         <Sigil />

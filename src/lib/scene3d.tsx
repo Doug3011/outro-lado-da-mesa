@@ -1,8 +1,9 @@
 import { memo, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useLoader, useThree, type ThreeEvent } from '@react-three/fiber';
+import { Sky, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { FBXLoader, GLTFLoader, STLLoader, type OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import type { GroundConfig, PlaceObject } from '../types';
+import type { GroundConfig, PlaceObject, SkyPreset, TerrainConfig } from '../types';
 
 // Componentes 3D compartilhados entre o editor de "place" (Prototype3D.tsx,
 // isolado, sem mesa) e a mesa 3D de verdade (Battle3D.tsx, sincronizada com a
@@ -13,6 +14,64 @@ import type { GroundConfig, PlaceObject } from '../types';
 // ao arrastar um objeto — não é desenhado, é matemática pura.
 const GROUND_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const raycaster = new THREE.Raycaster();
+
+// Relevo procedural do chão (pedido do usuário: "queria poder adicionar
+// relevo no mapa 3d") — ruído de valor 2D determinístico (hash por célula
+// inteira + interpolação suave entre os 4 cantos), sem depender de nenhuma
+// lib externa de ruído. `terrain` null/ausente = chão sempre liso (0), igual
+// sempre foi — usado tanto pra deslocar a geometria do chão quanto pra
+// calcular a altura "debaixo" de um objeto/token em qualquer (x,z), inclusive
+// ao vivo durante um arraste (ver `useGroundDrag`/`computeY` abaixo).
+function hashNoise2D(ix: number, iz: number, seed: number): number {
+  let h = ix * 374761393 + iz * 668265263 + seed * 1274126177;
+  h = (h ^ (h >> 13)) * 1274126177;
+  h = h ^ (h >> 16);
+  return ((h & 0x7fffffff) / 0x7fffffff) * 2 - 1; // -1..1
+}
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+export function terrainHeight(x: number, z: number, terrain: TerrainConfig | null | undefined): number {
+  if (!terrain || terrain.amplitude === 0) return 0;
+  const scale = Math.max(0.5, terrain.scale);
+  const sx = x / scale;
+  const sz = z / scale;
+  const ix = Math.floor(sx);
+  const iz = Math.floor(sz);
+  const fx = smoothstep(sx - ix);
+  const fz = smoothstep(sz - iz);
+  const v00 = hashNoise2D(ix, iz, terrain.seed);
+  const v10 = hashNoise2D(ix + 1, iz, terrain.seed);
+  const v01 = hashNoise2D(ix, iz + 1, terrain.seed);
+  const v11 = hashNoise2D(ix + 1, iz + 1, terrain.seed);
+  const vx0 = v00 + (v10 - v00) * fx;
+  const vx1 = v01 + (v11 - v01) * fx;
+  return (vx0 + (vx1 - vx0) * fz) * terrain.amplitude;
+}
+
+// Céu compartilhado (GM/jogador em Battle3D.tsx + editor em Prototype3D.tsx —
+// antes era a mesma linha duplicada 3x). Presets ajustam parâmetros do
+// <Sky> procedural do drei; "noite" não usa <Sky> (o modelo de atmosfera dele
+// é de dia, sol abaixo do horizonte fica estranho) — fundo escuro + <Stars>.
+const SKY_PRESETS: Record<Exclude<SkyPreset, 'noite'>, { sunPosition: [number, number, number]; turbidity: number; rayleigh: number; mieCoefficient?: number; mieDirectionalG?: number }> = {
+  dia: { sunPosition: [100, 20, 100], turbidity: 10, rayleigh: 2 },
+  entardecer: { sunPosition: [50, 2, 50], turbidity: 8, rayleigh: 3.5, mieCoefficient: 0.02, mieDirectionalG: 0.9 },
+  nublado: { sunPosition: [20, 15, 20], turbidity: 20, rayleigh: 4, mieCoefficient: 0.01 },
+};
+
+export function SceneSky({ sky, preset }: { sky: boolean | undefined; preset: SkyPreset | undefined }) {
+  if (!sky) return <color attach="background" args={['#0b0b0d']} />;
+  if (preset === 'noite') {
+    return (
+      <>
+        <color attach="background" args={['#05050a']} />
+        <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={0.5} />
+      </>
+    );
+  }
+  const cfg = SKY_PRESETS[preset ?? 'dia'];
+  return <Sky {...cfg} />;
+}
 
 export function groundPointFromPointer(
   clientX: number,
@@ -145,13 +204,26 @@ export function FlyCamera({
 // commit local a cada movimento (editor de place) não usa; quem precisa
 // throttlar o envio pela rede e fazer o commit final exato (mesa 3D de
 // verdade) usa pra saber quando o arraste realmente terminou.
+//
+// `live` (pedido do usuário: "ainda esta travando" ao mover token no 3D,
+// mesmo depois da memoização de uma leva anterior) — antes, CADA pointermove
+// chamava `onMove`, que em Battle3D.tsx fazia `setState` (React) só pra
+// mostrar a posição em tempo real durante o arraste, o que re-renderizava o
+// componente inteiro (toolbar grande e tudo) a cada pixel movido. Com `live`,
+// a posição "ao vivo" é escrita DIRETO no objeto three.js
+// (`live.ref.current.position`), sem passar pelo React — three.js já
+// redesenha sozinho a cada frame. `onMove` continua sendo chamado a cada
+// pointermove exatamente como antes (quem recebe decide throttle, como já
+// fazia), mas agora só precisa cuidar do COMMIT pra store/rede, não mais da
+// visualização — pode ficar barato (early-return) na maioria das chamadas.
 export function useGroundDrag(
   id: string,
   anchored: boolean,
   onSelect: (id: string) => void,
   onMove: (id: string, x: number, z: number) => void,
   controlsRef: RefObject<OrbitControlsImpl | null>,
-  onDragEnd?: (id: string) => void,
+  onDragEnd?: (id: string, x: number, z: number) => void,
+  live?: { ref: RefObject<THREE.Object3D | null>; computeY?: (x: number, z: number) => number },
 ) {
   const { camera, gl } = useThree();
   return (e: ThreeEvent<PointerEvent>) => {
@@ -159,15 +231,25 @@ export function useGroundDrag(
     onSelect(id);
     if (anchored) return;
     if (controlsRef.current) controlsRef.current.enabled = false;
+    let lastX = 0;
+    let lastZ = 0;
     const onMoveNative = (ev: PointerEvent) => {
       const p = groundPointFromPointer(ev.clientX, ev.clientY, camera, gl.domElement);
-      if (p) onMove(id, p.x, p.z);
+      if (!p) return;
+      lastX = p.x;
+      lastZ = p.z;
+      if (live?.ref.current) {
+        live.ref.current.position.x = p.x;
+        live.ref.current.position.z = p.z;
+        if (live.computeY) live.ref.current.position.y = live.computeY(p.x, p.z);
+      }
+      onMove(id, p.x, p.z);
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMoveNative);
       window.removeEventListener('pointerup', onUp);
       if (controlsRef.current) controlsRef.current.enabled = true;
-      onDragEnd?.(id);
+      onDragEnd?.(id, lastX, lastZ);
     };
     window.addEventListener('pointermove', onMoveNative);
     window.addEventListener('pointerup', onUp);
@@ -180,15 +262,19 @@ export type ObjProps<K extends PlaceObject['kind']> = {
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, z: number) => void;
   controlsRef: RefObject<OrbitControlsImpl | null>;
-  onDragEnd?: (id: string) => void;
+  onDragEnd?: (id: string, x: number, z: number) => void;
+  // relevo do cenário — usado só pra "grudar" o objeto na altura certa do
+  // chão (comprometido e ao vivo durante o arraste); ausente/null = chão liso.
+  terrain?: TerrainConfig | null;
 };
 
-export function StandingObject({ obj, selected, onSelect, onMove, controlsRef, onDragEnd }: ObjProps<'standing'>) {
+export function StandingObject({ obj, selected, onSelect, onMove, controlsRef, onDragEnd, terrain }: ObjProps<'standing'>) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const texture = useLoader(THREE.TextureLoader, obj.imageUrl);
   const aspect = texture.image ? texture.image.width / texture.image.height : 1;
   const width = obj.height * aspect;
+  const elevation = obj.elevation ?? 0;
 
   // gira só no eixo Y — o objeto sempre encara a câmera de frente, mas
   // continua "de pé", sem tombar (diferente de um Sprite puro do three.js).
@@ -199,11 +285,17 @@ export function StandingObject({ obj, selected, onSelect, onMove, controlsRef, o
     meshRef.current.rotation.y = Math.atan2(dx, dz);
   });
 
-  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd);
-  const elevation = obj.elevation ?? 0;
+  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd, {
+    ref: meshRef,
+    computeY: (x, z) => obj.height / 2 + elevation + terrainHeight(x, z, terrain),
+  });
 
   return (
-    <mesh ref={meshRef} position={[obj.x, obj.height / 2 + elevation, obj.z]} onPointerDown={onPointerDown}>
+    <mesh
+      ref={meshRef}
+      position={[obj.x, obj.height / 2 + elevation + terrainHeight(obj.x, obj.z, terrain), obj.z]}
+      onPointerDown={onPointerDown}
+    >
       <planeGeometry args={[width, obj.height]} />
       <meshBasicMaterial map={texture} side={THREE.DoubleSide} alphaTest={0.4} />
       {selected && (
@@ -220,13 +312,22 @@ export function StandingObject({ obj, selected, onSelect, onMove, controlsRef, o
 // de grama diferente etc. em cima do chão-base, sem precisar de pintura de
 // verdade: importa a imagem, posiciona/gira/redimensiona um retângulo com
 // ela. Vários decalques encadeados aproximam um caminho comprido.
-export function GroundPatch({ obj, selected, onSelect, onMove, controlsRef, onDragEnd }: ObjProps<'patch'>) {
+export function GroundPatch({ obj, selected, onSelect, onMove, controlsRef, onDragEnd, terrain }: ObjProps<'patch'>) {
   const texture = useLoader(THREE.TextureLoader, obj.imageUrl);
-  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd);
+  const groupRef = useRef<THREE.Group>(null);
+  const baseY = 0.012; // acima do chão só o suficiente pra não "brigar" com o z-fighting
+  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd, {
+    ref: groupRef,
+    computeY: (x, z) => baseY + terrainHeight(x, z, terrain),
+  });
   const ringRadius = Math.max(obj.width, obj.depth) * 0.46;
 
   return (
-    <group position={[obj.x, 0.012, obj.z]} rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}>
+    <group
+      ref={groupRef}
+      position={[obj.x, baseY + terrainHeight(obj.x, obj.z, terrain), obj.z]}
+      rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
       <mesh rotation={[-Math.PI / 2, 0, 0]} onPointerDown={onPointerDown}>
         <planeGeometry args={[obj.width, obj.depth]} />
         <meshBasicMaterial map={texture} transparent alphaTest={0.05} depthWrite={false} />
@@ -257,10 +358,19 @@ function ModelMesh({
   onMove,
   controlsRef,
   onDragEnd,
+  terrain,
 }: ObjProps<'model'> & { object3d: THREE.Object3D }) {
-  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd);
+  const groupRef = useRef<THREE.Group>(null);
+  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd, {
+    ref: groupRef,
+    computeY: (x, z) => terrainHeight(x, z, terrain),
+  });
   return (
-    <group position={[obj.x, 0, obj.z]} rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}>
+    <group
+      ref={groupRef}
+      position={[obj.x, terrainHeight(obj.x, obj.z, terrain), obj.z]}
+      rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
+    >
       <primitive object={object3d} scale={obj.scale} onPointerDown={onPointerDown} />
       {selected && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
@@ -317,14 +427,45 @@ export const SceneObject = memo(function SceneObject(props: {
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, z: number) => void;
   controlsRef: RefObject<OrbitControlsImpl | null>;
-  onDragEnd?: (id: string) => void;
+  onDragEnd?: (id: string, x: number, z: number) => void;
+  terrain?: TerrainConfig | null;
 }) {
   if (props.obj.kind === 'standing') return <StandingObject {...props} obj={props.obj} />;
   if (props.obj.kind === 'patch') return <GroundPatch {...props} obj={props.obj} />;
   return <ModelObject {...props} obj={props.obj} />;
 });
 
-export function TexturedGround({ ground, size = 40 }: { ground: GroundConfig; size?: number }) {
+// Geometria do chão, deslocada por `terrainHeight` quando há relevo — plano
+// sem relevo continua 1 segmento só (barato, igual sempre foi). Segmentos
+// escalam com o tamanho mas travam num teto (mesmo espírito do
+// `Math.min(groundSize, 60)` já usado no gridHelper — senão uma place
+// gigante vira geometria pesada demais). Local (x,y) do PlaneGeometry mapeia
+// pra mundo (x, -y) depois da rotação -90° em X que deita o plano — por
+// isso `terrainHeight(lx, -ly, terrain)` ao amostrar cada vértice.
+function buildTerrainGeometry(size: number, terrain: TerrainConfig | null | undefined): THREE.PlaneGeometry {
+  const segments = terrain ? Math.max(4, Math.min(Math.round(size), 80)) : 1;
+  const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
+  if (terrain) {
+    const pos = geometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const lx = pos.getX(i);
+      const ly = pos.getY(i);
+      pos.setZ(i, terrainHeight(lx, -ly, terrain));
+    }
+    geometry.computeVertexNormals();
+  }
+  return geometry;
+}
+
+export function TexturedGround({
+  ground,
+  size = 40,
+  terrain,
+}: {
+  ground: GroundConfig;
+  size?: number;
+  terrain?: TerrainConfig | null;
+}) {
   const texture = useLoader(THREE.TextureLoader, ground.imageUrl);
   useMemo(() => {
     if (ground.mode === 'tile') {
@@ -338,10 +479,27 @@ export function TexturedGround({ ground, size = 40 }: { ground: GroundConfig; si
     }
     texture.needsUpdate = true;
   }, [texture, ground.mode, ground.repeat]);
+  const geometry = useMemo(
+    () => buildTerrainGeometry(size, terrain),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [size, terrain?.amplitude, terrain?.scale, terrain?.seed],
+  );
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[size, size]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={geometry}>
       <meshStandardMaterial map={texture} />
+    </mesh>
+  );
+}
+
+function FlatGround({ size, terrain }: { size: number; terrain?: TerrainConfig | null }) {
+  const geometry = useMemo(
+    () => buildTerrainGeometry(size, terrain),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [size, terrain?.amplitude, terrain?.scale, terrain?.seed],
+  );
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} geometry={geometry}>
+      <meshStandardMaterial color="#141417" />
     </mesh>
   );
 }
@@ -349,15 +507,19 @@ export function TexturedGround({ ground, size = 40 }: { ground: GroundConfig; si
 // `size`: lado do plano em metros (pedido do usuário: place grande o
 // suficiente pra caber uma cidade/mapa grande) — antes era fixo em 40x40 em
 // TODA place; opcional com default 40 pra não quebrar cenários/places
-// salvos antes desse campo existir.
-export function GroundPlane({ ground, size = 40 }: { ground: GroundConfig | null; size?: number }) {
-  if (ground) return <TexturedGround ground={ground} size={size} />;
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[size, size]} />
-      <meshStandardMaterial color="#141417" />
-    </mesh>
-  );
+// salvos antes desse campo existir. `terrain`: relevo opcional (ver
+// `terrainHeight` acima) — ausente/null = chão liso, igual sempre foi.
+export function GroundPlane({
+  ground,
+  size = 40,
+  terrain,
+}: {
+  ground: GroundConfig | null;
+  size?: number;
+  terrain?: TerrainConfig | null;
+}) {
+  if (ground) return <TexturedGround ground={ground} size={size} terrain={terrain} />;
+  return <FlatGround size={size} terrain={terrain} />;
 }
 
 // Formatos de modelo 3D aceitos no input file (import de objeto 3D real) —

@@ -19,6 +19,8 @@ import {
   type PresenceUser,
   type RollLogEntry,
   type Scene,
+  type SkyPreset,
+  type TerrainConfig,
   type Token,
 } from '../types';
 
@@ -75,6 +77,7 @@ interface TableState {
   playerProfiles: Record<string, ProfileEntry>; // por ownerId — só populado/visível para o mestre
   music: MusicState;
   camera3d: Camera3D | null; // câmera livre do mestre numa mesa 3D — efêmero, não persiste
+  ambientCue: { clipId: string; nonce: string } | null; // soundboard — efêmero, só um "disparo", não persiste
 
   connect: (code: string, me: PresenceUser, opts?: { initialScene?: Scene }) => void;
   disconnect: () => void;
@@ -111,10 +114,18 @@ interface TableState {
   deleteScene: (id: string) => void;
   switchScene: (id: string) => void;
 
-  updatePlace3d: (patch: { ground?: GroundConfig | null; groundSize?: number; sky?: boolean; objects3d?: PlaceObject[] }) => void;
+  updatePlace3d: (patch: {
+    ground?: GroundConfig | null;
+    groundSize?: number;
+    terrain?: TerrainConfig | null;
+    sky?: boolean;
+    skyPreset?: SkyPreset;
+    objects3d?: PlaceObject[];
+  }) => void;
   setCamera3d: (position: [number, number, number], target: [number, number, number]) => void;
 
   setMusicState: (next: MusicState) => void;
+  playAmbient: (clipId: string) => void;
 }
 
 export const activeScene = (s: Pick<TableState, 'scenes' | 'activeSceneId'>): Scene =>
@@ -292,13 +303,15 @@ export const useTableStore = create<TableState>((set, get) => {
         set({ music: ev.payload });
         break;
       case 'place3d:update': {
-        const { sceneId, ground, groundSize, sky, objects3d } = ev.payload;
+        const { sceneId, ground, groundSize, terrain, sky, skyPreset, objects3d } = ev.payload;
         set(() => ({
           scenes: patchScene(sceneId, (sc) => ({
             ...sc,
             ...(ground !== undefined ? { ground } : {}),
             ...(groundSize !== undefined ? { groundSize } : {}),
+            ...(terrain !== undefined ? { terrain } : {}),
             ...(sky !== undefined ? { sky } : {}),
+            ...(skyPreset !== undefined ? { skyPreset } : {}),
             ...(objects3d !== undefined ? { objects3d } : {}),
           })),
         }));
@@ -309,6 +322,12 @@ export const useTableStore = create<TableState>((set, get) => {
         // o mestre é a fonte da própria câmera — não adota o que vem da rede
         // (nem de si mesmo ecoado por um peer), só quem está assistindo.
         if (!s.me?.isGM) set({ camera3d: ev.payload });
+        break;
+      case 'ambient:play':
+        // aqui SIM adota o eco de volta (diferente da câmera) — quem disparou
+        // (playAmbient, abaixo) já tocou localmente antes de mandar; o
+        // `nonce` igual garante que o efeito em AmbientPlayer.tsx não toca 2x.
+        set({ ambientCue: ev.payload });
         break;
       case 'sync:request': {
         if (ev.payload.from === s.me?.id) break;
@@ -381,6 +400,7 @@ export const useTableStore = create<TableState>((set, get) => {
     playerProfiles: {},
     music: DEFAULT_MUSIC_STATE,
     camera3d: null,
+    ambientCue: null,
 
     connect: (code, me, opts) => {
       get().conn?.disconnect();
@@ -408,6 +428,7 @@ export const useTableStore = create<TableState>((set, get) => {
         users: [me],
         music: DEFAULT_MUSIC_STATE,
         camera3d: null,
+        ambientCue: null,
       });
 
       const conn = connectRoom(code, me, {
@@ -466,6 +487,7 @@ export const useTableStore = create<TableState>((set, get) => {
         mode: null,
         music: DEFAULT_MUSIC_STATE,
         camera3d: null,
+        ambientCue: null,
       });
     },
 
@@ -657,7 +679,9 @@ export const useTableStore = create<TableState>((set, get) => {
           ...sc,
           ...(patch.ground !== undefined ? { ground: patch.ground } : {}),
           ...(patch.groundSize !== undefined ? { groundSize: patch.groundSize } : {}),
+          ...(patch.terrain !== undefined ? { terrain: patch.terrain } : {}),
           ...(patch.sky !== undefined ? { sky: patch.sky } : {}),
+          ...(patch.skyPreset !== undefined ? { skyPreset: patch.skyPreset } : {}),
           ...(patch.objects3d !== undefined ? { objects3d: patch.objects3d } : {}),
         })),
       }));
@@ -675,6 +699,13 @@ export const useTableStore = create<TableState>((set, get) => {
     setMusicState: (next) => {
       set({ music: next });
       get().conn?.send({ type: 'music:state', payload: next });
+    },
+
+    playAmbient: (clipId) => {
+      if (!get().me?.isGM) return;
+      const nonce = uid();
+      set({ ambientCue: { clipId, nonce } });
+      get().conn?.send({ type: 'ambient:play', payload: { clipId, nonce } });
     },
   };
 });

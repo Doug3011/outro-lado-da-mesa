@@ -20,13 +20,15 @@ import { GmCharacterTabs } from '../components/GmCharacterTabs';
 import { PlayerProfilesPanel } from '../components/PlayerProfilesPanel';
 import { MusicPanel } from '../components/MusicPanel';
 import { MusicPlayer } from '../components/MusicPlayer';
+import { AmbientPanel } from '../components/AmbientPanel';
+import { AmbientPlayer } from '../components/AmbientPlayer';
 import { TokenPanel } from '../components/TokenPanel';
 import { BattleMap } from '../components/BattleMap';
 import { Battle3D } from '../components/Battle3D';
 import { SceneTransition } from '../components/SceneTransition';
 import { hasLan } from '../lib/lan';
 
-type Tab = 'dados' | 'ficha' | 'perfis' | 'tokens' | 'log' | 'notificacoes' | 'musicas';
+type Tab = 'dados' | 'ficha' | 'perfis' | 'tokens' | 'log' | 'notificacoes' | 'musicas' | 'ambiente';
 
 // Ícones provisórios (emoji) — trocar por símbolos rituais próprios da Ordem
 // quando entrar a passada de identidade visual.
@@ -46,6 +48,7 @@ const BASE_TABS: { key: Tab; label: string; icon: string }[] = [
 const TAB_COLOR: Partial<Record<Tab, string>> = {
   dados: 'var(--purple)',
   musicas: 'var(--purple)',
+  ambiente: 'var(--green)',
   ficha: 'var(--blood)',
   notificacoes: 'var(--blood)',
   perfis: 'var(--gold)',
@@ -98,6 +101,7 @@ export function Room() {
     ...(me.isGM ? [{ key: 'perfis' as Tab, label: 'Perfis', icon: '👤' }] : []),
     ...(me.isGM && hasLan ? [{ key: 'tokens' as Tab, label: 'Tokens', icon: '🧩' }] : []),
     ...(hasLan ? [{ key: 'musicas' as Tab, label: 'Músicas', icon: '🎵' }] : []),
+    ...(hasLan ? [{ key: 'ambiente' as Tab, label: 'Sons', icon: '🔊' }] : []),
     BASE_TABS[2],
     BASE_TABS[3],
   ];
@@ -208,6 +212,7 @@ export function Room() {
       <NotificationToasts />
       <DiceRollFX />
       {hasLan && <MusicPlayer />}
+      {hasLan && <AmbientPlayer />}
       <div className="room-body">
         <div className="map-area">
           {scene.kind === '3d' ? <Battle3D /> : <BattleMap />}
@@ -258,6 +263,7 @@ export function Room() {
               {tab === 'perfis' && me.isGM && <PlayerProfilesPanel />}
               {tab === 'tokens' && me.isGM && <TokenPanel />}
               {tab === 'musicas' && <MusicPanel />}
+              {tab === 'ambiente' && <AmbientPanel />}
               {tab === 'log' && <RollLog />}
               {tab === 'notificacoes' && <NotificationLog />}
             </div>

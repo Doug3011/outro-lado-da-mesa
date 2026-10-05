@@ -1,7 +1,7 @@
 import { Suspense, memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type React from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { Html, OrbitControls, Sky } from '@react-three/drei';
+import { Html, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { activeScene, useTableStore } from '../store/useTableStore';
@@ -15,14 +15,16 @@ import {
   GroundPlane,
   MODEL_FILE_ACCEPT,
   SceneObject,
+  SceneSky,
   groundPointFromPointer,
   modelFormatFromFileName,
+  terrainHeight,
   useGroundDrag,
 } from '../lib/scene3d';
 import type { Camera3D } from '../lib/realtime';
 import { PlacePickerDialog } from './PlacePickerDialog';
 import { MapPickerDialog } from './MapPickerDialog';
-import type { PlaceObject, Token } from '../types';
+import type { PlaceObject, SkyPreset, TerrainConfig, Token } from '../types';
 
 // Mesa 3D de verdade (Fase 3): mesmas abas/mecânicas da mesa 2D (dados,
 // fichas, tokens, música — tudo isso continua em Room.tsx, fora daqui) — só o
@@ -119,13 +121,14 @@ type TokenProps = {
   editable: boolean;
   onSelect: (id: string) => void;
   onMove: (id: string, x: number, z: number) => void;
-  onDragEnd: (id: string) => void;
+  onDragEnd: (id: string, x: number, z: number) => void;
   controlsRef: RefObject<OrbitControlsImpl | null>;
+  terrain?: TerrainConfig | null;
 };
 
 // Token com imagem — mesmo truque de billboard (só gira no eixo Y) usado nos
 // objetos de cenário: fica sempre de frente pra câmera sem tombar.
-function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef }: TokenProps) {
+function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef, terrain }: TokenProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const texture = useLoader(THREE.TextureLoader, token.image as string);
@@ -140,9 +143,16 @@ function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
     const dz = camera.position.z - token.y;
     meshRef.current.rotation.y = Math.atan2(dx, dz);
   });
-  const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd);
+  const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd, {
+    ref: meshRef,
+    computeY: (x, z) => height / 2 + elevation + terrainHeight(x, z, terrain),
+  });
   return (
-    <mesh ref={meshRef} position={[token.x, height / 2 + elevation, token.y]} onPointerDown={onPointerDown}>
+    <mesh
+      ref={meshRef}
+      position={[token.x, height / 2 + elevation + terrainHeight(token.x, token.y, terrain), token.y]}
+      onPointerDown={onPointerDown}
+    >
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial map={texture} side={THREE.DoubleSide} alphaTest={0.3} />
       <TokenHtmlLabel token={token} y={height / 2 + 0.35} />
@@ -158,14 +168,18 @@ function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
 
 // Token sem imagem — uma "peça" cilíndrica na cor do token, mesma ideia de
 // miniatura de mesa.
-function TokenPlain3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef }: TokenProps) {
+function TokenPlain3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef, terrain }: TokenProps) {
   const size = token.size || 1;
   const height = 1.3 * size;
   const radius = 0.4 * size;
   const elevation = token.elevation ?? 0;
-  const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd);
+  const groupRef = useRef<THREE.Group>(null);
+  const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd, {
+    ref: groupRef,
+    computeY: (x, z) => elevation + terrainHeight(x, z, terrain),
+  });
   return (
-    <group position={[token.x, elevation, token.y]}>
+    <group ref={groupRef} position={[token.x, elevation + terrainHeight(token.x, token.y, terrain), token.y]}>
       <mesh position={[0, height / 2, 0]} onPointerDown={onPointerDown}>
         <cylinderGeometry args={[radius, radius, height, 16]} />
         <meshStandardMaterial color={token.color} />
@@ -217,8 +231,6 @@ export function Battle3D() {
   const [selId, setSelId] = useState<string | null>(null);
   const [showPlacePicker, setShowPlacePicker] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
-  const [dragObj, setDragObj] = useState<{ id: string; x: number; z: number } | null>(null);
-  const [dragToken, setDragToken] = useState<{ id: string; x: number; z: number } | null>(null);
 
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const camRef = useRef<THREE.Camera | null>(null);
@@ -330,7 +342,18 @@ export function Battle3D() {
   // pedido do usuário: place grande o suficiente pra caber uma cidade/mapa
   // grande — antes o chão era sempre 40x40 fixo.
   const setGroundSize = (size: number) => updatePlace3d({ groundSize: Math.max(10, size) });
-  const toggleSky = (on: boolean) => updatePlace3d({ sky: on });
+  const toggleSky = (on: boolean) => updatePlace3d({ sky: on, skyPreset: on ? (scene.skyPreset ?? 'dia') : scene.skyPreset });
+  const setSkyPreset = (preset: SkyPreset) => updatePlace3d({ sky: true, skyPreset: preset });
+  // pedido do usuário: relevo (colinas) no chão 3D — liga com valores
+  // razoáveis de início (seed sorteada uma vez), desliga voltando o chão liso.
+  const toggleTerrain = (on: boolean) =>
+    updatePlace3d({ terrain: on ? { amplitude: 2, scale: 12, seed: Math.floor(Math.random() * 1e9) } : null });
+  const setTerrainAmplitude = (amplitude: number) => {
+    if (scene.terrain) updatePlace3d({ terrain: { ...scene.terrain, amplitude } });
+  };
+  const setTerrainScale = (scale: number) => {
+    if (scene.terrain) updatePlace3d({ terrain: { ...scene.terrain, scale: Math.max(1, scale) } });
+  };
 
   const updateObjPatch = (patch: Record<string, unknown>) => {
     if (!selectedObj) return;
@@ -351,9 +374,17 @@ export function Battle3D() {
   // `Token3D` (props "diferentes" a cada comparação, mesmo com o mesmo
   // comportamento) — a otimização dos componentes memoizados só funciona
   // de verdade se os callbacks que eles recebem também forem estáveis.
+  //
+  // A posição VISUAL do item sendo arrastado já é aplicada direto no objeto
+  // three.js (ver `live`/`computeY` em `useGroundDrag`, lib/scene3d.tsx) —
+  // esses handlers só cuidam do COMMIT throttlado pra store/rede, sem
+  // `setState` nenhum na maioria das chamadas (só o commit em si causa
+  // re-render, a cada `SEND_EVERY_MS`, não a cada pointermove). Isso é o que
+  // resolve de vez o "ainda trava ao mover token" — antes, mesmo com os
+  // objetos memoizados, o PRÓPRIO `Battle3D` (toolbar grande e tudo) ainda
+  // re-renderizava a cada pixel de mouse movido.
   const moveObjectLive = useCallback(
     (id: string, x: number, z: number) => {
-      setDragObj({ id, x, z });
       const now = performance.now();
       if (now - lastObjSent.current > SEND_EVERY_MS) {
         lastObjSent.current = now;
@@ -363,13 +394,8 @@ export function Battle3D() {
     [objects, updatePlace3d],
   );
   const onObjectDragEnd = useCallback(
-    (id: string) => {
-      setDragObj((d) => {
-        if (d && d.id === id) {
-          updatePlace3d({ objects3d: objects.map((o) => (o.id === id ? { ...o, x: d.x, z: d.z } : o)) });
-        }
-        return null;
-      });
+    (id: string, x: number, z: number) => {
+      updatePlace3d({ objects3d: objects.map((o) => (o.id === id ? { ...o, x, z } : o)) });
     },
     [objects, updatePlace3d],
   );
@@ -412,7 +438,6 @@ export function Battle3D() {
 
   const moveTokenLive = useCallback(
     (id: string, x: number, z: number) => {
-      setDragToken({ id, x, z });
       const now = performance.now();
       if (now - lastTokenSent.current > SEND_EVERY_MS) {
         lastTokenSent.current = now;
@@ -422,14 +447,9 @@ export function Battle3D() {
     [moveToken],
   );
   const onTokenDragEnd = useCallback(
-    (id: string) => {
-      setDragToken((d) => {
-        if (d && d.id === id) {
-          const t = tokens[id];
-          if (t) upsertToken({ ...t, x: Math.round(d.x * 20) / 20, y: Math.round(d.z * 20) / 20 });
-        }
-        return null;
-      });
+    (id: string, x: number, z: number) => {
+      const t = tokens[id];
+      if (t) upsertToken({ ...t, x: Math.round(x * 20) / 20, y: Math.round(z * 20) / 20 });
     },
     [tokens, upsertToken],
   );
@@ -498,37 +518,33 @@ export function Battle3D() {
   }, []);
 
   const renderObjects = () =>
-    objects.map((o) => {
-      const eff: PlaceObject = dragObj && dragObj.id === o.id ? ({ ...o, x: dragObj.x, z: dragObj.z } as PlaceObject) : o;
-      return (
-        <SceneObject
-          key={o.id}
-          obj={eff}
-          selected={selKind === 'object' && selId === o.id}
-          onSelect={selectObject}
-          onMove={moveObjectLive}
-          controlsRef={controlsRef}
-          onDragEnd={onObjectDragEnd}
-        />
-      );
-    });
+    objects.map((o) => (
+      <SceneObject
+        key={o.id}
+        obj={o}
+        selected={selKind === 'object' && selId === o.id}
+        onSelect={selectObject}
+        onMove={moveObjectLive}
+        controlsRef={controlsRef}
+        onDragEnd={onObjectDragEnd}
+        terrain={scene.terrain}
+      />
+    ));
 
   const renderTokens = (editable: boolean) =>
-    Object.values(tokens).map((t) => {
-      const eff: Token = dragToken && dragToken.id === t.id ? { ...t, x: dragToken.x, y: dragToken.z } : t;
-      return (
-        <Token3D
-          key={t.id}
-          token={eff}
-          selected={selKind === 'token' && selId === t.id}
-          editable={editable}
-          onSelect={selectToken}
-          onMove={moveTokenLive}
-          onDragEnd={onTokenDragEnd}
-          controlsRef={controlsRef}
-        />
-      );
-    });
+    Object.values(tokens).map((t) => (
+      <Token3D
+        key={t.id}
+        token={t}
+        selected={selKind === 'token' && selId === t.id}
+        editable={editable}
+        onSelect={selectToken}
+        onMove={moveTokenLive}
+        onDragEnd={onTokenDragEnd}
+        controlsRef={controlsRef}
+        terrain={scene.terrain}
+      />
+    ));
 
   if (!isGM) {
     // jogador: só assiste — sem OrbitControls, câmera 100% ditada pelo que o
@@ -543,11 +559,11 @@ export function Battle3D() {
         </div>
         <div className="battle3d-canvas">
           <Canvas camera={{ position: [6, 5, 6], fov: 50 }}>
-            {scene.sky ? <Sky sunPosition={[100, 20, 100]} /> : <color attach="background" args={['#0b0b0d']} />}
+            <SceneSky sky={scene.sky} preset={scene.skyPreset} />
             <ambientLight intensity={0.7} />
             <directionalLight position={[5, 8, 3]} intensity={1} />
             <Suspense fallback={null}>
-              <GroundPlane ground={ground} size={scene.groundSize ?? 40} />
+              <GroundPlane ground={ground} size={scene.groundSize ?? 40} terrain={scene.terrain} />
               {renderObjects()}
               {renderTokens(false)}
             </Suspense>
@@ -678,10 +694,47 @@ export function Battle3D() {
                 onChange={(e) => setGroundSize(Number(e.target.value))}
               />
             </div>
+            <div className="field" style={{ marginTop: 8 }}>
+              <label>Céu</label>
+              <select
+                value={scene.sky ? (scene.skyPreset ?? 'dia') : ''}
+                onChange={(e) => (e.target.value ? setSkyPreset(e.target.value as SkyPreset) : toggleSky(false))}
+              >
+                <option value="">Sem céu (fundo preto)</option>
+                <option value="dia">☀️ Dia</option>
+                <option value="entardecer">🌇 Entardecer</option>
+                <option value="noite">🌙 Noite</option>
+                <option value="nublado">☁️ Nublado</option>
+              </select>
+            </div>
             <label className="row" style={{ marginTop: 8, gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-              <input type="checkbox" checked={!!scene.sky} onChange={(e) => toggleSky(e.target.checked)} />
-              ☁️ Mostrar céu (em vez de fundo preto)
+              <input type="checkbox" checked={!!scene.terrain} onChange={(e) => toggleTerrain(e.target.checked)} />
+              🏔️ Relevo (colinas no chão)
             </label>
+            {scene.terrain && (
+              <>
+                <div className="field" style={{ marginTop: 6 }}>
+                  <label>Altura do relevo (m)</label>
+                  <input
+                    type="number"
+                    min={0.2}
+                    step={0.2}
+                    value={scene.terrain.amplitude}
+                    onChange={(e) => setTerrainAmplitude(Number(e.target.value))}
+                  />
+                </div>
+                <div className="field" style={{ marginTop: 6 }}>
+                  <label>Suavidade das colinas (m)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={scene.terrain.scale}
+                    onChange={(e) => setTerrainScale(Number(e.target.value))}
+                  />
+                </div>
+              </>
+            )}
             <div className="row" style={{ marginTop: 8, flexWrap: 'wrap', gap: 6 }}>
               <button className="small" onClick={() => groundInputRef.current?.click()}>
                 🛣️ Chão
@@ -974,17 +1027,21 @@ export function Battle3D() {
             domRef.current = gl.domElement;
           }}
         >
-          {scene.sky ? <Sky sunPosition={[100, 20, 100]} /> : <color attach="background" args={['#0b0b0d']} />}
+          <SceneSky sky={scene.sky} preset={scene.skyPreset} />
           <ambientLight intensity={0.7} />
           <directionalLight position={[5, 8, 3]} intensity={1} />
           {/* divisões travadas num teto (não escala 1:1 com o tamanho) — senão
               uma place gigante (pedido do usuário: "cidade ou mapa grande")
               gera uma grade com dezenas de milhares de linhas, pesada demais
               mesmo em GPU de verdade e catastrófica em renderização por
-              software (o teste headless deste projeto usa swiftshader). */}
-          <gridHelper args={[scene.groundSize ?? 40, Math.min(scene.groundSize ?? 40, 60), '#3a3a42', '#1c1c20']} />
+              software (o teste headless deste projeto usa swiftshader). Some
+              com relevo ligado — senão fica flutuando/afundada de forma
+              incoerente com o chão ondulado. */}
+          {!scene.terrain && (
+            <gridHelper args={[scene.groundSize ?? 40, Math.min(scene.groundSize ?? 40, 60), '#3a3a42', '#1c1c20']} />
+          )}
           <Suspense fallback={null}>
-            <GroundPlane ground={ground} size={scene.groundSize ?? 40} />
+            <GroundPlane ground={ground} size={scene.groundSize ?? 40} terrain={scene.terrain} />
             {renderObjects()}
             {renderTokens(true)}
           </Suspense>

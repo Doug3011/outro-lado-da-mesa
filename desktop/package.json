@@ -1,13 +1,15 @@
 {
   "name": "outro-lado-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "O Outro Lado da Mesa — tabletop de Ordem Paranormal (app de mesa/rede local)",
   "main": "main.js",
   "scripts": {
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:publish": "electron-builder --publish always"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -23,6 +25,11 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "Doug3011",
+      "repo": "outro-lado-da-mesa"
+    },
     "files": [
       "main.js",
       "preload.js",
@@ -32,7 +39,9 @@
       "package.json"
     ],
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "nsis": {
       "oneClick": false,

@@ -12,9 +12,16 @@ import type { SceneKind } from '../types';
 //   nenhuma instrumentação extra.
 // - mesa 2D: não passa pelo three.js nenhuma, então pré-carregamos a imagem
 //   de fundo do mapa manualmente com `new Image()`.
-// Duração mínima (`MIN_VISIBLE_MS`) garante que a animação sempre apareça
-// de verdade mesmo quando tudo já está em cache (senão pisca e some).
-const MIN_VISIBLE_MS = 900;
+// Duração mínima garante que a animação sempre apareça de verdade em vez de
+// piscar e sumir — mas usar o MESMO mínimo pra qualquer troca (mesmo quando
+// não tinha NADA pra carregar, ex.: voltar pra uma cena já vista com os
+// assets em cache) deixava toda troca de cena parecendo devagar (pedido do
+// usuário: "o carregamento tinha que ser mais rápido entre as cenas"). Dois
+// tempos agora: mínimo "de verdade" só quando teve carregamento real
+// acontecendo (evita o "piscar"); bem mais curto quando nada precisou
+// carregar (só o fade continua visível, quase instantâneo).
+const MIN_VISIBLE_MS_LOADING = 900;
+const MIN_VISIBLE_MS_IDLE = 280;
 const SIGIL_COUNT = 5;
 // tempo de graça pra decidir "essa cena não tinha nada pra carregar" (3D
 // sem asset novo — ex. reentrar numa cena já vista) em vez de esperar pra
@@ -58,12 +65,19 @@ export function SceneTransition({
     setImgLoaded(false);
     let cancelled = false;
     const img = new Image();
+    // se não carregar rápido, é carregamento de verdade acontecendo (não
+    // cache) — mesmo "hasStartedRef" que o lado 3D usa, pra escolher o
+    // tempo mínimo certo logo abaixo (ver MIN_VISIBLE_MS_IDLE/_LOADING).
+    const graceTimer = window.setTimeout(() => {
+      if (!cancelled) hasStartedRef.current = true;
+    }, NOTHING_TO_LOAD_GRACE_MS);
     img.onload = () => !cancelled && setImgLoaded(true);
     // se a imagem falhar, não trava a transição pra sempre — segue igual
     img.onerror = () => !cancelled && setImgLoaded(true);
     img.src = mapImageUrl;
     return () => {
       cancelled = true;
+      window.clearTimeout(graceTimer);
     };
   }, [kind, mapImageUrl]);
 
@@ -71,12 +85,18 @@ export function SceneTransition({
     let raf = 0;
     const tick = () => {
       const elapsed = Date.now() - startRef.current;
-      const timeFrac = Math.min(1, elapsed / MIN_VISIBLE_MS);
+      // nada começou a carregar de verdade dentro do tempo de graça (cena
+      // revisitada, assets já em cache) -> usa o mínimo curto; senão mantém
+      // o ritmo de sempre (evita "piscar" num carregamento real). Decisão
+      // monotônica (só vira true uma vez, nunca volta) — ver comentário
+      // grande no topo do arquivo.
+      const nothingToLoad = !hasStartedRef.current && elapsed > NOTHING_TO_LOAD_GRACE_MS;
+      const minVisible = nothingToLoad ? MIN_VISIBLE_MS_IDLE : MIN_VISIBLE_MS_LOADING;
+      const timeFrac = Math.min(1, elapsed / minVisible);
       const realFrac = kind === '3d' ? threeProgress / 100 : imgLoaded ? 1 : 0;
       const next = Math.min(realFrac, timeFrac);
       setDisplayProgress((p) => (next > p ? next : p));
 
-      const nothingToLoad = kind === '3d' && !hasStartedRef.current && elapsed > NOTHING_TO_LOAD_GRACE_MS;
       const realLoadFinished = kind === '3d' ? (!threeActive && threeProgress >= 100) || nothingToLoad : imgLoaded;
       const loadFinished = realLoadFinished || elapsed > MAX_WAIT_MS;
 

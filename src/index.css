@@ -1898,6 +1898,49 @@ label {
   gap: 6px;
 }
 
+/* Cartão padrão de cada etapa do wizard — antes só Classe/Trilha tinham
+   esse tratamento (via .hud-class-card), as outras etapas ficavam com o
+   conteúdo solto direto no fundo; agora todas as 6 usam o mesmo invólucro,
+   pedido do usuário ("repaginar e padronizar as abas"). */
+.wiz-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.wiz-review-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wiz-review-head strong {
+  font-family: var(--font-disp);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.wiz-review-head .faint {
+  font-size: 12px;
+}
+.wiz-review-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wiz-review-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.wiz-review-fact .faint {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ---------- HUD de criação (tela cheia) ---------- */
 .hud {
   position: fixed;
@@ -1934,7 +1977,11 @@ label {
 }
 .hud-step {
   flex: 1;
-  text-align: center;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   font-family: var(--font-mono);
   font-size: 10px;
   text-transform: uppercase;
@@ -1944,16 +1991,47 @@ label {
   border-bottom: 2px solid var(--line);
   white-space: nowrap;
   overflow: hidden;
+}
+.hud-step-num {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  font-family: var(--font-disp);
+  font-size: 10px;
+  color: var(--text-faint);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.hud-step-label {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .hud-step.on {
   color: #fff;
   border-bottom-color: var(--blood);
 }
+.hud-step.on .hud-step-num {
+  background: var(--blood);
+  border-color: var(--blood);
+  color: #fff;
+}
 .hud-step.done {
   color: var(--green);
   border-bottom-color: var(--green);
   cursor: pointer;
+}
+.hud-step.done .hud-step-num {
+  background: var(--green);
+  border-color: var(--green);
+  color: #06120b;
+}
+.hud-step.done:hover .hud-step-num {
+  filter: brightness(1.15);
 }
 .hud-cols {
   flex: 1;
@@ -2411,6 +2489,45 @@ label {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+}
+
+/* Aba de Sons (soundboard de ambiente) --------------------------------------- */
+.ambient-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+.ambient-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 8px;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.ambient-pad:hover {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, var(--bg-2));
+}
+.ambient-pad:active {
+  transform: scale(0.96);
+}
+.ambient-pad-ico {
+  font-size: 20px;
+}
+.ambient-pad-name {
+  font-size: 12px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* Animação de d20 rolando, canto inferior esquerdo ------------------------ */

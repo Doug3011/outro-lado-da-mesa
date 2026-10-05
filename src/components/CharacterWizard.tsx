@@ -180,7 +180,8 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
               className={'hud-step ' + (i === step ? 'on' : i < step ? 'done' : '')}
               onClick={() => i < step && go(i)}
             >
-              {i + 1} · {s}
+              <span className="hud-step-num">{i < step ? '✓' : i + 1}</span>
+              <span className="hud-step-label">{s}</span>
             </span>
           ))}
         </div>
@@ -196,6 +197,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
               <h2>Conceito</h2>
               <p className="sub">Quem é esse agente — nome, retrato e de onde veio.</p>
 
+              <div className="wiz-card">
               <div className="field">
                 <label>Retrato</label>
                 <div className="portrait-row">
@@ -278,6 +280,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                           .join(' e ')} (marcadas). `) + `Poder: ${originDef.power}.`
                   : 'Escolha uma origem da lista para preencher as 2 perícias e o poder automaticamente.'}
               </p>
+              </div>
               {nex > 5 && (
                 <p className="faint" style={{ fontSize: 12, color: 'var(--gold)' }}>
                   NEX acima de 5%: os Poderes de Classe (15/30/45/60/75/90%), Aumentos de
@@ -296,44 +299,46 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                 Todos começam em 1. Distribua até a soma dos cinco chegar a <b>9</b>. Máx 3; um pode
                 ficar em 0 (dá +1 ponto).
               </p>
-              <p style={{ marginBottom: 14 }}>
-                <span
-                  className="points-pill"
-                  style={{
-                    color:
-                      attrPointsLeft === 0
-                        ? 'var(--green)'
-                        : attrPointsLeft < 0
-                          ? 'var(--blood-bright)'
-                          : 'var(--gold)',
-                  }}
-                >
-                  {attrPointsLeft > 0 ? `+${attrPointsLeft}` : attrPointsLeft}
-                </span>
-                <span className="faint" style={{ marginLeft: 10, fontSize: 12 }}>
-                  {attrPointsLeft === 0
-                    ? 'distribuição completa'
-                    : attrPointsLeft < 0
-                      ? 'pontos além do limite'
-                      : 'pontos restantes'}
-                </span>
-              </p>
-              <div className="hud-attrs">
-                {ATTRIBUTES.map((a) => (
-                  <div className="hud-attr" key={a.key}>
-                    <span className="ha-name">{a.name}</span>
-                    <div className="hex">
-                      <div className="hex-in">
-                        <span className="ha-val">{attrs[a.key]}</span>
+              <div className="wiz-card">
+                <p style={{ margin: '0 0 14px' }}>
+                  <span
+                    className="points-pill"
+                    style={{
+                      color:
+                        attrPointsLeft === 0
+                          ? 'var(--green)'
+                          : attrPointsLeft < 0
+                            ? 'var(--blood-bright)'
+                            : 'var(--gold)',
+                    }}
+                  >
+                    {attrPointsLeft > 0 ? `+${attrPointsLeft}` : attrPointsLeft}
+                  </span>
+                  <span className="faint" style={{ marginLeft: 10, fontSize: 12 }}>
+                    {attrPointsLeft === 0
+                      ? 'distribuição completa'
+                      : attrPointsLeft < 0
+                        ? 'pontos além do limite'
+                        : 'pontos restantes'}
+                  </span>
+                </p>
+                <div className="hud-attrs">
+                  {ATTRIBUTES.map((a) => (
+                    <div className="hud-attr" key={a.key}>
+                      <span className="ha-name">{a.name}</span>
+                      <div className="hex">
+                        <div className="hex-in">
+                          <span className="ha-val">{attrs[a.key]}</span>
+                        </div>
+                      </div>
+                      <div className="ha-key">{a.short}</div>
+                      <div className="ha-ctl">
+                        <button onClick={() => dec(a.key)}>−</button>
+                        <button onClick={() => inc(a.key)}>+</button>
                       </div>
                     </div>
-                    <div className="ha-key">{a.short}</div>
-                    <div className="ha-ctl">
-                      <button onClick={() => dec(a.key)}>−</button>
-                      <button onClick={() => inc(a.key)}>+</button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -342,39 +347,41 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
             <>
               <h2>Classe</h2>
               <p className="sub">O papel do agente na equipe.</p>
-              <div className="hud-class">
-                {CLASSES.map((c) => (
-                  <div
-                    key={c.key}
-                    className={'hud-class-card ' + (classe === c.key ? 'on' : '')}
-                    onClick={() => setClasse(c.key)}
-                  >
-                    <div className="cc-ico">{CLASS_ICON[c.key]}</div>
-                    <div>
-                      <strong>{c.name}</strong>
-                      <div className="faint" style={{ fontSize: 12, margin: '3px 0' }}>
-                        {CLASS_NOTE[c.key]}
-                      </div>
-                      <div style={{ fontSize: 12 }}>
-                        PV {c.pvBase}+VIG · PE {c.peBase}+PRE · Sanidade {c.sanBase} ·{' '}
-                        {c.skillsTrained}+Int perícias
+              <div className="wiz-card">
+                <div className="hud-class">
+                  {CLASSES.map((c) => (
+                    <div
+                      key={c.key}
+                      className={'hud-class-card ' + (classe === c.key ? 'on' : '')}
+                      onClick={() => setClasse(c.key)}
+                    >
+                      <div className="cc-ico">{CLASS_ICON[c.key]}</div>
+                      <div>
+                        <strong>{c.name}</strong>
+                        <div className="faint" style={{ fontSize: 12, margin: '3px 0' }}>
+                          {CLASS_NOTE[c.key]}
+                        </div>
+                        <div style={{ fontSize: 12 }}>
+                          PV {c.pvBase}+VIG · PE {c.peBase}+PRE · Sanidade {c.sanBase} ·{' '}
+                          {c.skillsTrained}+Int perícias
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-              {classe === 'ocultista' && (
-                <div className="field" style={{ maxWidth: 240, marginTop: 12 }}>
-                  <label>Afinidade elemental</label>
-                  <select value={element} onChange={(e) => setElement(e.target.value as Element)}>
-                    {ELEMENTS.map((el) => (
-                      <option key={el.key} value={el.key}>
-                        {el.name}
-                      </option>
-                    ))}
-                  </select>
+                  ))}
                 </div>
-              )}
+                {classe === 'ocultista' && (
+                  <div className="field" style={{ maxWidth: 240, marginTop: 12 }}>
+                    <label>Afinidade elemental</label>
+                    <select value={element} onChange={(e) => setElement(e.target.value as Element)}>
+                      {ELEMENTS.map((el) => (
+                        <option key={el.key} value={el.key}>
+                          {el.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -386,41 +393,45 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                   <p className="sub">
                     Escolhida em NEX 10%; ganha um novo poder da trilha em NEX 40%, 65% e 99%.
                   </p>
-                  <div className="hud-class">
-                    {trilhaOptions.map((t) => (
-                      <div
-                        key={t.name}
-                        className={'hud-class-card ' + (trilha === t.name ? 'on' : '')}
-                        onClick={() => setTrilha(t.name)}
-                      >
-                        <div style={{ width: '100%' }}>
-                          <strong>{t.name}</strong>
-                          <div className="faint" style={{ fontSize: 12, margin: '3px 0' }}>
-                            {t.flavor}
-                          </div>
-                          {t.powers.map((p) => (
-                            <div
-                              key={p.nex}
-                              style={{
-                                fontSize: 12,
-                                marginTop: 4,
-                                opacity: p.nex <= nex ? 1 : 0.45,
-                              }}
-                            >
-                              <b>NEX {p.nex}% · {p.name}</b> — {p.summary}
+                  <div className="wiz-card">
+                    <div className="hud-class">
+                      {trilhaOptions.map((t) => (
+                        <div
+                          key={t.name}
+                          className={'hud-class-card ' + (trilha === t.name ? 'on' : '')}
+                          onClick={() => setTrilha(t.name)}
+                        >
+                          <div style={{ width: '100%' }}>
+                            <strong>{t.name}</strong>
+                            <div className="faint" style={{ fontSize: 12, margin: '3px 0' }}>
+                              {t.flavor}
                             </div>
-                          ))}
+                            {t.powers.map((p) => (
+                              <div
+                                key={p.nex}
+                                style={{
+                                  fontSize: 12,
+                                  marginTop: 4,
+                                  opacity: p.nex <= nex ? 1 : 0.45,
+                                }}
+                              >
+                                <b>NEX {p.nex}% · {p.name}</b> — {p.summary}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </>
               ) : (
-                <p className="sub">
-                  Trilha só é escolhida a partir de NEX 10%. Este agente começa em NEX {nex}% —
-                  volte ao passo 1 e aumente o NEX se quiser escolher a trilha já na criação, ou
-                  deixe para quando o personagem evoluir.
-                </p>
+                <div className="wiz-card">
+                  <p className="sub" style={{ margin: 0 }}>
+                    Trilha só é escolhida a partir de NEX 10%. Este agente começa em NEX {nex}% —
+                    volte ao passo 1 e aumente o NEX se quiser escolher a trilha já na criação, ou
+                    deixe para quando o personagem evoluir.
+                  </p>
+                </div>
               )}
             </>
           )}
@@ -432,35 +443,37 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                 Escolha até <b>{skillBudget}</b> — {classBase} da classe + {attrs.INT} de Intelecto +
                 2 da origem. 🔒 vem da origem.
               </p>
-              <p
-                style={{
-                  marginBottom: 12,
-                  fontWeight: 600,
-                  color: trained.length > skillBudget ? 'var(--blood-bright)' : 'var(--text)',
-                }}
-              >
-                {trained.length} / {skillBudget} selecionadas
-              </p>
-              <div className="wiz-skills">
-                {SKILLS.map((s) => {
-                  const on = trained.includes(s.key);
-                  const fromOrigin = originSkills.includes(s.key);
-                  return (
-                    <span
-                      key={s.key}
-                      className={'chip ' + (on ? 'on' : '')}
-                      style={fromOrigin ? { opacity: 0.85, cursor: 'default' } : undefined}
-                      onClick={() => toggleSkill(s.key)}
-                    >
-                      {fromOrigin && '🔒 '}
-                      {s.name} <small>{s.attr}</small>
-                    </span>
-                  );
-                })}
+              <div className="wiz-card">
+                <p
+                  style={{
+                    margin: '0 0 12px',
+                    fontWeight: 600,
+                    color: trained.length > skillBudget ? 'var(--blood-bright)' : 'var(--text)',
+                  }}
+                >
+                  {trained.length} / {skillBudget} selecionadas
+                </p>
+                <div className="wiz-skills">
+                  {SKILLS.map((s) => {
+                    const on = trained.includes(s.key);
+                    const fromOrigin = originSkills.includes(s.key);
+                    return (
+                      <span
+                        key={s.key}
+                        className={'chip ' + (on ? 'on' : '')}
+                        style={fromOrigin ? { opacity: 0.85, cursor: 'default' } : undefined}
+                        onClick={() => toggleSkill(s.key)}
+                      >
+                        {fromOrigin && '🔒 '}
+                        {s.name} <small>{s.attr}</small>
+                      </span>
+                    );
+                  })}
+                </div>
+                <p className="faint" style={{ fontSize: 12, margin: '8px 0 0' }}>
+                  Todas entram como Treinado (+5); ajuste para Veterano/Expert na ficha.
+                </p>
               </div>
-              <p className="faint" style={{ fontSize: 12, marginTop: 8 }}>
-                Todas entram como Treinado (+5); ajuste para Veterano/Expert na ficha.
-              </p>
             </>
           )}
 
@@ -468,33 +481,41 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
             <>
               <h2>Revisão</h2>
               <p className="sub">Confira e crie o agente. Tudo pode ser ajustado na ficha depois.</p>
-              <div style={{ fontSize: 13, lineHeight: 2 }}>
-                <b>{nome || 'Novo Agente'}</b> — {origem || 'sem origem'} ·{' '}
-                {CLASSES.find((c) => c.key === classe)?.name} · NEX {nex}%
-                {originDef && (
-                  <>
-                    <br />
-                    Poder de origem: <b>{originDef.power}</b>
-                  </>
-                )}
-                {classe === 'ocultista' && (
-                  <>
-                    <br />
-                    Afinidade: <b>{ELEMENTS.find((e) => e.key === element)?.name}</b> · 3 rituais de
-                    1º círculo
-                  </>
-                )}
-                {trilha && (
-                  <>
-                    <br />
-                    Trilha: <b>{trilha}</b> ({unlockedPowers.length} poder
-                    {unlockedPowers.length === 1 ? '' : 'es'} já desbloqueado
-                    {unlockedPowers.length === 1 ? '' : 's'})
-                  </>
-                )}
-                <br />
-                Treinadas ({trained.length}):{' '}
-                {trained.map((k) => SKILL_BY_KEY[k]?.name).join(', ') || '—'}
+              <div className="wiz-card wiz-review">
+                <div className="wiz-review-head">
+                  <strong>{nome || 'Novo Agente'}</strong>
+                  <span className="faint">
+                    {origem || 'sem origem'} · {CLASSES.find((c) => c.key === classe)?.name} · NEX {nex}%
+                  </span>
+                </div>
+                <div className="wiz-review-facts">
+                  {originDef && (
+                    <div className="wiz-review-fact">
+                      <span className="faint">Poder de origem</span>
+                      <b>{originDef.power}</b>
+                    </div>
+                  )}
+                  {classe === 'ocultista' && (
+                    <div className="wiz-review-fact">
+                      <span className="faint">Afinidade elemental</span>
+                      <b>{ELEMENTS.find((e) => e.key === element)?.name} · 3 rituais de 1º círculo</b>
+                    </div>
+                  )}
+                  {trilha && (
+                    <div className="wiz-review-fact">
+                      <span className="faint">Trilha</span>
+                      <b>
+                        {trilha} ({unlockedPowers.length} poder
+                        {unlockedPowers.length === 1 ? '' : 'es'} já desbloqueado
+                        {unlockedPowers.length === 1 ? '' : 's'})
+                      </b>
+                    </div>
+                  )}
+                  <div className="wiz-review-fact">
+                    <span className="faint">Perícias treinadas ({trained.length})</span>
+                    <b>{trained.map((k) => SKILL_BY_KEY[k]?.name).join(', ') || '—'}</b>
+                  </div>
+                </div>
               </div>
             </>
           )}

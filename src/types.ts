@@ -86,6 +86,22 @@ export interface GroundConfig {
   repeat: number;
 }
 
+// Relevo procedural do chão 3D — opcional, `null`/ausente = chão liso (igual
+// sempre foi). `amplitude` = altura máxima das colinas (m), `scale` = "quão
+// larga/suave" cada colina é (maior = mais suave), `seed` fixa o desenho do
+// relevo (sorteado uma vez ao ligar, pra não mudar sozinho a cada render).
+// Ver `terrainHeight` em lib/scene3d.tsx.
+export interface TerrainConfig {
+  amplitude: number;
+  scale: number;
+  seed: number;
+}
+
+// Variações do céu procedural (drei `<Sky>`) — só importa quando `sky:true`;
+// ausente nesse caso é tratado como 'dia' (mesmo visual de antes desse campo
+// existir, zero regressão em cenário salvo).
+export type SkyPreset = 'dia' | 'entardecer' | 'noite' | 'nublado';
+
 // três tipos de objeto de cenário num cenário 3D:
 // - "standing": imagem em pé, billboard que sempre encara a câmera (árvore, poste)
 // - "patch": imagem deitada no chão, decalque livre (posição/tamanho/rotação) —
@@ -151,9 +167,13 @@ export interface Scene {
   // desse campo existir. Pedido do usuário: place enorme pra caber uma
   // cidade/mapa grande.
   groundSize?: number;
+  // relevo (colinas) no chão 3D — opcional, ausente/`null` = chão liso.
+  terrain?: TerrainConfig | null;
   // mostra um céu procedural (drei `<Sky>`) em vez do fundo preto sólido
   // padrão — pedido do usuário ("fundo não fica preto, sólido e feio").
   sky?: boolean;
+  // qual variação do céu (ver SkyPreset) — só importa quando sky:true.
+  skyPreset?: SkyPreset;
   objects3d: PlaceObject[];
   tokens: Record<string, Token>;
 }
@@ -167,6 +187,21 @@ export interface MusicFolder {
 }
 
 export interface MusicTrack {
+  id: string;
+  name: string;
+  ext: string;
+  folderId: string | null;
+  addedAt: number;
+}
+
+// Sons ambiente (porta abrindo, trovão etc.) — área separada da música,
+// pedido do usuário. Mesma ideia de biblioteca (servidor local do mestre,
+// `lib/ambientLibrary.ts`/`/api/ambient/*`), mas o jeito de tocar é
+// diferente: em vez de "uma faixa tocando agora" (estado persistente, com
+// posição/loop), é soundboard — cada clique dispara o som UMA VEZ pra mesa
+// toda, por cima do que mais estiver tocando (ver `ambientCue` em
+// useTableStore.ts). Reaproveita `AssetFolder` (abaixo) pras pastas.
+export interface AmbientClip {
   id: string;
   name: string;
   ext: string;

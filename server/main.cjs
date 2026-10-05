@@ -122,6 +122,9 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/maps') || urlObj.pathname.startsWith('/maps/')) {
     if (mapLibrary.handleApi(req, res, urlObj)) return;
   }
+  if (urlObj.pathname.startsWith('/api/ambient') || urlObj.pathname.startsWith('/ambient/')) {
+    if (ambientLibrary.handleApi(req, res, urlObj)) return;
+  }
   if (urlObj.pathname.startsWith('/api/places')) {
     if (handlePlacesApi(req, res, urlObj)) return;
   }
@@ -712,6 +715,20 @@ const mapLibrary = createAssetLibrary({
   mimeMap: IMAGE_MIME,
   defaultExt: 'png',
   extraFields: [{ key: 'kind', parse: (v) => (v === '3d' ? '3d' : '2d') }],
+});
+
+// Sons ambiente (soundboard: porta abrindo, trovão etc.) — pedido do
+// usuário, "área separada das músicas". Mesma fábrica genérica de
+// token/mapa; a diferença de "toca uma vez pra mesa toda" (em vez de "faixa
+// tocando agora") é só do lado do cliente (ambientCue efêmero em
+// useTableStore.ts) — aqui é só mais uma biblioteca de arquivo+metadados.
+const ambientLibrary = createAssetLibrary({
+  apiPrefix: '/api/ambient',
+  fileRoutePrefix: '/ambient',
+  dir: path.join(SAVE_DIR, 'ambient'),
+  libFile: path.join(SAVE_DIR, 'ambient-library.json'),
+  mimeMap: MUSIC_MIME,
+  defaultExt: 'mp3',
 });
 
 /* ---------------- "places" da mesa 3D: cenário salvo (nome + textura de ---

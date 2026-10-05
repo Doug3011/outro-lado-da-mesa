@@ -1,5 +1,5 @@
 import { uid } from './ids';
-import type { GroundConfig, PlaceObject, Scene } from '../types';
+import type { GroundConfig, PlaceObject, Scene, SkyPreset, TerrainConfig } from '../types';
 
 // "Place" = um cenário 3D salvo (nome + chão + objetos-imagem/modelo
 // posicionados) — composto na Área do Mestre, reaproveitado depois em
@@ -18,7 +18,9 @@ export interface Place {
   updatedAt: number;
   ground: GroundConfig | null;
   groundSize?: number;
+  terrain?: TerrainConfig | null;
   sky?: boolean;
+  skyPreset?: SkyPreset;
   objects: PlaceObject[];
 }
 
@@ -43,7 +45,9 @@ export function placeToScene(place: Place, name?: string): Scene {
     map: { cols: 30, rows: 20, cellSize: 48, showGrid: true, metersPerCell: 1.5, fogHidden: [] },
     ground: place.ground,
     groundSize: place.groundSize,
+    terrain: place.terrain,
     sky: place.sky,
+    skyPreset: place.skyPreset,
     objects3d: place.objects,
     tokens: {},
   };

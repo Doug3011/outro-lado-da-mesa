@@ -12,6 +12,8 @@ import type {
   PresenceUser,
   RollLogEntry,
   Scene,
+  SkyPreset,
+  TerrainConfig,
   Token,
 } from '../types';
 
@@ -51,11 +53,23 @@ export type RoomEvent =
   // complexidade de eventos por-objeto aqui.
   | {
       type: 'place3d:update';
-      payload: { sceneId: string; ground?: GroundConfig | null; groundSize?: number; sky?: boolean; objects3d?: PlaceObject[] };
+      payload: {
+        sceneId: string;
+        ground?: GroundConfig | null;
+        groundSize?: number;
+        terrain?: TerrainConfig | null;
+        sky?: boolean;
+        skyPreset?: SkyPreset;
+        objects3d?: PlaceObject[];
+      };
     }
   // câmera livre do mestre numa mesa 3D, espelhada pros jogadores (view-only)
   // — efêmero, não faz parte do estado salvo da mesa.
   | { type: 'camera3d:update'; payload: Camera3D }
+  // soundboard de sons ambiente — dispara UMA VEZ pra mesa toda (não é
+  // "estado tocando", é um evento; `nonce` evita o próprio mestre tocar o
+  // som 2x ao receber o eco da sua própria rede, ver AmbientPlayer.tsx).
+  | { type: 'ambient:play'; payload: { clipId: string; nonce: string } }
   | { type: 'sync:request'; payload: { from: string } }
   | {
       type: 'sync:state';

@@ -1,13 +1,13 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Sky } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { uid } from '../lib/ids';
 import { fileToDataURL, fileToDownscaledDataURL, fileToStandingDataURL } from '../lib/image';
 import { fetchPlace, savePlace, type Place } from '../lib/placeLibrary';
-import type { GroundConfig, PlaceObject } from '../types';
-import { FlyCamera, GroundPlane, MODEL_FILE_ACCEPT, SceneObject, kindLabel, modelFormatFromFileName } from '../lib/scene3d';
+import type { GroundConfig, PlaceObject, SkyPreset, TerrainConfig } from '../types';
+import { FlyCamera, GroundPlane, MODEL_FILE_ACCEPT, SceneObject, SceneSky, kindLabel, modelFormatFromFileName } from '../lib/scene3d';
 import * as THREE from 'three';
 
 // PROTÓTIPO EXPERIMENTAL — FASE 2A+ da mesa 3D "de verdade": câmera livre +
@@ -33,7 +33,9 @@ export function Prototype3D() {
   const [name, setName] = useState('Novo cenário');
   const [ground, setGroundState] = useState<GroundConfig | null>(null);
   const [groundSize, setGroundSizeState] = useState(40);
+  const [terrain, setTerrainState] = useState<TerrainConfig | null>(null);
   const [sky, setSky] = useState(false);
+  const [skyPreset, setSkyPresetState] = useState<SkyPreset>('dia');
   const [objects, setObjects] = useState<PlaceObject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -80,7 +82,9 @@ export function Prototype3D() {
         setName(place.name);
         setGroundState(place.ground);
         setGroundSizeState(place.groundSize ?? 40);
+        setTerrainState(place.terrain ?? null);
         setSky(!!place.sky);
+        setSkyPresetState(place.skyPreset ?? 'dia');
         setObjects(place.objects);
       }
       setLoading(false);
@@ -156,6 +160,14 @@ export function Prototype3D() {
 
   const removeGround = () => setGroundState(null);
   const setGroundSize = (size: number) => setGroundSizeState(Math.max(10, size));
+  const toggleTerrain = (on: boolean) =>
+    setTerrainState(on ? { amplitude: 2, scale: 12, seed: Math.floor(Math.random() * 1e9) } : null);
+  const setTerrainAmplitude = (amplitude: number) => setTerrainState((cur) => (cur ? { ...cur, amplitude } : cur));
+  const setTerrainScale = (scale: number) => setTerrainState((cur) => (cur ? { ...cur, scale: Math.max(1, scale) } : cur));
+  const setSkyPreset = (preset: SkyPreset) => {
+    setSky(true);
+    setSkyPresetState(preset);
+  };
 
   // `useCallback` (mesmo motivo de Battle3D.tsx — `SceneObject` agora é
   // `memo`, e só segura de verdade se o `onMove` recebido for estável)
@@ -179,7 +191,17 @@ export function Prototype3D() {
 
   const onSave = async () => {
     setSaving('saving');
-    const place: Place = { id: placeId, name: name.trim() || 'Cenário sem nome', updatedAt: Date.now(), ground, groundSize, sky, objects };
+    const place: Place = {
+      id: placeId,
+      name: name.trim() || 'Cenário sem nome',
+      updatedAt: Date.now(),
+      ground,
+      groundSize,
+      terrain,
+      sky,
+      skyPreset,
+      objects,
+    };
     // BUG achado (usuário: "salvei o mapa 3d mas ele reseta toda vez que
     // volto"): o resultado de `savePlace` nunca era checado — mostrava
     // "✓ Salvo" mesmo quando a gravação falhava de verdade (ex.: modelo .glb
@@ -315,15 +337,16 @@ export function Prototype3D() {
               domRef.current = gl.domElement;
             }}
           >
-            {sky ? <Sky sunPosition={[100, 20, 100]} /> : <color attach="background" args={['#0b0b0d']} />}
+            <SceneSky sky={sky} preset={skyPreset} />
             <ambientLight intensity={0.7} />
             <directionalLight position={[5, 8, 3]} intensity={1} />
             {/* teto de divisões independente do tamanho — ver mesmo comentário
                 em Battle3D.tsx (grade gigante fica pesada/trava em GPU fraca
-                ou renderização por software) */}
-            <gridHelper args={[groundSize, Math.min(groundSize, 60), '#3a3a42', '#1c1c20']} />
+                ou renderização por software). Some com relevo ligado — senão
+                fica flutuando/afundada de forma incoerente com o chão ondulado. */}
+            {!terrain && <gridHelper args={[groundSize, Math.min(groundSize, 60), '#3a3a42', '#1c1c20']} />}
             <Suspense fallback={null}>
-              <GroundPlane ground={ground} size={groundSize} />
+              <GroundPlane ground={ground} size={groundSize} terrain={terrain} />
               {objects.map((o) => (
                 <SceneObject
                   key={o.id}
@@ -332,6 +355,7 @@ export function Prototype3D() {
                   onSelect={setSelectedId}
                   onMove={moveObject}
                   controlsRef={controlsRef}
+                  terrain={terrain}
                 />
               ))}
             </Suspense>
@@ -413,10 +437,47 @@ export function Prototype3D() {
             <label>Tamanho do chão (m)</label>
             <input type="number" min={10} step={10} value={groundSize} onChange={(e) => setGroundSize(Number(e.target.value))} />
           </div>
+          <div className="field" style={{ marginTop: 8 }}>
+            <label>Céu</label>
+            <select
+              value={sky ? skyPreset : ''}
+              onChange={(e) => (e.target.value ? setSkyPreset(e.target.value as SkyPreset) : setSky(false))}
+            >
+              <option value="">Sem céu (fundo preto)</option>
+              <option value="dia">☀️ Dia</option>
+              <option value="entardecer">🌇 Entardecer</option>
+              <option value="noite">🌙 Noite</option>
+              <option value="nublado">☁️ Nublado</option>
+            </select>
+          </div>
           <label className="row" style={{ marginTop: 8, gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-            <input type="checkbox" checked={sky} onChange={(e) => setSky(e.target.checked)} />
-            ☁️ Mostrar céu (em vez de fundo preto)
+            <input type="checkbox" checked={!!terrain} onChange={(e) => toggleTerrain(e.target.checked)} />
+            🏔️ Relevo (colinas no chão)
           </label>
+          {terrain && (
+            <>
+              <div className="field" style={{ marginTop: 6 }}>
+                <label>Altura do relevo (m)</label>
+                <input
+                  type="number"
+                  min={0.2}
+                  step={0.2}
+                  value={terrain.amplitude}
+                  onChange={(e) => setTerrainAmplitude(Number(e.target.value))}
+                />
+              </div>
+              <div className="field" style={{ marginTop: 6 }}>
+                <label>Suavidade das colinas (m)</label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={terrain.scale}
+                  onChange={(e) => setTerrainScale(Number(e.target.value))}
+                />
+              </div>
+            </>
+          )}
 
           <div className="cine-hud-title" style={{ marginTop: 14 }}>
             Objetos na cena

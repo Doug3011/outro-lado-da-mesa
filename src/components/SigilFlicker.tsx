@@ -5,7 +5,16 @@ import { uid } from '../lib/ids';
 // fundo do menu — o vídeo nunca para; só os sigilos aparecem do nada, brilham
 // rápido e somem, em posição e horário aleatórios (nunca no mesmo lugar duas
 // vezes seguidas).
-const SIGILS = ['/sigils/sigil-skull.png', '/sigils/sigil-red.png', '/sigils/sigil-white.png'];
+const SIGILS = [
+  '/sigils/sigil-skull.png',
+  '/sigils/sigil-red.png',
+  '/sigils/sigil-white.png',
+  '/sigils/sigil-eldritch.png',
+  '/sigils/sigil-crimson.png',
+  '/sigils/sigil-circle.png',
+  '/sigils/sigil-mark.png',
+  '/sigils/sigil-ornate.png',
+];
 
 const MIN_GAP_MS = 3500;
 const MAX_GAP_MS = 11000;
