@@ -5,6 +5,7 @@ import { useIdentity } from '../hooks/useIdentity';
 import { activeScene, useTableStore } from '../store/useTableStore';
 import { loadMyCharacters } from '../lib/characterLibrary';
 import { placeToScene, type Place } from '../lib/placeLibrary';
+import { map2dToScene, type Map2D } from '../lib/map2dLibrary';
 import { makeScene } from '../types';
 import { getLinkedCharacterId } from '../lib/roomLinks';
 import { loadProfile } from '../lib/profile';
@@ -128,12 +129,22 @@ export function Room() {
 
   useEffect(() => {
     if (!code || !me.name.trim()) return;
-    // Home.tsx manda a place escolhida via state da navegação ao hospedar uma
-    // mesa 3D nova (ver "Hospedar mesa (3D)") — só faz sentido na primeira vez
-    // que ESSE code é hospedado; se já existe cache da mesa, connect() ignora
-    // opts.initialScene sozinho (só usa quando não há nada em cache ainda).
-    const state = location.state as { place3d?: Place | null } | null;
-    const initialScene = state && 'place3d' in state ? (state.place3d ? placeToScene(state.place3d) : makeScene('Cenário 1', '3d')) : undefined;
+    // Home.tsx manda a place/mapa escolhido via state da navegação ao
+    // hospedar uma mesa nova (ver "Hospedar mesa (3D)"/"Hospedar mesa (2D)")
+    // — só faz sentido na primeira vez que ESSE code é hospedado; se já
+    // existe cache da mesa, connect() ignora opts.initialScene sozinho (só
+    // usa quando não há nada em cache ainda).
+    const state = location.state as { place3d?: Place | null; map2d?: Map2D | null } | null;
+    const initialScene =
+      state && 'place3d' in state
+        ? state.place3d
+          ? placeToScene(state.place3d)
+          : makeScene('Cenário 1', '3d')
+        : state && 'map2d' in state
+          ? state.map2d
+            ? map2dToScene(state.map2d)
+            : makeScene('Cenário 1', '2d')
+          : undefined;
     connect(code.toUpperCase(), me, initialScene ? { initialScene } : undefined);
     return () => disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps

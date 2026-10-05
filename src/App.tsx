@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, RouterProvider } from 'react-rou
 import { Home } from './pages/Home';
 import { Room } from './pages/Room';
 import { Prototype3D } from './pages/Prototype3D';
+import { Prototype2D } from './pages/Prototype2D';
 import { MinigameTest } from './pages/MinigameTest';
 import { SettingsGear } from './components/SettingsGear';
 import { MenuMusicController } from './components/MenuMusicController';
@@ -31,6 +32,8 @@ const router = createBrowserRouter([
       { path: '/sala/:code', element: <Room /> },
       { path: '/prototipo-3d/:placeId', element: <Prototype3D /> },
       { path: '/prototipo-3d', element: <Prototype3D /> },
+      { path: '/mapa-2d/:map2dId', element: <Prototype2D /> },
+      { path: '/mapa-2d', element: <Prototype2D /> },
       { path: '/teste-minigame', element: <MinigameTest /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

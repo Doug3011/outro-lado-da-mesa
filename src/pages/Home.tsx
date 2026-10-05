@@ -20,6 +20,9 @@ import { MapLibraryManager } from '../components/MapLibraryManager';
 import { PlaceLibraryManager } from '../components/PlaceLibraryManager';
 import { PlacePickerDialog } from '../components/PlacePickerDialog';
 import type { Place } from '../lib/placeLibrary';
+import { Map2DLibraryManager } from '../components/Map2DLibraryManager';
+import { Map2DPickerDialog } from '../components/Map2DPickerDialog';
+import type { Map2D } from '../lib/map2dLibrary';
 import { SigilFlicker } from '../components/SigilFlicker';
 import { ALL_MENU_TRACKS } from '../data/menuTracks';
 import { isTrackUnlocked } from '../lib/menuTracks';
@@ -76,6 +79,11 @@ export function Home() {
   // = hospedando uma mesa 2D normal, sem tocar em nada 3D.
   const pending3dRef = useRef<{ place: Place | null } | undefined>(undefined);
   const [showPlacePicker, setShowPlacePicker] = useState(false);
+  // Mesma ideia do pending3dRef acima, lado 2D: guarda o mapa escolhido (ou
+  // `null` = mapa em branco) entre o clique em "Hospedar mesa (2D)" e o
+  // `onHosting` disparar de fato.
+  const pending2dRef = useRef<{ map2d: Map2D | null } | undefined>(undefined);
+  const [showMap2DPicker, setShowMap2DPicker] = useState(false);
 
   useEffect(() => {
     if (!hasLan || role === null) return;
@@ -87,9 +95,18 @@ export function Home() {
         if (v && LAN_INFO) {
           const addr = `${LAN_INFO.localIp}:${LAN_INFO.port}`;
           recordMatch(addr, 'gm', tableNameRef.current.trim() || 'Mesa');
-          const pending = pending3dRef.current;
+          const pending3d = pending3dRef.current;
           pending3dRef.current = undefined;
-          navigate(`/sala/${addr}`, pending ? { state: { place3d: pending.place } } : undefined);
+          const pending2d = pending2dRef.current;
+          pending2dRef.current = undefined;
+          navigate(
+            `/sala/${addr}`,
+            pending3d
+              ? { state: { place3d: pending3d.place } }
+              : pending2d
+                ? { state: { map2d: pending2d.map2d } }
+                : undefined,
+          );
         }
       },
       onTables: (t) => setTables(t),
@@ -364,12 +381,22 @@ export function Home() {
           {gmAreaTab === 'scenery' && (
             <>
               <div className="section-title" style={{ marginTop: 0 }}>
-                Cenário 2D
+                Mapas montados
               </div>
               <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Peças soltas pra montar o mapa 2D — móveis, paredes, texturas de chão. Importe uma
-                pasta inteira organizada em subpastas e cada subpasta vira uma categoria aqui.
-                Pra plantar no mapa, use o botão "🧱 Cenário" dentro da mesa.
+                Monte o mapa aqui (plante paredes, móveis, texturas de chão) e salve — fica pronto
+                pra escolher como ponto de partida ao hospedar uma mesa 2D. Dentro da mesa o
+                cenário fica travado (só os tokens se mexem), pra manter o jogo limpo.
+              </p>
+              <Map2DLibraryManager />
+
+              <div className="section-title" style={{ marginTop: 22 }}>
+                Peças soltas
+              </div>
+              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
+                Estoque de peças pra usar nos mapas acima — móveis, paredes, texturas de chão.
+                Importe uma pasta inteira organizada em subpastas e cada subpasta vira uma
+                categoria aqui.
               </p>
               <SceneryLibraryManager />
             </>
@@ -609,7 +636,10 @@ export function Home() {
                     className="primary"
                     style={{ width: '100%' }}
                     disabled={hosting}
-                    onClick={hostLan}
+                    onClick={() => {
+                      if (!me.name.trim()) return setError('Escolha um nome.');
+                      setShowMap2DPicker(true);
+                    }}
                   >
                     {hosting ? 'Hospedando…' : 'Hospedar mesa (2D)'}
                   </button>
@@ -749,6 +779,22 @@ export function Home() {
           onPick={(place) => {
             pending3dRef.current = { place };
             setShowPlacePicker(false);
+            hostLan();
+          }}
+        />
+      )}
+
+      {showMap2DPicker && (
+        <Map2DPickerDialog
+          onClose={() => setShowMap2DPicker(false)}
+          onBlank={() => {
+            pending2dRef.current = { map2d: null };
+            setShowMap2DPicker(false);
+            hostLan();
+          }}
+          onPick={(map2d) => {
+            pending2dRef.current = { map2d };
+            setShowMap2DPicker(false);
             hostLan();
           }}
         />

@@ -131,6 +131,9 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/places')) {
     if (handlePlacesApi(req, res, urlObj)) return;
   }
+  if (urlObj.pathname.startsWith('/api/map2d')) {
+    if (handleMap2DApi(req, res, urlObj)) return;
+  }
   serveStatic(req, res);
 });
 
@@ -833,6 +836,89 @@ function handlePlacesApi(req, res, urlObj) {
     if (req.method === 'DELETE') {
       places = places.filter((x) => x.id !== id);
       savePlaces();
+      sendJson(res, 200, { ok: true });
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ---------------- "mapas 2D" montados (Área do Mestre): composição --------
+   salva de peças de cenário 2D (ver MapObject2D em types.ts) — mesmo padrão
+   de "places" acima (JSON único por item, não arquivo binário, por isso não
+   usa createAssetLibrary), só que pro lado 2D. --------------------------- */
+const MAP2D_FILE = path.join(SAVE_DIR, 'map2d.json');
+let map2ds = [];
+
+function loadMap2Ds() {
+  try {
+    const raw = fs.readFileSync(MAP2D_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    map2ds = Array.isArray(data) ? data : [];
+  } catch {
+    map2ds = [];
+  }
+}
+
+function saveMap2Ds() {
+  try {
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
+    fs.writeFileSync(MAP2D_FILE, JSON.stringify(map2ds));
+  } catch (e) {
+    console.error('Erro salvando mapas 2D:', e.message);
+  }
+}
+
+loadMap2Ds();
+
+function handleMap2DApi(req, res, urlObj) {
+  const p = urlObj.pathname;
+  if (p === '/api/map2d' && req.method === 'GET') {
+    sendJson(res, 200, map2ds.map(({ id, name, updatedAt }) => ({ id, name, updatedAt })));
+    return true;
+  }
+  let m;
+  if ((m = /^\/api\/map2d\/([^/]+)$/.exec(p))) {
+    const id = m[1];
+    if (req.method === 'GET') {
+      const map2d = map2ds.find((x) => x.id === id);
+      if (!map2d) {
+        res.writeHead(404);
+        res.end();
+        return true;
+      }
+      sendJson(res, 200, map2d);
+      return true;
+    }
+    if (req.method === 'PUT') {
+      readJsonBody(req)
+        .then((body) => {
+          const map2d = {
+            id,
+            name: String(body.name || 'Mapa sem nome').slice(0, 120),
+            updatedAt: Date.now(),
+            cols: typeof body.cols === 'number' ? body.cols : 30,
+            rows: typeof body.rows === 'number' ? body.rows : 20,
+            cellSize: typeof body.cellSize === 'number' ? body.cellSize : 48,
+            background: typeof body.background === 'string' ? body.background : undefined,
+            objects2d: Array.isArray(body.objects2d) ? body.objects2d : [],
+          };
+          const i = map2ds.findIndex((x) => x.id === id);
+          if (i >= 0) map2ds[i] = map2d;
+          else map2ds.push(map2d);
+          saveMap2Ds();
+          sendJson(res, 200, map2d);
+        })
+        .catch((err) => {
+          const tooLarge = err && String(err.message).includes('payload too large');
+          res.writeHead(tooLarge ? 413 : 400);
+          res.end();
+        });
+      return true;
+    }
+    if (req.method === 'DELETE') {
+      map2ds = map2ds.filter((x) => x.id !== id);
+      saveMap2Ds();
       sendJson(res, 200, { ok: true });
       return true;
     }

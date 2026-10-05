@@ -299,6 +299,30 @@ export interface SceneryAsset {
   addedAt: number;
 }
 
+// Mapa 2D "montado" (composição salva de peças de cenário) — construído no
+// editor fora de mesa (Área do Mestre → Cenário 2D → "+ Novo mapa 2D",
+// `pages/Prototype2D.tsx`) e reaproveitado como ponto de partida ao
+// hospedar uma mesa 2D (mesmo padrão de `Place`/Cenários 3D: editar aqui
+// não muda a mesa que já usou esse mapa, e vice-versa — ver map2dToScene
+// em lib/map2dLibrary.ts). Guardado inteiro como um JSON só (as peças já
+// vêm com a imagem embutida via MapObject2D.imageUrl).
+export interface Map2D {
+  id: string;
+  name: string;
+  updatedAt: number;
+  cols: number;
+  rows: number;
+  cellSize: number;
+  background?: string;
+  objects2d: MapObject2D[];
+}
+
+export interface Map2DSummary {
+  id: string;
+  name: string;
+  updatedAt: number;
+}
+
 // Estado de reprodução da mesa — sincronizado via RoomEvent `music:state`,
 // controlado só pelo mestre. `positionAtStart` + `startedAt` (Date.now() de
 // quando começou a tocar dali) deixam qualquer cliente calcular o ponto atual

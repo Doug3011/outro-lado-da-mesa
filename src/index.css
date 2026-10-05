@@ -1359,24 +1359,34 @@ label {
   );
   z-index: 1;
 }
-/* Peças de cenário 2D plantadas no mapa (ver MapObject2D) — SEM z-index
-   próprio de propósito: fica sempre abaixo do `.token` (z-index:5), ordem
-   entre elas é só pela ordem no DOM (já vem pré-ordenada por `zIndex` no
-   componente), e abaixo de `.grid-lines` (sem z-index também, mas depois
-   no DOM) pra grade continuar visível por cima da mobília. */
+/* Peças de cenário 2D plantadas no mapa (ver MapObject2D) — só exibição
+   dentro da mesa (montagem/edição é na Área do Mestre, Prototype2D.tsx;
+   pedido do usuário: mesa fica "limpa", só token se mexe), por isso
+   `pointer-events: none` — clique nelas passa direto pro `.grid-stage`
+   por baixo (pan de câmera, medir, névoa). SEM z-index próprio de
+   propósito: fica sempre abaixo do `.token` (z-index:5), ordem entre elas
+   é só pela ordem no DOM (já vem pré-ordenada por `zIndex` no componente),
+   e abaixo de `.grid-lines` (sem z-index também, mas depois no DOM) pra
+   grade continuar visível por cima da mobília. */
 .map-object2d {
   position: absolute;
   background-position: center;
+  pointer-events: none;
+}
+/* Dentro do editor (Prototype2D.tsx) a peça volta a ser interativa — mesmo
+   visual de arraste/seleção que `.token` já usa. */
+.map-object2d.editable {
+  pointer-events: auto;
   cursor: grab;
 }
-.map-object2d:active {
+.map-object2d.editable:active {
   cursor: grabbing;
 }
-.map-object2d.selected {
+.map-object2d.editable.selected {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
-.map-object2d.locked {
+.map-object2d.editable.locked {
   cursor: default;
 }
 .token {
