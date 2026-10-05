@@ -125,6 +125,9 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/ambient') || urlObj.pathname.startsWith('/ambient/')) {
     if (ambientLibrary.handleApi(req, res, urlObj)) return;
   }
+  if (urlObj.pathname.startsWith('/api/scenery') || urlObj.pathname.startsWith('/scenery/')) {
+    if (sceneryLibrary.handleApi(req, res, urlObj)) return;
+  }
   if (urlObj.pathname.startsWith('/api/places')) {
     if (handlePlacesApi(req, res, urlObj)) return;
   }
@@ -729,6 +732,22 @@ const ambientLibrary = createAssetLibrary({
   libFile: path.join(SAVE_DIR, 'ambient-library.json'),
   mimeMap: MUSIC_MIME,
   defaultExt: 'mp3',
+});
+
+// Biblioteca de peças pra montar mapa 2D (móveis, paredes, texturas de
+// chão etc.) — pedido do usuário, que já tem uma pasta organizada por
+// categoria pronta pra importar. Mesma fábrica genérica de sempre; cada
+// pasta da biblioteca vira uma categoria (Cadeiras, Paredes...). O objeto
+// POSICIONADO no mapa (MapObject2D, em types.ts) embute a própria imagem
+// (mesmo padrão de PlaceObject no 3D) — essa biblioteca aqui é só a fonte
+// de onde o mestre escolhe o que plantar, não o que fica salvo na cena.
+const sceneryLibrary = createAssetLibrary({
+  apiPrefix: '/api/scenery',
+  fileRoutePrefix: '/scenery',
+  dir: path.join(SAVE_DIR, 'scenery'),
+  libFile: path.join(SAVE_DIR, 'scenery-library.json'),
+  mimeMap: IMAGE_MIME,
+  defaultExt: 'png',
 });
 
 /* ---------------- "places" da mesa 3D: cenário salvo (nome + textura de ---

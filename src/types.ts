@@ -70,6 +70,29 @@ export interface Token {
   activeSpriteId?: string;
 }
 
+// Peça solta plantada num mapa 2D (móvel, parede, decoração, textura de
+// chão) — pedido do usuário: montar o mapa a partir de assets em vez de só
+// uma imagem de fundo única. `imageUrl` vem EMBUTIDA (data URL), mesmo
+// padrão de `PlaceObject` no 3D: o mapa fica autocontido, apagar o asset
+// da biblioteca depois não quebra mapas que já usam ele. `x`/`y` em
+// CÉLULAS, fracionário — mesmo sistema já usado por `Token.x/y`, assim o
+// objeto acompanha o mapa corretamente se `cellSize` mudar. `mode:'tile'`
+// é pra peças grandes de textura de chão que devem repetir em vez de
+// esticar (mesma ideia de `GroundConfig` no 3D) — sem isso é `'stretch'`.
+export interface MapObject2D {
+  id: string;
+  imageUrl: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number; // graus
+  zIndex: number;
+  mode?: 'stretch' | 'tile';
+  repeat?: number; // junto com mode:'tile'
+  locked?: boolean; // trava arraste sem querer (útil com o mapa cheio de peças)
+}
+
 export interface MapState {
   cols: number;
   rows: number;
@@ -78,6 +101,10 @@ export interface MapState {
   showGrid: boolean;
   metersPerCell: number; // Ordem usa 1,5 m por quadrado
   fogHidden?: string[]; // fog of war: chaves "x,y" das células escondidas dos jogadores
+  // peças de cenário 2D plantadas no mapa (ver MapObject2D) — opcional,
+  // ausente/vazio = mapa "clássico" de só uma imagem de fundo, zero
+  // regressão em mesas salvas antes desse campo existir.
+  objects2d?: MapObject2D[];
 }
 
 export const DEFAULT_MAP: MapState = {
@@ -257,6 +284,19 @@ export interface MapAsset {
   folderId: string | null;
   addedAt: number;
   kind: MapAssetKind;
+}
+
+// Biblioteca de peças de cenário 2D (móveis, paredes, texturas de chão) —
+// de onde o mestre escolhe o que plantar no mapa (ver MapObject2D acima);
+// servida via `lib/sceneryLibrary.ts`/`/api/scenery/*`. Pastas da
+// biblioteca (`AssetFolder`) funcionam como categorias (Cadeiras,
+// Paredes...), preenchidas automaticamente ao importar uma pasta do PC.
+export interface SceneryAsset {
+  id: string;
+  name: string;
+  ext: string;
+  folderId: string | null;
+  addedAt: number;
 }
 
 // Estado de reprodução da mesa — sincronizado via RoomEvent `music:state`,

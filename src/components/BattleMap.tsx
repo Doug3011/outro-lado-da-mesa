@@ -6,11 +6,25 @@ import { randomColor, uid } from '../lib/ids';
 import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
 import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
+import { sceneryAssetUrl } from '../lib/sceneryLibrary';
 import { MapPickerDialog } from './MapPickerDialog';
 import { PlacePickerDialog } from './PlacePickerDialog';
-import type { Token, TokenSprite } from '../types';
+import { SCENERY_DRAG_MIME, SceneryLibraryManager, type SceneryDragPayload } from './SceneryLibraryManager';
+import type { MapObject2D, SceneryAsset, Token, TokenSprite } from '../types';
 
 const SEND_EVERY_MS = 45;
+
+// Proporção largura/altura de uma imagem (data URL ou url servida) — usada
+// só pra dar um tamanho inicial sensato a uma peça de cenário plantada
+// (altura fixa, largura pela proporção real da imagem).
+function probeImageAspect(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve((img.naturalWidth || 1) / (img.naturalHeight || 1));
+    img.onerror = () => resolve(1);
+    img.src = url;
+  });
+}
 
 export function BattleMap() {
   const { me } = useIdentity();
@@ -39,6 +53,7 @@ export function BattleMap() {
     { x1: number; y1: number; x2: number; y2: number } | null
   >(null);
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [dragObj2d, setDragObj2d] = useState<{ id: string; x: number; y: number } | null>(null);
   const [fogMode, setFogMode] = useState(false);
   const [fogWorking, setFogWorking] = useState<Set<string> | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
@@ -55,6 +70,11 @@ export function BattleMap() {
   const W = map.cols * map.cellSize;
   const H = map.rows * map.cellSize;
   const selected = selId ? tokens[selId] : null;
+  // Peça de cenário 2D selecionada — ids vêm do mesmo uid() global dos
+  // tokens, então nunca colidem: só um dos dois (selected/selectedObj2d)
+  // é não-nulo por vez, sem precisar guardar "o que é" junto do id.
+  const objects2d = map.objects2d ?? [];
+  const selectedObj2d = selId && !selected ? objects2d.find((o) => o.id === selId) ?? null : null;
 
   const clientToCell = (clientX: number, clientY: number) => {
     const rect = stageRef.current!.getBoundingClientRect();
@@ -106,6 +126,99 @@ export function BattleMap() {
       if (moved) {
         // posição final via upsert: persiste no cache/BD além de sincronizar
         upsertToken({ ...t, x: Math.round(cur.x * 2) / 2, y: Math.round(cur.y * 2) / 2 });
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  /* -------- cenário 2D: ajustar lista + arraste (mesma lógica dos tokens) -------- */
+  const patchObjects2dList = (next: MapObject2D[]) => updateMap({ objects2d: next });
+  const patchObject2d = (id: string, patch: Partial<MapObject2D>) => {
+    patchObjects2dList(objects2d.map((o) => (o.id === id ? { ...o, ...patch } : o)));
+  };
+  const removeObject2d = (id: string) => patchObjects2dList(objects2d.filter((o) => o.id !== id));
+  const nextZIndex = () => (objects2d.length ? Math.max(...objects2d.map((o) => o.zIndex)) + 1 : 1);
+
+  // Planta uma peça da biblioteca no mapa, centrada em (cx,cy) em células —
+  // baixa a imagem servida e embute como data URL (mesmo "embed, don't
+  // reference" de token/objeto 3D: o cenário continua autocontido mesmo se
+  // o asset original na biblioteca for apagado depois).
+  const plantAssetAt = (assetId: string, cx: number, cy: number) => {
+    void urlToDownscaledDataURL(sceneryAssetUrl(assetId), 480).then((image) => {
+      if (!image) return;
+      void probeImageAspect(image).then((ratio) => {
+        const height = 2;
+        const width = Math.max(0.3, +(height * ratio).toFixed(2));
+        const o: MapObject2D = {
+          id: uid(),
+          imageUrl: image,
+          x: Math.max(0, Math.min(map.cols - width, cx - width / 2)),
+          y: Math.max(0, Math.min(map.rows - height, cy - height / 2)),
+          width,
+          height,
+          rotation: 0,
+          zIndex: nextZIndex(),
+          mode: 'stretch',
+        };
+        patchObjects2dList([...objects2d, o]);
+        setSelId(o.id);
+      });
+    });
+  };
+
+  // Clique numa miniatura da biblioteca (painel "🧱 Cenário" da toolbar) —
+  // planta no centro da área do mapa que está visível na tela agora.
+  const plantAsset = (asset: SceneryAsset) => {
+    const scrollEl = mapScrollRef.current;
+    let cx = map.cols / 2;
+    let cy = map.rows / 2;
+    if (scrollEl) {
+      cx = (scrollEl.scrollLeft + scrollEl.clientWidth / 2) / zoom / map.cellSize;
+      cy = (scrollEl.scrollTop + scrollEl.clientHeight / 2) / zoom / map.cellSize;
+    }
+    plantAssetAt(asset.id, cx, cy);
+  };
+
+  const onObject2dPointerDown = (e: React.PointerEvent, o: MapObject2D) => {
+    if (measure || fogMode || o.locked) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setSelId(o.id);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const cell = map.cellSize;
+    const cols = map.cols;
+    const rows = map.rows;
+    const originX = o.x;
+    const originY = o.y;
+    let moved = false;
+    let cur = { x: originX, y: originY };
+
+    const clamp = (x: number, y: number) => ({
+      x: Math.max(0, Math.min(cols - o.width, x)),
+      y: Math.max(0, Math.min(rows - o.height, y)),
+    });
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = (ev.clientX - startX) / zoom / cell;
+      const dy = (ev.clientY - startY) / zoom / cell;
+      cur = clamp(originX + dx, originY + dy);
+      moved = true;
+      setDragObj2d({ id: o.id, x: cur.x, y: cur.y });
+      const now = performance.now();
+      if (now - lastSentRef.current > SEND_EVERY_MS) {
+        lastSentRef.current = now;
+        patchObject2d(o.id, { x: cur.x, y: cur.y });
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setDragObj2d(null);
+      if (moved) {
+        patchObject2d(o.id, { x: Math.round(cur.x * 2) / 2, y: Math.round(cur.y * 2) / 2 });
       }
     };
     window.addEventListener('pointermove', onMove);
@@ -259,6 +372,18 @@ export function BattleMap() {
   const onStageDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (!me.isGM) return;
+    const sceneryRaw = e.dataTransfer.getData(SCENERY_DRAG_MIME);
+    if (sceneryRaw) {
+      let payload: SceneryDragPayload;
+      try {
+        payload = JSON.parse(sceneryRaw);
+      } catch {
+        return;
+      }
+      const { cx, cy } = clientToCell(e.clientX, e.clientY);
+      plantAssetAt(payload.id, cx, cy);
+      return;
+    }
     const raw = e.dataTransfer.getData(TOKEN_DRAG_MIME);
     if (!raw) return;
     let payload: TokenDragPayload;
@@ -315,31 +440,58 @@ export function BattleMap() {
   // campo de texto/número (ex.: digitando o nome do token), senão roubaria
   // a seta do cursor/digitação.
   useEffect(() => {
-    if (!selected) return;
+    if (!selected && !selectedObj2d) return;
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (document.activeElement?.tagName ?? '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        patchToken({ rotation: (((selected.rotation ?? 0) - 15) % 360 + 360) % 360 });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        patchToken({ rotation: (((selected.rotation ?? 0) + 15) % 360 + 360) % 360 });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        patchToken({ sizePx: Math.min(tokenPxSize(selected) + 1, map.cellSize * 10) });
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        patchToken({ sizePx: Math.max(tokenPxSize(selected) - 1, 8) });
-      } else if (e.key.toLowerCase() === 'v') {
-        e.preventDefault();
-        cycleSprite();
+      if (selected) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          patchToken({ rotation: (((selected.rotation ?? 0) - 15) % 360 + 360) % 360 });
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          patchToken({ rotation: (((selected.rotation ?? 0) + 15) % 360 + 360) % 360 });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          patchToken({ sizePx: Math.min(tokenPxSize(selected) + 1, map.cellSize * 10) });
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          patchToken({ sizePx: Math.max(tokenPxSize(selected) - 1, 8) });
+        } else if (e.key.toLowerCase() === 'v') {
+          e.preventDefault();
+          cycleSprite();
+        }
+      } else if (selectedObj2d) {
+        // ↑/↓ aqui redimensiona em CÉLULAS mantendo a proporção (não pixel a
+        // pixel como no token) — peça de cenário não tem conceito de sizePx,
+        // seu tamanho sempre é relativo à grade.
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          patchObject2d(selectedObj2d.id, {
+            rotation: (((selectedObj2d.rotation ?? 0) - 15) % 360 + 360) % 360,
+          });
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          patchObject2d(selectedObj2d.id, {
+            rotation: (((selectedObj2d.rotation ?? 0) + 15) % 360 + 360) % 360,
+          });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const ratio = selectedObj2d.width / selectedObj2d.height;
+          const h = Math.min(selectedObj2d.height + 0.1, 20);
+          patchObject2d(selectedObj2d.id, { height: h, width: +(h * ratio).toFixed(2) });
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const ratio = selectedObj2d.width / selectedObj2d.height;
+          const h = Math.max(selectedObj2d.height - 0.1, 0.2);
+          patchObject2d(selectedObj2d.id, { height: h, width: +(h * ratio).toFixed(2) });
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, map.cellSize]);
+  }, [selected, selectedObj2d, map.cellSize]);
 
   const onPickTokenImage = async (file: File | undefined) => {
     if (!file || !selected) return;
@@ -410,6 +562,8 @@ export function BattleMap() {
 
   const renderX = (t: Token) => (drag && drag.id === t.id ? drag.x : t.x);
   const renderY = (t: Token) => (drag && drag.id === t.id ? drag.y : t.y);
+  const renderObjX = (o: MapObject2D) => (dragObj2d && dragObj2d.id === o.id ? dragObj2d.x : o.x);
+  const renderObjY = (o: MapObject2D) => (dragObj2d && dragObj2d.id === o.id ? dragObj2d.y : o.y);
 
   return (
     <>
@@ -556,6 +710,17 @@ export function BattleMap() {
                 limpar fundo
               </button>
             )}
+            <details style={{ position: 'relative' }}>
+              <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '4px 6px' }}>
+                🧱 Cenário
+              </summary>
+              <div className="map-cfg" style={{ width: 360, maxHeight: 460, overflowY: 'auto' }}>
+                <p className="faint" style={{ fontSize: 11, margin: '0 0 8px' }}>
+                  Clique numa peça pra plantar no centro da tela, ou arraste pro mapa.
+                </p>
+                <SceneryLibraryManager onPlant={plantAsset} />
+              </div>
+            </details>
             <details style={{ position: 'relative' }}>
               <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '4px 6px' }}>
                 ⚙︎ Grade
@@ -823,6 +988,114 @@ export function BattleMap() {
         </div>
       )}
 
+      {selectedObj2d && (
+        <div className="token-editor">
+          <div className="row">
+            <span className="faint" style={{ fontSize: 12 }}>🧱 Peça de cenário</span>
+          </div>
+          <p className="faint" style={{ fontSize: 11, margin: '6px 0 0' }}>
+            Selecionada: <b>←/→</b> gira, <b>↑/↓</b> redimensiona (mantém proporção).
+          </p>
+          <div className="row" style={{ marginTop: 6 }}>
+            <div>
+              <label>Largura (quadros)</label>
+              <input
+                type="number"
+                step={0.1}
+                min={0.2}
+                value={selectedObj2d.width}
+                onChange={(e) =>
+                  patchObject2d(selectedObj2d.id, { width: Math.max(0.2, Number(e.target.value)) })
+                }
+              />
+            </div>
+            <div>
+              <label>Altura (quadros)</label>
+              <input
+                type="number"
+                step={0.1}
+                min={0.2}
+                value={selectedObj2d.height}
+                onChange={(e) =>
+                  patchObject2d(selectedObj2d.id, { height: Math.max(0.2, Number(e.target.value)) })
+                }
+              />
+            </div>
+            <div>
+              <label>Rotação</label>
+              <input
+                type="number"
+                step={5}
+                value={selectedObj2d.rotation}
+                onChange={(e) => patchObject2d(selectedObj2d.id, { rotation: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+          <div className="row" style={{ marginTop: 6 }}>
+            <div>
+              <label>Modo</label>
+              <select
+                value={selectedObj2d.mode ?? 'stretch'}
+                onChange={(e) =>
+                  patchObject2d(selectedObj2d.id, { mode: e.target.value as 'stretch' | 'tile' })
+                }
+              >
+                <option value="stretch">Esticar</option>
+                <option value="tile">Repetir (textura)</option>
+              </select>
+            </div>
+            {selectedObj2d.mode === 'tile' && (
+              <div>
+                <label>Tamanho do ladrilho (quadros)</label>
+                <input
+                  type="number"
+                  step={0.1}
+                  min={0.1}
+                  value={selectedObj2d.repeat ?? 1}
+                  onChange={(e) =>
+                    patchObject2d(selectedObj2d.id, { repeat: Math.max(0.1, Number(e.target.value)) })
+                  }
+                />
+              </div>
+            )}
+          </div>
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="small" onClick={() => patchObject2d(selectedObj2d.id, { zIndex: nextZIndex() })}>
+              trazer pra frente
+            </button>
+            <button
+              className="small"
+              onClick={() => {
+                const minZ = objects2d.length ? Math.min(...objects2d.map((o) => o.zIndex)) - 1 : 0;
+                patchObject2d(selectedObj2d.id, { zIndex: minZ });
+              }}
+            >
+              mandar pra trás
+            </button>
+            <button
+              className={'small ' + (selectedObj2d.locked ? 'primary' : '')}
+              onClick={() => patchObject2d(selectedObj2d.id, { locked: !selectedObj2d.locked })}
+            >
+              🔒 {selectedObj2d.locked ? 'travada' : 'travar'}
+            </button>
+          </div>
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="small" onClick={() => setSelId(null)}>
+              Fechar
+            </button>
+            <button
+              className="small ghost"
+              onClick={() => {
+                removeObject2d(selectedObj2d.id);
+                setSelId(null);
+              }}
+            >
+              Remover
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className={'map-scroll' + (panning ? ' panning' : '')} ref={mapScrollRef} onWheel={onWheel}>
         <div
           className="grid-stage"
@@ -835,6 +1108,32 @@ export function BattleMap() {
           {map.background && (
             <div className="grid-bg" style={{ backgroundImage: `url(${map.background})` }} />
           )}
+
+          {[...objects2d]
+            .sort((a, b) => a.zIndex - b.zIndex)
+            .map((o) => (
+              <div
+                key={o.id}
+                className={
+                  'map-object2d' + (selId === o.id ? ' selected' : '') + (o.locked ? ' locked' : '')
+                }
+                onPointerDown={(e) => onObject2dPointerDown(e, o)}
+                style={{
+                  left: renderObjX(o) * map.cellSize,
+                  top: renderObjY(o) * map.cellSize,
+                  width: o.width * map.cellSize,
+                  height: o.height * map.cellSize,
+                  transform: o.rotation ? `rotate(${o.rotation}deg)` : undefined,
+                  backgroundImage: `url(${o.imageUrl})`,
+                  backgroundSize:
+                    o.mode === 'tile'
+                      ? `${map.cellSize * (o.repeat || 1)}px ${map.cellSize * (o.repeat || 1)}px`
+                      : '100% 100%',
+                  backgroundRepeat: o.mode === 'tile' ? 'repeat' : 'no-repeat',
+                }}
+              />
+            ))}
+
           {map.showGrid && (
             <div
               className="grid-lines"

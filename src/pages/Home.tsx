@@ -15,6 +15,7 @@ import { DailyChallengePanel } from '../components/DailyChallengePanel';
 import { MusicLibraryManager } from '../components/MusicLibraryManager';
 import { AmbientLibraryManager } from '../components/AmbientLibraryManager';
 import { TokenLibraryManager } from '../components/TokenLibraryManager';
+import { SceneryLibraryManager } from '../components/SceneryLibraryManager';
 import { MapLibraryManager } from '../components/MapLibraryManager';
 import { PlaceLibraryManager } from '../components/PlaceLibraryManager';
 import { PlacePickerDialog } from '../components/PlacePickerDialog';
@@ -26,7 +27,7 @@ import { useMenuMusicStore } from '../state/menuMusic';
 
 type Role = 'gm' | 'player';
 type View = 'hub' | 'profile' | 'library' | 'connect' | 'history' | 'daily' | 'gm-area' | 'extras';
-type GmAreaTab = 'music' | 'ambient' | 'tokens' | 'maps' | 'places';
+type GmAreaTab = 'music' | 'ambient' | 'tokens' | 'scenery' | 'maps' | 'places';
 type ExtrasTab = 'minigames';
 
 const PALETTE = ['#e01e2b', '#7b2cbf', '#2fae66', '#e8b21e', '#3f7fd6', '#ff8fab', '#d4a373'];
@@ -267,6 +268,12 @@ export function Home() {
               🧩 Tokens
             </span>
             <span
+              className={`chip ${gmAreaTab === 'scenery' ? 'on' : ''}`}
+              onClick={() => setGmAreaTab('scenery')}
+            >
+              🧱 Cenário 2D
+            </span>
+            <span
               className={`chip ${gmAreaTab === 'maps' ? 'on' : ''}`}
               onClick={() => setGmAreaTab('maps')}
             >
@@ -351,6 +358,20 @@ export function Home() {
                 mestre.
               </p>
               <TokenLibraryManager />
+            </>
+          )}
+
+          {gmAreaTab === 'scenery' && (
+            <>
+              <div className="section-title" style={{ marginTop: 0 }}>
+                Cenário 2D
+              </div>
+              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
+                Peças soltas pra montar o mapa 2D — móveis, paredes, texturas de chão. Importe uma
+                pasta inteira organizada em subpastas e cada subpasta vira uma categoria aqui.
+                Pra plantar no mapa, use o botão "🧱 Cenário" dentro da mesa.
+              </p>
+              <SceneryLibraryManager />
             </>
           )}
 

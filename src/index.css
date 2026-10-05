@@ -1359,6 +1359,26 @@ label {
   );
   z-index: 1;
 }
+/* Peças de cenário 2D plantadas no mapa (ver MapObject2D) — SEM z-index
+   próprio de propósito: fica sempre abaixo do `.token` (z-index:5), ordem
+   entre elas é só pela ordem no DOM (já vem pré-ordenada por `zIndex` no
+   componente), e abaixo de `.grid-lines` (sem z-index também, mas depois
+   no DOM) pra grade continuar visível por cima da mobília. */
+.map-object2d {
+  position: absolute;
+  background-position: center;
+  cursor: grab;
+}
+.map-object2d:active {
+  cursor: grabbing;
+}
+.map-object2d.selected {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.map-object2d.locked {
+  cursor: default;
+}
 .token {
   position: absolute;
   z-index: 5;
