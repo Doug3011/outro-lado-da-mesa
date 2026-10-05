@@ -32,6 +32,18 @@ export interface NotifyEntry {
   lines: string[];
 }
 
+// Variante de imagem de um token (pedido do usuário: "sem nada segurando
+// arma, e pra lá vai" — um personagem com vários estados visuais: sem arma,
+// com arma, ferido etc.). `image` do Token continua sendo a imagem ATUAL
+// exibida — trocar de variante só atualiza esse campo, então todo lugar que
+// já lê `token.image` (BattleMap.tsx, Battle3D.tsx) continua igual, sem
+// precisar saber que sprites existem.
+export interface TokenSprite {
+  id: string;
+  name: string;
+  image: string;
+}
+
 export interface Token {
   id: string;
   label: string;
@@ -50,6 +62,12 @@ export interface Token {
   // abaixo (-) do chão, em metros, pra corrigir imagem com margem
   // transparente embaixo do desenho (senão o token "flutua").
   elevation?: number;
+  // variantes de imagem (opcional — ausente/vazio = token "clássico" de uma
+  // imagem só, igual sempre foi). `activeSpriteId` diz qual item de
+  // `sprites` corresponde à `image` atual, pra tecla de atalho saber pra
+  // qual vem a seguir ao ciclar.
+  sprites?: TokenSprite[];
+  activeSpriteId?: string;
 }
 
 export interface MapState {

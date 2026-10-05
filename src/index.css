@@ -1470,6 +1470,59 @@ label {
   padding: 24px 10px;
 }
 
+/* Variantes de imagem do token (pedido do usuário: alternar rápido entre
+   sprites tipo "sem arma"/"com arma" com uma tecla de atalho) */
+.token-sprite-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.token-sprite-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.token-sprite-chip.on {
+  border-color: var(--blood);
+  background: var(--blood-tint);
+}
+.token-sprite-thumb {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+  background-color: #0f0f12;
+  border: 1px solid var(--line);
+}
+.token-sprite-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.token-sprite-x {
+  flex: none;
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.token-sprite-x:hover {
+  color: var(--text);
+  transform: none;
+}
+
 /* Modal de texto (substitui window.prompt(), que o Electron não implementa) */
 .prompt-overlay {
   position: fixed;

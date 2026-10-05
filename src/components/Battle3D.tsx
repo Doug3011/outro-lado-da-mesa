@@ -24,7 +24,7 @@ import {
 import type { Camera3D } from '../lib/realtime';
 import { PlacePickerDialog } from './PlacePickerDialog';
 import { MapPickerDialog } from './MapPickerDialog';
-import type { PlaceObject, SkyPreset, TerrainConfig, Token } from '../types';
+import type { PlaceObject, SkyPreset, TerrainConfig, Token, TokenSprite } from '../types';
 
 // Mesa 3D de verdade (Fase 3): mesmas abas/mecânicas da mesa 2D (dados,
 // fichas, tokens, música — tudo isso continua em Room.tsx, fora daqui) — só o
@@ -272,6 +272,7 @@ export function Battle3D() {
   const groundInputRef = useRef<HTMLInputElement>(null);
   const modelInputRef = useRef<HTMLInputElement>(null);
   const tokenImgInputRef = useRef<HTMLInputElement>(null);
+  const spriteInputRef = useRef<HTMLInputElement>(null);
 
   const selectedObj = selKind === 'object' ? objects.find((o) => o.id === selId) ?? null : null;
   const selectedToken = selKind === 'token' ? (selId ? tokens[selId] : null) : null;
@@ -435,6 +436,65 @@ export function Battle3D() {
     const url = await fileToStandingDataURL(file, 320);
     if (url) patchToken({ image: url });
   };
+
+  // Variantes de imagem do token (mesmo pedido/motivo de BattleMap.tsx — ver
+  // comentário grande lá: `image` continua sendo a atual, `sprites` é a
+  // lista de opções, trocar só atualiza `image`/`activeSpriteId`).
+  const addSprite = async (file: File | undefined) => {
+    if (!file || !selectedToken) return;
+    const url = await fileToStandingDataURL(file, 320);
+    if (!url) return;
+    const name = await askText('Nome dessa variante (ex.: "Com espada"):');
+    if (name === null) return;
+    let sprites = selectedToken.sprites ?? [];
+    if (sprites.length === 0 && selectedToken.image) {
+      sprites = [{ id: uid(), name: 'Padrão', image: selectedToken.image }];
+    }
+    const sprite: TokenSprite = { id: uid(), name: name.trim() || 'Sem nome', image: url };
+    sprites = [...sprites, sprite];
+    patchToken({ sprites, image: sprite.image, activeSpriteId: sprite.id });
+  };
+  const selectSprite = (sprite: TokenSprite) => patchToken({ image: sprite.image, activeSpriteId: sprite.id });
+  const renameSprite = async (sprite: TokenSprite) => {
+    if (!selectedToken) return;
+    const name = await askText('Nome da variante:', sprite.name);
+    if (!name?.trim() || name === sprite.name) return;
+    const sprites = (selectedToken.sprites ?? []).map((s) => (s.id === sprite.id ? { ...s, name: name.trim() } : s));
+    patchToken({ sprites });
+  };
+  const removeSprite = (sprite: TokenSprite) => {
+    if (!selectedToken) return;
+    const sprites = (selectedToken.sprites ?? []).filter((s) => s.id !== sprite.id);
+    const patch: Partial<Token> = { sprites };
+    if (selectedToken.activeSpriteId === sprite.id) {
+      patch.image = sprites[0]?.image;
+      patch.activeSpriteId = sprites[0]?.id;
+    }
+    patchToken(patch);
+  };
+  const cycleSprite = () => {
+    if (!selectedToken?.sprites?.length) return;
+    const sprites = selectedToken.sprites;
+    const curIdx = sprites.findIndex((s) => s.id === selectedToken.activeSpriteId);
+    const next = sprites[(curIdx + 1) % sprites.length];
+    patchToken({ image: next.image, activeSpriteId: next.id });
+  };
+  // atalho de teclado: V alterna pra próxima variante do token selecionado
+  // (objeto ou token — mesma tecla, mas aqui só reage quando tem TOKEN
+  // selecionado, já que só token tem sprites).
+  useEffect(() => {
+    if (!selectedToken) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'v') return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      e.preventDefault();
+      cycleSprite();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedToken]);
 
   const moveTokenLive = useCallback(
     (id: string, x: number, z: number) => {
@@ -899,6 +959,60 @@ export function Battle3D() {
                 tirar imagem
               </button>
             )}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <label>Variantes de imagem</label>
+            {selectedToken.sprites && selectedToken.sprites.length > 0 && (
+              <p className="faint" style={{ fontSize: 11, margin: '0 0 4px' }}>
+                Tecla <b>V</b> alterna rápido pra próxima.
+              </p>
+            )}
+            <div className="token-sprite-list">
+              {(selectedToken.sprites ?? []).map((s) => (
+                <div
+                  key={s.id}
+                  className={'token-sprite-chip' + (selectedToken.activeSpriteId === s.id ? ' on' : '')}
+                  title={s.name}
+                  onClick={() => selectSprite(s)}
+                >
+                  <span className="token-sprite-thumb" style={{ backgroundImage: `url(${s.image})` }} />
+                  <span className="token-sprite-name">{s.name}</span>
+                  <button
+                    className="token-sprite-x"
+                    title="Renomear"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      renameSprite(s);
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    className="token-sprite-x"
+                    title="Excluir"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeSprite(s);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button className="small ghost" onClick={() => spriteInputRef.current?.click()}>
+                + variante
+              </button>
+            </div>
+            <input
+              ref={spriteInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                void addSprite(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
           </div>
           <div className="row" style={{ marginTop: 6 }}>
             <button

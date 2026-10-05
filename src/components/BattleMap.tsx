@@ -8,7 +8,7 @@ import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
 import { MapPickerDialog } from './MapPickerDialog';
 import { PlacePickerDialog } from './PlacePickerDialog';
-import type { Token } from '../types';
+import type { Token, TokenSprite } from '../types';
 
 const SEND_EVERY_MS = 45;
 
@@ -50,6 +50,7 @@ export function BattleMap() {
   const lastSentRef = useRef(0);
   const bgInputRef = useRef<HTMLInputElement>(null);
   const tokenInputRef = useRef<HTMLInputElement>(null);
+  const spriteInputRef = useRef<HTMLInputElement>(null);
 
   const W = map.cols * map.cellSize;
   const H = map.rows * map.cellSize;
@@ -295,11 +296,24 @@ export function BattleMap() {
   // se já foi mexido, senão cai no múltiplo de célula do seletor "Tamanho".
   const tokenPxSize = (t: Token) => t.sizePx ?? t.size * map.cellSize - 6;
 
+  // Alterna pra próxima variante de imagem do token selecionado (ver
+  // TokenSprite em types.ts) — cicla pela lista, voltando pro começo. Sem
+  // efeito se o token não tem variante nenhuma registrada ainda.
+  const cycleSprite = () => {
+    if (!selected?.sprites?.length) return;
+    const sprites = selected.sprites;
+    const curIdx = sprites.findIndex((s) => s.id === selected.activeSpriteId);
+    const next = sprites[(curIdx + 1) % sprites.length];
+    patchToken({ image: next.image, activeSpriteId: next.id });
+  };
+
   // Atalhos de teclado pro token selecionado — ←/→ giram 15° (mesmo passo
   // dos botões "Virar pra"), ↑/↓ ajustam o tamanho PIXEL A PIXEL (liberdade
-  // fina, independente dos múltiplos de célula do seletor). Ignora quando o
-  // foco tá num campo de texto/número (ex.: digitando o nome do token),
-  // senão roubaria a seta do cursor/digitação.
+  // fina, independente dos múltiplos de célula do seletor), V alterna pra
+  // próxima variante de imagem (pedido do usuário: trocar rápido entre
+  // "sem arma"/"com arma" etc. durante a mesa). Ignora quando o foco tá num
+  // campo de texto/número (ex.: digitando o nome do token), senão roubaria
+  // a seta do cursor/digitação.
   useEffect(() => {
     if (!selected) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -317,6 +331,9 @@ export function BattleMap() {
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         patchToken({ sizePx: Math.max(tokenPxSize(selected) - 1, 8) });
+      } else if (e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        cycleSprite();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -328,6 +345,50 @@ export function BattleMap() {
     if (!file || !selected) return;
     const url = await fileToDownscaledDataURL(file, 320);
     if (url) patchToken({ image: url });
+  };
+
+  // Adiciona uma nova variante de imagem — se o token ainda não tinha
+  // `sprites` registrado (token "clássico", só `image` solta), promove a
+  // imagem atual pra "Padrão" primeiro, pra não perder ela da lista.
+  const addSprite = async (file: File | undefined) => {
+    if (!file || !selected) return;
+    const url = await fileToDownscaledDataURL(file, 320);
+    if (!url) return;
+    const name = await askText('Nome dessa variante (ex.: "Com espada"):');
+    if (name === null) return;
+    let sprites = selected.sprites ?? [];
+    if (sprites.length === 0 && selected.image) {
+      sprites = [{ id: uid(), name: 'Padrão', image: selected.image }];
+    }
+    const sprite: TokenSprite = { id: uid(), name: name.trim() || 'Sem nome', image: url };
+    sprites = [...sprites, sprite];
+    patchToken({ sprites, image: sprite.image, activeSpriteId: sprite.id });
+  };
+
+  const selectSprite = (sprite: TokenSprite) => {
+    if (!selected) return;
+    patchToken({ image: sprite.image, activeSpriteId: sprite.id });
+  };
+
+  const renameSprite = async (sprite: TokenSprite) => {
+    if (!selected) return;
+    const name = await askText('Nome da variante:', sprite.name);
+    if (!name?.trim() || name === sprite.name) return;
+    const sprites = (selected.sprites ?? []).map((s) => (s.id === sprite.id ? { ...s, name: name.trim() } : s));
+    patchToken({ sprites });
+  };
+
+  const removeSprite = (sprite: TokenSprite) => {
+    if (!selected) return;
+    const sprites = (selected.sprites ?? []).filter((s) => s.id !== sprite.id);
+    const patch: Partial<Token> = { sprites };
+    // se removeu a variante que tava ativa, cai pra primeira que sobrou (ou
+    // tira a imagem de vez se não sobrou nenhuma)
+    if (selected.activeSpriteId === sprite.id) {
+      patch.image = sprites[0]?.image;
+      patch.activeSpriteId = sprites[0]?.id;
+    }
+    patchToken(patch);
   };
 
   const onPickBackground = async (file: File | undefined) => {
@@ -691,6 +752,60 @@ export function BattleMap() {
               )}
             </div>
           )}
+          <div style={{ marginTop: 8 }}>
+            <label>Variantes de imagem</label>
+            {selected.sprites && selected.sprites.length > 0 && (
+              <p className="faint" style={{ fontSize: 11, margin: '0 0 4px' }}>
+                Tecla <b>V</b> alterna rápido pra próxima.
+              </p>
+            )}
+            <div className="token-sprite-list">
+              {(selected.sprites ?? []).map((s) => (
+                <div
+                  key={s.id}
+                  className={'token-sprite-chip' + (selected.activeSpriteId === s.id ? ' on' : '')}
+                  title={s.name}
+                  onClick={() => selectSprite(s)}
+                >
+                  <span className="token-sprite-thumb" style={{ backgroundImage: `url(${s.image})` }} />
+                  <span className="token-sprite-name">{s.name}</span>
+                  <button
+                    className="token-sprite-x"
+                    title="Renomear"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      renameSprite(s);
+                    }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    className="token-sprite-x"
+                    title="Excluir"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeSprite(s);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button className="small ghost" onClick={() => spriteInputRef.current?.click()}>
+                + variante
+              </button>
+            </div>
+            <input
+              ref={spriteInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                void addSprite(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </div>
           <div className="row" style={{ marginTop: 6 }}>
             <button className="small" onClick={() => setSelId(null)}>
               Fechar
