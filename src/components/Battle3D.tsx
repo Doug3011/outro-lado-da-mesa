@@ -94,6 +94,18 @@ function CameraFollower({ camera3d }: { camera3d: Camera3D | null }) {
   return null;
 }
 
+// Achado numa varredura de performance: `camera3d` era lido direto dentro do
+// `Battle3D()` principal — pra quem assiste (jogador), a rede atualiza esse
+// valor ~16x/segundo (ver SEND_EVERY_MS em CameraBroadcaster), e CADA
+// atualização re-executava o componente INTEIRO (toolbar, HUD, listas de
+// token/objeto), não só a câmera. Isolando a assinatura do Zustand aqui
+// dentro, só esse componente-folha (que não renderiza nada de verdade, só
+// alimenta o `useFrame` de CameraFollower) re-executa a cada tique.
+function CameraFollowerSync() {
+  const camera3d = useTableStore((s) => s.camera3d);
+  return <CameraFollower camera3d={camera3d} />;
+}
+
 function TokenHtmlLabel({ token, y }: { token: Token; y: number }) {
   const hp = token.hp;
   return (
@@ -208,11 +220,11 @@ export function Battle3D() {
   const activeSceneId = useTableStore((s) => s.activeSceneId);
   const characters = useTableStore((s) => s.characters);
   const users = useTableStore((s) => s.users);
-  const camera3d = useTableStore((s) => s.camera3d);
   const upsertToken = useTableStore((s) => s.upsertToken);
   const moveToken = useTableStore((s) => s.moveToken);
   const deleteToken = useTableStore((s) => s.deleteToken);
   const updatePlace3d = useTableStore((s) => s.updatePlace3d);
+  const moveObject3dLive = useTableStore((s) => s.moveObject3dLive);
   const setCamera3d = useTableStore((s) => s.setCamera3d);
   const addScene3d = useTableStore((s) => s.addScene3d);
   const addScene = useTableStore((s) => s.addScene);
@@ -389,10 +401,12 @@ export function Battle3D() {
       const now = performance.now();
       if (now - lastObjSent.current > SEND_EVERY_MS) {
         lastObjSent.current = now;
-        updatePlace3d({ objects3d: objects.map((o) => (o.id === id ? { ...o, x, z } : o)) });
+        // Leve (sem persist/DB) — ver comentário em moveObject3dLive,
+        // useTableStore.ts. O commit de verdade é no onDragEnd, abaixo.
+        moveObject3dLive(id, x, z);
       }
     },
-    [objects, updatePlace3d],
+    [moveObject3dLive],
   );
   const onObjectDragEnd = useCallback(
     (id: string, x: number, z: number) => {
@@ -627,7 +641,7 @@ export function Battle3D() {
               {renderObjects()}
               {renderTokens(false)}
             </Suspense>
-            <CameraFollower camera3d={camera3d} />
+            <CameraFollowerSync />
           </Canvas>
         </div>
       </>

@@ -268,8 +268,19 @@ function applyToState(ev) {
       roomState.music = ev.payload;
       break;
     case 'place3d:update': {
+      // BUG achado numa varredura (ground/objects3d eram os únicos campos
+      // aplicados aqui) — groundSize/terrain/sky/skyPreset do mestre nunca
+      // chegavam no estado AUTORITATIVO do servidor: ficavam de fora do
+      // save.json e, pior, de quem reconectava/entrava no meio da sessão
+      // (stateForClient manda roomState.scenes, que nunca tinha esses
+      // campos atualizados — via o cliente, o mestre via relevo/céu
+      // certinho, mas quem reconectava via o chão liso/sem céu).
       const sc = findOrCreateScene(ev.payload.sceneId);
       if (ev.payload.ground !== undefined) sc.ground = ev.payload.ground;
+      if (ev.payload.groundSize !== undefined) sc.groundSize = ev.payload.groundSize;
+      if (ev.payload.terrain !== undefined) sc.terrain = ev.payload.terrain;
+      if (ev.payload.sky !== undefined) sc.sky = ev.payload.sky;
+      if (ev.payload.skyPreset !== undefined) sc.skyPreset = ev.payload.skyPreset;
       if (ev.payload.objects3d !== undefined) sc.objects3d = ev.payload.objects3d;
       break;
     }
@@ -812,12 +823,15 @@ function handlePlacesApi(req, res, urlObj) {
             name: String(body.name || 'Cenário sem nome').slice(0, 120),
             updatedAt: Date.now(),
             ground: body.ground && typeof body.ground === 'object' ? body.ground : null,
-            // BUG achado: esses 2 campos (leva anterior — céu/tamanho do
-            // chão) não estavam na reconstrução aqui, então eram
+            // BUG achado: esses campos (groundSize/sky corrigidos numa leva
+            // anterior; terrain/skyPreset achados numa varredura de bugs
+            // depois) não estavam na reconstrução aqui, então eram
             // silenciosamente descartados em TODO save, mesmo sem nenhum
             // problema de tamanho.
             groundSize: typeof body.groundSize === 'number' ? body.groundSize : undefined,
+            terrain: body.terrain && typeof body.terrain === 'object' ? body.terrain : null,
             sky: typeof body.sky === 'boolean' ? body.sky : undefined,
+            skyPreset: typeof body.skyPreset === 'string' ? body.skyPreset : undefined,
             objects: Array.isArray(body.objects) ? body.objects : [],
           };
           const i = places.findIndex((x) => x.id === id);

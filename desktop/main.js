@@ -8,6 +8,22 @@ const path = require('node:path');
 const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
+// Rede de segurança pro processo PRINCIPAL — achada numa varredura de bugs.
+// `server.cjs` (o servidor HTTP/WebSocket/UDP) roda `require()`ado aqui
+// dentro, no MESMO processo (não um processo filho) — qualquer erro não
+// tratado em QUALQUER lugar dos dois arquivos sobe até aqui e, sem isso,
+// derruba o app inteiro na hora, sem aviso nenhum (já aconteceu uma vez de
+// verdade — ver o maxPayload do WebSocket em server/main.cjs, corrigido
+// depois do app crashar de vez pra todo mundo numa sessão). Só loga e
+// segue — perder uma mensagem/requisição é muito melhor que fechar o app
+// sozinho no meio de uma sessão.
+process.on('uncaughtException', (err) => {
+  console.error('[main] erro não tratado (processo principal), app continua:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[main] promise rejeitada sem catch (processo principal), app continua:', err);
+});
+
 // O servidor abre a própria janela via `start msedge --app=...` quando rodado
 // como .exe portátil — aqui quem cria a janela é o Electron, então isso é desligado.
 process.env.ORDEM_NO_OPEN = '1';

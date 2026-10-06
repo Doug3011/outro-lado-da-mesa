@@ -8,15 +8,21 @@ import { MinigameTest } from './pages/MinigameTest';
 import { SettingsGear } from './components/SettingsGear';
 import { MenuMusicController } from './components/MenuMusicController';
 import { PromptDialog } from './components/PromptDialog';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { toggleFullscreen } from './lib/fullscreen';
 
 // MenuMusicController e SettingsGear usam useLocation() (pra saber se está
 // numa mesa) — com createBrowserRouter, isso só funciona dentro da árvore do
 // router, então entram aqui como rota-layout em vez de irmãos de <RouterProvider>.
+// `<Outlet/>` (a página ativa) entra num ErrorBoundary próprio — se ALGUMA
+// página quebrar, os controles globais (música do menu, engrenagem,
+// diálogo de texto) continuam funcionando por cima do aviso de erro.
 function Layout() {
   return (
     <>
-      <Outlet />
+      <ErrorBoundary>
+        <Outlet />
+      </ErrorBoundary>
       <MenuMusicController />
       <SettingsGear />
       <PromptDialog />

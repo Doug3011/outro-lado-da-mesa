@@ -122,6 +122,12 @@ interface TableState {
     skyPreset?: SkyPreset;
     objects3d?: PlaceObject[];
   }) => void;
+  // versão "leve" de updatePlace3d pra arraste AO VIVO de objeto 3D — só
+  // estado+rede, sem persist()/pushScenesToDb() (ver comentário na
+  // implementação, achado numa varredura de performance: isso rodando a
+  // cada ~60ms durante um arraste gravava a cena INTEIRA no localStorage e
+  // disparava um PUT assíncrono pro banco a cada tick, travando a UI).
+  moveObject3dLive: (id: string, x: number, z: number) => void;
   setCamera3d: (position: [number, number, number], target: [number, number, number]) => void;
 
   setMusicState: (next: MusicState) => void;
@@ -688,6 +694,28 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       pushScenesToDb();
       get().conn?.send({ type: 'place3d:update', payload: { sceneId, ...patch } });
+    },
+
+    // Mesma ideia de moveToken (lado 2D): só atualiza estado local + manda
+    // pela rede, sem persist()/pushScenesToDb() — o commit "de verdade" (com
+    // persistência) acontece em onDragEnd, via updatePlace3d. Achado numa
+    // varredura de performance: moveObjectLive (Battle3D.tsx) chamava
+    // updatePlace3d DIRETO a cada ~60ms durante o arraste de um objeto 3D —
+    // isso serializa a cena INTEIRA (possivelmente com modelo .glb grande
+    // embutido) pro localStorage de forma SÍNCRONA, travando a thread
+    // principal, e ainda dispara um PUT assíncrono pro banco a cada tick.
+    moveObject3dLive: (id, x, z) => {
+      const sceneId = get().activeSceneId;
+      let nextObjects: PlaceObject[] | undefined;
+      set(() => ({
+        scenes: patchScene(sceneId, (sc) => {
+          nextObjects = sc.objects3d.map((o) => (o.id === id ? { ...o, x, z } : o));
+          return { ...sc, objects3d: nextObjects };
+        }),
+      }));
+      if (nextObjects) {
+        get().conn?.send({ type: 'place3d:update', payload: { sceneId, objects3d: nextObjects } });
+      }
     },
 
     setCamera3d: (position, target) => {
