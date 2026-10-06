@@ -38,7 +38,6 @@ export function BattleMap() {
   const [measureLine, setMeasureLine] = useState<
     { x1: number; y1: number; x2: number; y2: number } | null
   >(null);
-  const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [fogMode, setFogMode] = useState(false);
   const [fogWorking, setFogWorking] = useState<Set<string> | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
@@ -51,6 +50,9 @@ export function BattleMap() {
   const bgInputRef = useRef<HTMLInputElement>(null);
   const tokenInputRef = useRef<HTMLInputElement>(null);
   const spriteInputRef = useRef<HTMLInputElement>(null);
+  // Acesso direto ao <div> de cada token na tela, pra mutar left/top sem
+  // passar pelo React durante o arraste — ver onTokenPointerDown abaixo.
+  const tokenElsRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const W = map.cols * map.cellSize;
   const H = map.rows * map.cellSize;
@@ -68,7 +70,19 @@ export function BattleMap() {
     };
   };
 
-  /* -------- arraste de token (listeners em window: não perde o mouse em movimento rápido) -------- */
+  /* -------- arraste de token (listeners em window: não perde o mouse em movimento rápido) --------
+     Achado numa varredura de bugs (usuário: "travamento ao arrastar o
+     token rápido"): a posição ao vivo vinha de `setDrag(...)` chamado em
+     TODO `pointermove` cru, sem throttle nenhum — cada pixel de mouse
+     movido disparava um re-render do BattleMap inteiro (todos os tokens,
+     peças de cenário, névoa, grade). Arrastando rápido, o navegador gera
+     muito mais eventos de pointermove por segundo do que a UI dava conta
+     de re-renderizar, travando visivelmente. Mesmo problema já resolvido
+     no lado 3D (ref direto do three.js em vez de setState) — aqui o
+     equivalente é mutar `style.left/top` do próprio <div> do token direto
+     via `tokenElsRef`, sem passar pelo React. O envio pela rede continua
+     throttled em SEND_EVERY_MS, só a atualização VISUAL local que deixou
+     de depender de re-render. */
   const onTokenPointerDown = (e: React.PointerEvent, t: Token) => {
     if (measure || fogMode) return;
     e.stopPropagation();
@@ -96,7 +110,11 @@ export function BattleMap() {
       const dy = (ev.clientY - startY) / zoom / cell;
       cur = clamp(originX + dx, originY + dy);
       moved = true;
-      setDrag({ id: t.id, x: cur.x, y: cur.y });
+      const el = tokenElsRef.current.get(t.id);
+      if (el) {
+        el.style.left = `${cur.x * cell}px`;
+        el.style.top = `${cur.y * cell}px`;
+      }
       const now = performance.now();
       if (now - lastSentRef.current > SEND_EVERY_MS) {
         lastSentRef.current = now;
@@ -106,9 +124,10 @@ export function BattleMap() {
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      setDrag(null);
       if (moved) {
         // posição final via upsert: persiste no cache/BD além de sincronizar
+        // — o re-render disparado por isso já traz left/top certinho de
+        // volta (vindo de t.x/t.y), sem precisar "desfazer" a mutação direta.
         upsertToken({ ...t, x: Math.round(cur.x * 2) / 2, y: Math.round(cur.y * 2) / 2 });
       }
     };
@@ -411,9 +430,6 @@ export function BattleMap() {
   const measureDist = measureLine
     ? Math.hypot(measureLine.x2 - measureLine.x1, measureLine.y2 - measureLine.y1)
     : 0;
-
-  const renderX = (t: Token) => (drag && drag.id === t.id ? drag.x : t.x);
-  const renderY = (t: Token) => (drag && drag.id === t.id ? drag.y : t.y);
 
   return (
     <>
@@ -899,11 +915,15 @@ export function BattleMap() {
             return (
             <div
               key={t.id}
+              ref={(el) => {
+                if (el) tokenElsRef.current.set(t.id, el);
+                else tokenElsRef.current.delete(t.id);
+              }}
               className={'token ' + (free ? 'token-free ' : '') + (selId === t.id ? 'selected' : '')}
               onPointerDown={(e) => onTokenPointerDown(e, t)}
               style={{
-                left: renderX(t) * map.cellSize,
-                top: renderY(t) * map.cellSize,
+                left: t.x * map.cellSize,
+                top: t.y * map.cellSize,
                 width: tokenPxSize(t),
                 height: tokenPxSize(t),
                 margin: 3,
