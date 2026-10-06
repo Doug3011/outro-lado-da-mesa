@@ -6,6 +6,7 @@ import { randomColor, uid } from '../lib/ids';
 import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
 import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
+import { useKeybinds } from '../lib/keybinds';
 import { MapPickerDialog } from './MapPickerDialog';
 import { PlacePickerDialog } from './PlacePickerDialog';
 import type { Token, TokenSprite } from '../types';
@@ -34,6 +35,12 @@ export function BattleMap() {
 
   const [zoom, setZoom] = useState(1);
   const [selId, setSelId] = useState<string | null>(null);
+  // Separado de `selId` de propósito — pedido do usuário: arrastar um
+  // token seleciona ele (atalhos de teclado continuam funcionando) mas
+  // NÃO deve abrir a ficha na tela; só um clique de verdade (sem
+  // arrastar) ou a tecla configurada pra isso (padrão Enter) abre.
+  const [panelOpen, setPanelOpen] = useState(false);
+  const keybinds = useKeybinds();
   const [measure, setMeasure] = useState(false);
   const [measureLine, setMeasureLine] = useState<
     { x1: number; y1: number; x2: number; y2: number } | null
@@ -88,6 +95,7 @@ export function BattleMap() {
     e.stopPropagation();
     e.preventDefault();
     setSelId(t.id);
+    setPanelOpen(false);
 
     const startX = e.clientX;
     const startY = e.clientY;
@@ -129,6 +137,9 @@ export function BattleMap() {
         // — o re-render disparado por isso já traz left/top certinho de
         // volta (vindo de t.x/t.y), sem precisar "desfazer" a mutação direta.
         upsertToken({ ...t, x: Math.round(cur.x * 2) / 2, y: Math.round(cur.y * 2) / 2 });
+      } else {
+        // clique sem arrastar nenhum pixel = abre a ficha de verdade
+        setPanelOpen(true);
       }
     };
     window.addEventListener('pointermove', onMove);
@@ -330,39 +341,128 @@ export function BattleMap() {
     patchToken({ image: next.image, activeSpriteId: next.id });
   };
 
-  // Atalhos de teclado pro token selecionado — ←/→ giram 15° (mesmo passo
-  // dos botões "Virar pra"), ↑/↓ ajustam o tamanho PIXEL A PIXEL (liberdade
-  // fina, independente dos múltiplos de célula do seletor), V alterna pra
-  // próxima variante de imagem (pedido do usuário: trocar rápido entre
-  // "sem arma"/"com arma" etc. durante a mesa). Ignora quando o foco tá num
-  // campo de texto/número (ex.: digitando o nome do token), senão roubaria
-  // a seta do cursor/digitação.
+  // Sempre aponta pro token selecionado MAIS RECENTE, sem precisar que o
+  // loop de animação abaixo dependa dele (ver por quê no comentário do
+  // useEffect principal) — lido a cada frame/evento, nunca fica obsoleto.
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const patchSelectedLive = (p: Partial<Token>) => {
+    const cur = selectedRef.current;
+    if (!cur) return;
+    upsertToken({ ...cur, ...p });
+  };
+
+  // Atalhos de teclado pro token selecionado — teclas configuráveis (⚙
+  // Configurações → Controles, ver lib/keybinds.ts), padrão ←/→ gira e
+  // ↑/↓ redimensiona. Achado numa varredura de bugs (usuário: "quero que
+  // ele gire mais fluido, está travado"): a versão antiga pulava um
+  // ângulo FIXO a cada `keydown`, então segurar a tecla dependia do
+  // repeat do sistema operacional (sempre com uma pausa inicial e um
+  // ritmo irregular — nunca fica "fluido" de verdade). Agora é um loop de
+  // animação (`requestAnimationFrame`) que gira/redimensiona de forma
+  // CONTÍNUA enquanto a tecla está pressionada, à base de graus/px por
+  // segundo. A posição "ao vivo" muta o DOM direto (mesmo padrão já usado
+  // no arraste, `tokenElsRef`/`.tk-img`) — só o COMMIT pra store/rede fica
+  // throttled em SEND_EVERY_MS, senão viraria o mesmo tipo de travamento
+  // já corrigido no arraste (gravar o estado inteiro a cada frame).
+  // V (padrão) alterna pra próxima variante de imagem, Enter (padrão)
+  // abre a ficha — ambos de disparo único, não contínuo.
   useEffect(() => {
     if (!selected) return;
+    const heldCodes = new Set<string>();
+    const ROTATE_DEG_PER_SEC = 240;
+    const RESIZE_PX_PER_SEC = 160;
+    let liveRotation = selected.rotation ?? 0;
+    let liveSizePx = tokenPxSize(selected);
+    let lastFrame = performance.now();
+    let lastCommit = 0;
+
+    // `setInterval`, não `requestAnimationFrame` — de propósito. rAF é
+    // pausado pelo Chromium em janela oculta/minimizada/sem foco (achado
+    // na hora de testar: numa janela `show:false` o giro simplesmente
+    // parava depois do 1º tick), então um giro que depende dele também
+    // travaria de verdade se a pessoa minimizar a janela no meio do jogo.
+    // setInterval roda independente de composição visual — usa o tempo
+    // decorrido de verdade (`dt`) a cada tique, então o RITMO continua
+    // certo mesmo se o intervalo entre chamadas não for perfeitamente
+    // regular.
+    const tick = () => {
+      const now = performance.now();
+      const dt = Math.min((now - lastFrame) / 1000, 0.1); // clamp: 2º plano não "pula"
+      lastFrame = now;
+      if (heldCodes.size === 0) return;
+      let changed = false;
+      if (heldCodes.has(keybinds['token-rotate-left'])) {
+        liveRotation = (((liveRotation - ROTATE_DEG_PER_SEC * dt) % 360) + 360) % 360;
+        changed = true;
+      }
+      if (heldCodes.has(keybinds['token-rotate-right'])) {
+        liveRotation = (((liveRotation + ROTATE_DEG_PER_SEC * dt) % 360) + 360) % 360;
+        changed = true;
+      }
+      if (heldCodes.has(keybinds['token-resize-up'])) {
+        liveSizePx = Math.min(liveSizePx + RESIZE_PX_PER_SEC * dt, map.cellSize * 10);
+        changed = true;
+      }
+      if (heldCodes.has(keybinds['token-resize-down'])) {
+        liveSizePx = Math.max(liveSizePx - RESIZE_PX_PER_SEC * dt, 8);
+        changed = true;
+      }
+      if (!changed) return;
+      const cur = selectedRef.current;
+      const el = cur ? tokenElsRef.current.get(cur.id) : null;
+      if (el) {
+        const img = el.querySelector<HTMLElement>('.tk-img');
+        if (img) img.style.transform = `rotate(${liveRotation}deg)`;
+        el.style.width = `${liveSizePx}px`;
+        el.style.height = `${liveSizePx}px`;
+      }
+      if (now - lastCommit > SEND_EVERY_MS) {
+        lastCommit = now;
+        patchSelectedLive({ rotation: liveRotation, sizePx: liveSizePx });
+      }
+    };
+    const intervalId = window.setInterval(tick, 16);
+
+    const rotateResizeKeys = [
+      keybinds['token-rotate-left'],
+      keybinds['token-rotate-right'],
+      keybinds['token-resize-up'],
+      keybinds['token-resize-down'],
+    ];
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (document.activeElement?.tagName ?? '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-      if (e.key === 'ArrowLeft') {
+      if (rotateResizeKeys.includes(e.code)) {
         e.preventDefault();
-        patchToken({ rotation: (((selected.rotation ?? 0) - 15) % 360 + 360) % 360 });
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        patchToken({ rotation: (((selected.rotation ?? 0) + 15) % 360 + 360) % 360 });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        patchToken({ sizePx: Math.min(tokenPxSize(selected) + 1, map.cellSize * 10) });
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        patchToken({ sizePx: Math.max(tokenPxSize(selected) - 1, 8) });
-      } else if (e.key.toLowerCase() === 'v') {
+        heldCodes.add(e.code);
+      } else if (e.code === keybinds['token-cycle-sprite']) {
         e.preventDefault();
         cycleSprite();
+      } else if (e.code === keybinds['token-open-panel']) {
+        e.preventDefault();
+        setPanelOpen(true);
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!heldCodes.delete(e.code)) return;
+      // commit final na hora de soltar — não espera o próximo throttle
+      patchSelectedLive({ rotation: liveRotation, sizePx: liveSizePx });
+    };
+    // solta tudo se a janela perder o foco com alguma tecla presa (alt-tab
+    // no meio do giro, por exemplo) — senão o estado "preso" nunca solta.
+    const onBlur = () => heldCodes.clear();
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('keydown', onKeyDown);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, map.cellSize]);
+  }, [selId, keybinds]);
 
   const onPickTokenImage = async (file: File | undefined) => {
     if (!file || !selected) return;
@@ -642,7 +742,7 @@ export function BattleMap() {
         />
       </div>
 
-      {selected && (
+      {selected && panelOpen && (
         <div className="token-editor">
           <div className="row">
             <input value={selected.label} onChange={(e) => patchToken({ label: e.target.value })} />
@@ -654,7 +754,8 @@ export function BattleMap() {
             />
           </div>
           <p className="faint" style={{ fontSize: 11, margin: '6px 0 0' }}>
-            Token selecionado: <b>←/→</b> gira, <b>↑/↓</b> ajusta o tamanho pixel a pixel.
+            Atalhos do token funcionam mesmo com a ficha fechada — configure em ⚙ Configurações
+            → Controles.
           </p>
           <div className="row" style={{ marginTop: 6 }}>
             <div>
@@ -827,7 +928,7 @@ export function BattleMap() {
             />
           </div>
           <div className="row" style={{ marginTop: 6 }}>
-            <button className="small" onClick={() => setSelId(null)}>
+            <button className="small" onClick={() => setPanelOpen(false)}>
               Fechar
             </button>
             <button
@@ -835,6 +936,7 @@ export function BattleMap() {
               onClick={() => {
                 deleteToken(selected.id);
                 setSelId(null);
+                setPanelOpen(false);
               }}
             >
               Remover
