@@ -22,6 +22,12 @@ export function AmbientPanel() {
 
   useEffect(() => {
     localStorage.setItem(VOLUME_KEY, String(volume));
+    // Achado num bug reportado pelo usuário ("não está funcionando o
+    // controlador de volume"): sem esse evento, o slider só mudava o
+    // volume do PRÓXIMO som disparado — um som já tocando (ou vários
+    // sobrepostos, o soundboard permite) ficava surdo pra mudança.
+    // Mesmo padrão que o volume da música já usa (MusicPanel.tsx).
+    window.dispatchEvent(new CustomEvent('ordem:ambient-volume', { detail: volume }));
   }, [volume]);
 
   return (
