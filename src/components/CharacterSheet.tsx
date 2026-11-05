@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useTableStore } from '../store/useTableStore';
+import { activeScene, useTableStore } from '../store/useTableStore';
 import {
   ATTRIBUTES,
   CLASSES,
@@ -41,11 +40,14 @@ import {
 } from '../domain/character';
 import { uid } from '../lib/ids';
 import { fileToDownscaledDataURL } from '../lib/image';
-import { CharacterSheetPaper } from './CharacterSheetPaper';
 import { RITUALS, type RitualDef } from '../data/rituals';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
 import { CLASS_POWERS, type ClassPowerDef } from '../data/classPowers';
 import { PARANORMAL_BY_KEY, PARANORMAL_POWERS } from '../data/paranormalPowers';
+import type { CatalogItem } from '../data/equipmentCatalog';
+import { EquipmentCatalogDialog } from './EquipmentCatalogDialog';
+import { FichaQr } from './FichaQr';
+import { TokenLinkDialog } from './TokenLinkDialog';
 
 type SheetTab =
   | 'geral'
@@ -69,25 +71,37 @@ const SHEET_TABS: { key: SheetTab; label: string }[] = [
 export function CharacterSheet({
   character,
   onSave,
-  defaultView,
 }: {
   character: Character;
   // Quando informado, usado no lugar do upsertCharacter da mesa pra salvar —
   // é assim que a ficha funciona fora de uma mesa (biblioteca do jogador).
   onSave?: (c: Character) => void;
-  // Ex.: o mestre abrindo a ficha de um jogador numa aba já entra direto na
-  // visão em papel (ver `GmCharacterTabs`).
-  defaultView?: 'editar' | 'papel';
 }) {
   const upsertCharacter = useTableStore((s) => s.upsertCharacter);
   const rollOrdem = useTableStore((s) => s.rollOrdem);
   const rollFree = useTableStore((s) => s.rollFree);
   const notify = useTableStore((s) => s.notify);
+  const scenes = useTableStore((s) => s.scenes);
+  const activeSceneId = useTableStore((s) => s.activeSceneId);
 
   const [draft, setDraft] = useState<Character>(character);
+  // Token que já representa esse personagem no cenário ativo (ver
+  // TokenLinkDialog.tsx) — ausente/`null` = ainda sem token vinculado.
+  const [showTokenLink, setShowTokenLink] = useState(false);
+  const linkedToken = useMemo(() => {
+    if (scenes.length === 0) return null;
+    const scene = activeScene({ scenes, activeSceneId });
+    return Object.values(scene.tokens).find((t) => t.characterId === draft.id) ?? null;
+  }, [scenes, activeSceneId, draft.id]);
   const [tab, setTab] = useState<SheetTab>('geral');
-  const [view, setView] = useState<'editar' | 'papel'>(defaultView ?? 'editar');
   const [ritualFilter, setRitualFilter] = useState('');
+  const [showEquipCatalog, setShowEquipCatalog] = useState(false);
+  // Habilidades: card por habilidade, descrição recolhida por padrão quando
+  // a lista tem muitas (ex. ficha importada da Cris, que pode trazer 10+)
+  // — pedido do usuário, aba ficava "muito confusa" com tudo expandido ao
+  // mesmo tempo. Guarda só as EXCEÇÕES ao padrão (toggle individual), não o
+  // estado absoluto, pra sobreviver bem a abilities adicionadas/removidas.
+  const [abilityOverrides, setAbilityOverrides] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingRemote = useRef<Character | null>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -199,6 +213,47 @@ export function CharacterSheet({
   const pendingTotal = pendingPowerSlots.length + pendingAttrSlots.length + pendingTrainSlots.length;
   const abilityFor = (id: string) => draft.abilities.find((a) => a.id === id);
 
+  // Agrupa as habilidades da aba Combate por origem (campo `source` de cada
+  // uma) pra não jogar tudo numa lista plana só — se todas tiverem a mesma
+  // origem (ex. ficha importada da Cris, onde tudo vem como "Importado da
+  // Cris"), cai num grupo só e o rótulo nem aparece (ver abilityGroups.length
+  // > 1 no JSX), então não força uma divisão artificial que não ajudaria.
+  const abilityGroups = useMemo(() => {
+    const order: string[] = [];
+    const map = new Map<string, Character['abilities']>();
+    for (const ab of draft.abilities) {
+      const key = ab.source.trim() || 'Sem origem';
+      if (!map.has(key)) {
+        map.set(key, []);
+        order.push(key);
+      }
+      map.get(key)!.push(ab);
+    }
+    return order.map((key) => ({ key, label: key, items: map.get(key)! }));
+  }, [draft.abilities]);
+
+  // Com muitas habilidades (ex. 11 importadas da Cris) a descrição de cada
+  // card vem recolhida por padrão — só o nome/origem no cabeçalho — porque
+  // expandir tudo de uma vez é exatamente o que ficava "muito confuso".
+  // `abilityOverrides` guarda só quem foge do padrão (clicou pra abrir/
+  // fechar manualmente), então adicionar/remover habilidade não bagunça o
+  // estado de quem já estava aberto.
+  const abilityManyExpand = {
+    manyAbilities: draft.abilities.length > 4,
+    isExpanded(id: string) {
+      const defaultExpanded = draft.abilities.length <= 4;
+      return abilityOverrides.has(id) ? !defaultExpanded : defaultExpanded;
+    },
+    toggle(id: string) {
+      setAbilityOverrides((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    },
+  };
+
   return (
     <div className="sheet" ref={containerRef} onBlurCapture={onBlurCapture}>
       <div className="row">
@@ -219,38 +274,22 @@ export function CharacterSheet({
         </div>
       </div>
 
-      <div className="sheet-view-toggle">
-        <span className="chip" onClick={() => setView('papel')}>
-          📄 Ver ficha em papel
+      <div className="row" style={{ marginTop: -6, marginBottom: 10, alignItems: 'center', gap: 8 }}>
+        <span className="faint" style={{ fontSize: 12, flex: 1 }}>
+          {linkedToken ? (
+            <>
+              Token na mesa: <b>{linkedToken.label}</b>
+            </>
+          ) : (
+            'Sem token vinculado nesta mesa ainda'
+          )}
         </span>
+        <button className="small ghost" style={{ flex: 'none' }} onClick={() => setShowTokenLink(true)}>
+          {linkedToken ? 'Trocar token' : 'Vincular token'}
+        </button>
       </div>
 
-      {view === 'papel' &&
-        createPortal(
-          <div
-            className="paper-overlay"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setView('editar');
-            }}
-          >
-            <div className="paper-overlay-inner">
-              <div className="paper-overlay-bar">
-                <button className="small ghost" onClick={() => setView('editar')}>
-                  ✕ Fechar
-                </button>
-                <button className="small" onClick={() => window.print()}>
-                  🖨 Imprimir
-                </button>
-              </div>
-              <CharacterSheetPaper character={draft} />
-            </div>
-          </div>,
-          document.body,
-        )}
-
-      {view === 'editar' && (
-        <>
-          <div className="sheet-tabs">
+      <div className="sheet-tabs">
             {SHEET_TABS.map((t) => (
               <span
                 key={t.key}
@@ -842,37 +881,76 @@ export function CharacterSheet({
             }
           />
 
-          <div className="section-title">Habilidades</div>
-          {draft.abilities.map((ab) => (
-            <div className="list-item" key={ab.id}>
-              <div className="li-head">
-                <input
-                  value={ab.name}
-                  placeholder="Nome"
-                  onChange={(e) => updateAbility(draft, patch, ab.id, { name: e.target.value })}
-                />
+          <div className="section-title">
+            Habilidades
+            {abilityManyExpand.manyAbilities && (
+              <span className="section-title-actions">
+                <button className="small ghost" onClick={() => setAbilityOverrides(new Set())}>
+                  Recolher todas
+                </button>
                 <button
                   className="small ghost"
-                  onClick={() =>
-                    patch({ abilities: draft.abilities.filter((a) => a.id !== ab.id) })
-                  }
+                  onClick={() => setAbilityOverrides(new Set(draft.abilities.map((a) => a.id)))}
                 >
-                  ✕
+                  Expandir todas
                 </button>
-              </div>
-              <input
-                style={{ marginTop: 6 }}
-                value={ab.source}
-                placeholder="Origem (classe, poder paranormal...)"
-                onChange={(e) => updateAbility(draft, patch, ab.id, { source: e.target.value })}
-              />
-              <textarea
-                style={{ marginTop: 6 }}
-                value={ab.description}
-                onChange={(e) =>
-                  updateAbility(draft, patch, ab.id, { description: e.target.value })
-                }
-              />
+              </span>
+            )}
+          </div>
+          {abilityGroups.map((group) => (
+            <div className="ability-group" key={group.key}>
+              {abilityGroups.length > 1 && <div className="ability-group-label">{group.label}</div>}
+              {group.items.map((ab) => {
+                const expanded = abilityManyExpand.isExpanded(ab.id);
+                const preview = ab.description.trim();
+                return (
+                  <div className={`ability-card${expanded ? ' expanded' : ''}`} key={ab.id}>
+                    <div
+                      className="ability-card-head"
+                      onClick={() => abilityManyExpand.toggle(ab.id)}
+                    >
+                      <span className="ability-chevron">{expanded ? '▾' : '▸'}</span>
+                      <div className="ability-card-title">
+                        <input
+                          className="ability-name-input"
+                          value={ab.name}
+                          placeholder="Nome da habilidade"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => updateAbility(draft, patch, ab.id, { name: e.target.value })}
+                        />
+                        <input
+                          className="ability-source-input"
+                          value={ab.source}
+                          placeholder="Origem (classe, trilha, paranormal...)"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => updateAbility(draft, patch, ab.id, { source: e.target.value })}
+                        />
+                      </div>
+                      <button
+                        className="small ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          patch({ abilities: draft.abilities.filter((a) => a.id !== ab.id) });
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {expanded ? (
+                      <textarea
+                        className="ability-description"
+                        value={ab.description}
+                        placeholder="Descrição"
+                        onChange={(e) => updateAbility(draft, patch, ab.id, { description: e.target.value })}
+                      />
+                    ) : preview ? (
+                      <p className="ability-preview" onClick={() => abilityManyExpand.toggle(ab.id)}>
+                        {preview.length > 120 ? `${preview.slice(0, 120)}…` : preview}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           ))}
           <button
@@ -949,12 +1027,23 @@ export function CharacterSheet({
               />
             </div>
           ))}
-          <button
-            className="small"
-            onClick={() => patch({ inventory: [...draft.inventory, emptyItem()] })}
-          >
-            + Adicionar item
-          </button>
+          <div className="row" style={{ marginTop: 4 }}>
+            <button
+              className="small"
+              onClick={() => patch({ inventory: [...draft.inventory, emptyItem()] })}
+            >
+              + Adicionar item
+            </button>
+            <button className="small" onClick={() => setShowEquipCatalog(true)}>
+              📖 Catálogo do livro
+            </button>
+          </div>
+          {showEquipCatalog && (
+            <EquipmentCatalogDialog
+              onAdd={(entry) => patch({ inventory: [...draft.inventory, itemFromCatalog(entry)] })}
+              onClose={() => setShowEquipCatalog(false)}
+            />
+          )}
         </div>
       )}
 
@@ -1111,7 +1200,11 @@ export function CharacterSheet({
           onChange={(e) => patch({ notes: e.target.value })}
         />
       )}
-        </>
+
+      <FichaQr characterId={draft.id} />
+
+      {showTokenLink && (
+        <TokenLinkDialog character={draft} mode="manage" onClose={() => setShowTokenLink(false)} />
       )}
     </div>
   );
@@ -1473,6 +1566,15 @@ function emptyAbility(): Character['abilities'][number] {
 }
 function emptyItem(): InventoryItem {
   return { id: uid(), name: '', category: '', qty: 1, slots: 1, notes: '' };
+}
+// Converte uma entrada do catálogo (lib/equipmentCatalog.ts) numa linha de
+// inventário de verdade — pedido do usuário: "clicar no item e ele ser
+// adicionado ao inventário". `category` do catálogo já vem pronta pra
+// copiar: "I"/"II"/etc. pra item de verdade, ou "+I"/"+II" pra modificação/
+// maldição (deixa claro que é um AUMENTO de categoria de outro item, não
+// uma categoria própria — ver comentário em equipmentCatalog.ts).
+function itemFromCatalog(entry: CatalogItem): InventoryItem {
+  return { id: uid(), name: entry.name, category: entry.category, qty: 1, slots: entry.slots, notes: entry.notes };
 }
 function emptyRitual(): Ritual {
   return {

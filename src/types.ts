@@ -68,6 +68,10 @@ export interface Token {
   // qual vem a seguir ao ciclar.
   sprites?: TokenSprite[];
   activeSpriteId?: string;
+  // Névoa modo "Lanterna" (ver MapState.fogKind) — liga/desliga o cone de luz
+  // desse token (tecla configurável, padrão L). Opcional/ausente = desligada,
+  // igual sempre foi antes desse campo existir.
+  lanternOn?: boolean;
 }
 
 // Peça solta plantada num mapa 2D (móvel, parede, decoração, textura de
@@ -101,6 +105,14 @@ export interface MapState {
   showGrid: boolean;
   metersPerCell: number; // Ordem usa 1,5 m por quadrado
   fogHidden?: string[]; // fog of war: chaves "x,y" das células escondidas dos jogadores
+  // Modo de névoa — "paint" (padrão/ausente) é a pintura manual de sempre
+  // (`fogHidden` acima); "lantern" é o modo "Lanterna" (pedido do usuário,
+  // portado do protótipo Godot): a área fica escura por padrão e cada token
+  // com a lanterna ligada (`Token.lanternOn`) revela um cone na frente dele
+  // (ver cellLitByToken em BattleMap.tsx). Trocar de modo só muda o que é
+  // EXIBIDO — `fogHidden` nunca é tocado enquanto "lantern" está ativo, então
+  // a pintura manual continua intacta ao voltar pro "paint".
+  fogKind?: 'paint' | 'lantern';
   // peças de cenário 2D plantadas no mapa (ver MapObject2D) — opcional,
   // ausente/vazio = mapa "clássico" de só uma imagem de fundo, zero
   // regressão em mesas salvas antes desse campo existir.
@@ -295,6 +307,26 @@ export interface SceneryAsset {
   id: string;
   name: string;
   ext: string;
+  folderId: string | null;
+  addedAt: number;
+}
+
+// Biblioteca de modelos/imagens pro editor de cenário 3D (Prototype3D.tsx) —
+// pedido do usuário: antes, colocar objeto era abrir um `<input type="file">`
+// nativo toda vez, sem reaproveitar nada já escolhido; agora é uma biblioteca
+// só (imagens E modelos 3D de verdade misturados, cada item sabe o próprio
+// `kind`/`ext`), servida via `lib/modelLibrary.ts`/`/api/models/*`, mesma
+// fábrica genérica de sempre (ver server/main.cjs). `kind:'image'` cobre as
+// três formas de usar uma imagem no cenário (em pé/billboard, chão, decalque
+// — a escolha de qual é feita no momento de plantar, não no import);
+// `kind:'model'` é sempre um modelo 3D real (.glb/.gltf/.fbx/.stl).
+export type ModelAssetKind = 'image' | 'model';
+
+export interface ModelAsset {
+  id: string;
+  name: string;
+  ext: string;
+  kind: ModelAssetKind;
   folderId: string | null;
   addedAt: number;
 }

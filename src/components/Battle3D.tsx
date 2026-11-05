@@ -24,6 +24,27 @@ import {
 import type { Camera3D } from '../lib/realtime';
 import { PlacePickerDialog } from './PlacePickerDialog';
 import { MapPickerDialog } from './MapPickerDialog';
+import { FloatingButton } from './FloatingButton';
+import { FloatingWindow } from './FloatingWindow';
+import { GmCharacterTabs } from './GmCharacterTabs';
+import { CharacterSheet } from './CharacterSheet';
+import { CharacterPanel } from './CharacterPanel';
+import { TokenLibraryManager } from './TokenLibraryManager';
+import { DiceRoller } from './DiceRoller';
+import { RollLog } from './RollLog';
+import { MusicAndAmbientPanel } from './MusicAndAmbientPanel';
+import { PlayerProfilesPanel } from './PlayerProfilesPanel';
+import {
+  CameraFloatIcon,
+  DadosFloatIcon,
+  FichaFloatIcon,
+  HistoricoFloatIcon,
+  MestreFloatIcon,
+  MusicasFloatIcon,
+  PerfisFloatIcon,
+  TokensFloatIcon,
+} from './icons';
+import { hasLan } from '../lib/lan';
 import type { PlaceObject, SkyPreset, TerrainConfig, Token, TokenSprite } from '../types';
 
 // Mesa 3D de verdade (Fase 3): mesmas abas/mecânicas da mesa 2D (dados,
@@ -221,7 +242,7 @@ export function Battle3D() {
   const characters = useTableStore((s) => s.characters);
   const users = useTableStore((s) => s.users);
   const upsertToken = useTableStore((s) => s.upsertToken);
-  const moveToken = useTableStore((s) => s.moveToken);
+  const broadcastTokenMove = useTableStore((s) => s.broadcastTokenMove);
   const deleteToken = useTableStore((s) => s.deleteToken);
   const updatePlace3d = useTableStore((s) => s.updatePlace3d);
   const moveObject3dLive = useTableStore((s) => s.moveObject3dLive);
@@ -238,11 +259,55 @@ export function Battle3D() {
   const ground = scene.ground;
   const objects = scene.objects3d;
   const tokens = scene.tokens;
+  // Sempre apontam pra lista MAIS RECENTE, sem precisar que `onObjectDragEnd`/
+  // `onTokenDragEnd` (abaixo) dependam de `objects`/`tokens` — ver comentário
+  // grande em `onObjectDragEnd`. Mesmo padrão de `selectedRef` em BattleMap.tsx.
+  const objectsRef = useRef(objects);
+  objectsRef.current = objects;
+  const tokensRef = useRef(tokens);
+  tokensRef.current = tokens;
 
   const [selKind, setSelKind] = useState<'token' | 'object' | null>(null);
   const [selId, setSelId] = useState<string | null>(null);
   const [showPlacePicker, setShowPlacePicker] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+
+  // ---- retrofit visual: toolbar antiga (.map-toolbar/.toolbar-sep/
+  // .map-cfg) virou botões/janelas flutuantes, mesmo tratamento já feito no
+  // mapa 2D (ver FloatingButton/FloatingWindow e BattleMap.tsx) — só pro
+  // mestre; jogador no 3D continua só assistindo (badge "AO VIVO", sem
+  // interação, ver branch `!isGM` abaixo).
+  const floatingLayerRef = useRef<HTMLDivElement>(null);
+  const [fichaOpen, setFichaOpen] = useState(false);
+  const [mestreOpen, setMestreOpen] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  // Botões "universais" (Dados/Histórico/Músicas/Perfis) — moravam no painel
+  // lateral antigo (Room.tsx), removido a pedido do usuário (mesmo motivo já
+  // aplicado ao mapa 2D, ver BattleMap.tsx); entram agora nesse mesmo sistema
+  // de botões/janelas flutuantes. Estado único reaproveitado pelos dois
+  // branches (mestre/jogador, mais abaixo) — só um deles renderiza por vez
+  // em cada cliente, então não há conflito.
+  const [dadosOpen, setDadosOpen] = useState(false);
+  const [historicoOpen, setHistoricoOpen] = useState(false);
+  const [musicasOpen, setMusicasOpen] = useState(false);
+  const [perfisOpen, setPerfisOpen] = useState(false);
+  // Abas de ficha abertas na janela flutuante "Ficha" — mesmo padrão de
+  // BattleMap.tsx (GmCharacterTabs abre, cada ficha vira sua própria
+  // FloatingWindow irmã, ver mais abaixo no JSX).
+  const [gmFichaTabs, setGmFichaTabs] = useState<string[]>([]);
+  const [activeGmFichaTab, setActiveGmFichaTab] = useState<string | null>(null);
+  const openGmFichaTab = (id: string) => {
+    setGmFichaTabs((t) => (t.includes(id) ? t : [...t, id]));
+    setActiveGmFichaTab(id);
+  };
+  const closeGmFichaTab = (id: string) => {
+    setGmFichaTabs((t) => {
+      const next = t.filter((x) => x !== id);
+      setActiveGmFichaTab((cur) => (cur === id ? next[next.length - 1] ?? null : cur));
+      return next;
+    });
+  };
 
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const camRef = useRef<THREE.Camera | null>(null);
@@ -408,11 +473,24 @@ export function Battle3D() {
     },
     [moveObject3dLive],
   );
+  // `objectsRef`/`tokensRef` (abaixo, perto de `onTokenDragEnd`): varredura
+  // de performance achou que esse `useCallback` tinha `objects` na lista de
+  // dependências — e `objects` troca de referência a CADA tique de
+  // `moveObjectLive` (array novo a cada `moveObject3dLive`, ver
+  // useTableStore.ts), então esse handler virava uma função NOVA a cada
+  // ~60ms durante QUALQUER arraste de objeto. Como esse mesmo handler é
+  // passado pra TODO SceneObject (ver `renderObjects` abaixo), isso quebrava
+  // o `memo` deles inteiro: mesmo objetos que não estavam sendo arrastados
+  // re-renderizavam a cada tique, proporcional à quantidade de objetos na
+  // cena — exatamente o "trava/recarrega tudo ao mover" relatado. Troca por
+  // ref (mesmo padrão de `selectedRef` em BattleMap.tsx): o handler fica
+  // ESTÁVEL de verdade (nunca muda de referência), mas ainda lê o `objects`
+  // mais recente na hora de comitar.
   const onObjectDragEnd = useCallback(
     (id: string, x: number, z: number) => {
-      updatePlace3d({ objects3d: objects.map((o) => (o.id === id ? { ...o, x, z } : o)) });
+      updatePlace3d({ objects3d: objectsRef.current.map((o) => (o.id === id ? { ...o, x, z } : o)) });
     },
-    [objects, updatePlace3d],
+    [updatePlace3d],
   );
 
   /* -------- tokens -------- */
@@ -468,6 +546,22 @@ export function Battle3D() {
     sprites = [...sprites, sprite];
     patchToken({ sprites, image: sprite.image, activeSpriteId: sprite.id });
   };
+  // Shift+clique numa miniatura da biblioteca de tokens (janela "Tokens"),
+  // com um token já selecionado na mesa, adiciona a imagem como VARIANTE dele
+  // em vez de criar um token novo — mesmo comportamento do mapa 2D (ver
+  // addVariantFromAsset em BattleMap.tsx).
+  const addVariantFromAsset = async (asset: { id: string; name: string }) => {
+    if (!selectedToken) return;
+    const url = await urlToDownscaledDataURL(tokenAssetUrl(asset.id), 320);
+    if (!url) return;
+    let sprites = selectedToken.sprites ?? [];
+    if (sprites.length === 0 && selectedToken.image) {
+      sprites = [{ id: uid(), name: 'Padrão', image: selectedToken.image }];
+    }
+    const sprite: TokenSprite = { id: uid(), name: asset.name, image: url };
+    sprites = [...sprites, sprite];
+    patchToken({ sprites, image: sprite.image, activeSpriteId: sprite.id });
+  };
   const selectSprite = (sprite: TokenSprite) => patchToken({ image: sprite.image, activeSpriteId: sprite.id });
   const renameSprite = async (sprite: TokenSprite) => {
     if (!selectedToken) return;
@@ -510,22 +604,34 @@ export function Battle3D() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedToken]);
 
+  // `broadcastTokenMove` (não `moveToken`) de propósito — ver comentário
+  // grande dela em useTableStore.ts: só manda pela rede, sem `set()` local,
+  // porque quem arrasta já vê a posição certa via `live.ref` (bypass de
+  // three.js, abaixo em `useGroundDrag`). Medido via FPS real (ver detalhes
+  // na store): numa mesa com muitos tokens, `moveToken` a cada tique
+  // throttled ocasionalmente estourava o orçamento de frame (picos de até
+  // ~70-80ms contra 16.6ms a 60fps), porque fazia `Battle3D()`
+  // re-renderizar e o React reconciliar a lista inteira de `Token3D`/
+  // `SceneObject` de novo mesmo com todos memoizados — o CUSTO de comparar
+  // as props pra bloquear o re-render ainda existe, e um orçamento de
+  // 16.6ms/frame sente isso de um jeito que o 2D, sem relógio de frame, não
+  // sente. `broadcastTokenMove` evita esse trabalho inteiro.
   const moveTokenLive = useCallback(
     (id: string, x: number, z: number) => {
       const now = performance.now();
       if (now - lastTokenSent.current > SEND_EVERY_MS) {
         lastTokenSent.current = now;
-        moveToken(id, x, z);
+        broadcastTokenMove(id, x, z);
       }
     },
-    [moveToken],
+    [broadcastTokenMove],
   );
   const onTokenDragEnd = useCallback(
     (id: string, x: number, z: number) => {
-      const t = tokens[id];
+      const t = tokensRef.current[id];
       if (t) upsertToken({ ...t, x: Math.round(x * 20) / 20, y: Math.round(z * 20) / 20 });
     },
-    [tokens, upsertToken],
+    [upsertToken],
   );
 
   // arrastar um token da biblioteca do mestre (aba Tokens) e soltar aqui —
@@ -622,8 +728,12 @@ export function Battle3D() {
 
   if (!isGM) {
     // jogador: só assiste — sem OrbitControls, câmera 100% ditada pelo que o
-    // mestre transmite; nenhuma interação com a cena (per pedido: só mexem em
-    // ficha/dados, a mesa em si é só o mestre quem controla).
+    // mestre transmite; nenhuma interação com a cena 3D em si (per pedido: só
+    // mexem em ficha/dados, a mesa em si é só o mestre quem controla). Os
+    // botões "universais" (Ficha/Dados/Histórico/Músicas) seguem disponíveis
+    // pro jogador aqui, mesmo tratamento/posições do mapa 2D (ver
+    // BattleMap.tsx) — sem equivalente de "Mapa" (zoom/medir), que é
+    // ferramenta só do mapa 2D.
     return (
       <>
         <div className="map-toolbar">
@@ -644,93 +754,303 @@ export function Battle3D() {
             <CameraFollowerSync />
           </Canvas>
         </div>
+
+        <div className="battle-floating-layer" ref={floatingLayerRef}>
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Ficha"
+            icon={<FichaFloatIcon />}
+            active={fichaOpen}
+            onActivate={() => setFichaOpen((o) => !o)}
+            topFrac={0.08}
+            rightFrac={0.04}
+          />
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Dados"
+            icon={<DadosFloatIcon />}
+            active={dadosOpen}
+            onActivate={() => setDadosOpen((o) => !o)}
+            topFrac={0.3}
+            rightFrac={0.04}
+          />
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Histórico"
+            icon={<HistoricoFloatIcon />}
+            active={historicoOpen}
+            onActivate={() => setHistoricoOpen((o) => !o)}
+            topFrac={0.41}
+            rightFrac={0.04}
+          />
+          {hasLan && (
+            <FloatingButton
+              containerRef={floatingLayerRef}
+              label="Músicas"
+              icon={<MusicasFloatIcon />}
+              active={musicasOpen}
+              onActivate={() => setMusicasOpen((o) => !o)}
+              topFrac={0.52}
+              rightFrac={0.04}
+            />
+          )}
+
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Ficha"
+            open={fichaOpen}
+            onClose={() => setFichaOpen(false)}
+            leftFrac={0.5}
+            topFrac={0.06}
+            defaultWidth={420}
+            defaultHeight={560}
+          >
+            <CharacterPanel />
+          </FloatingWindow>
+
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Dados"
+            open={dadosOpen}
+            onClose={() => setDadosOpen(false)}
+            leftFrac={0.5}
+            topFrac={0.3}
+            defaultWidth={300}
+            defaultHeight={420}
+          >
+            <DiceRoller />
+          </FloatingWindow>
+
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Histórico"
+            open={historicoOpen}
+            onClose={() => setHistoricoOpen(false)}
+            leftFrac={0.62}
+            topFrac={0.1}
+            defaultWidth={300}
+            defaultHeight={420}
+          >
+            <RollLog />
+          </FloatingWindow>
+
+          {hasLan && (
+            <FloatingWindow
+              containerRef={floatingLayerRef}
+              title="Músicas"
+              open={musicasOpen}
+              onClose={() => setMusicasOpen(false)}
+              leftFrac={0.34}
+              topFrac={0.1}
+              defaultWidth={320}
+              defaultHeight={460}
+            >
+              <MusicAndAmbientPanel />
+            </FloatingWindow>
+          )}
+        </div>
       </>
     );
   }
 
   return (
     <>
-      <div className="map-toolbar">
-        <select
-          className="small"
-          style={{ width: 120, padding: '4px 6px' }}
-          value={activeSceneId}
-          onChange={(e) => switchScene(e.target.value)}
-        >
-          {scenes.map((sc) => (
-            <option key={sc.id} value={sc.id}>
-              {sc.name}
-            </option>
-          ))}
-        </select>
-        <button className="small" title="Novo cenário" onClick={() => setShowPlacePicker(true)}>
-          ＋ cenário
-        </button>
-        <button
-          className="small"
-          title="Renomear cenário"
-          onClick={async () => {
-            const n = await askText('Nome do cenário:', scene.name);
-            if (n !== null) renameScene(scene.id, n.trim() || scene.name);
-          }}
-        >
-          ✎
-        </button>
-        <button
-          className="small"
-          title="Excluir cenário"
-          disabled={scenes.length <= 1}
-          onClick={() => {
-            if (confirm(`Excluir o cenário "${scene.name}" e seus tokens?`)) deleteScene(scene.id);
-          }}
-        >
-          🗑
-        </button>
-        <span className="toolbar-sep" />
-        <button className="small" title="Volta a câmera pro enquadramento padrão" onClick={resetCamera}>
-          📷 Câmera
-        </button>
-        <button
-          className={'small' + (cameraMode === 'fly' ? ' primary' : '')}
-          title="Alterna entre câmera de órbita e voo livre (WASD + Space/Shift + mouse travado, estilo modo criativo) — atalho: tecla 1"
-          onClick={toggleCameraMode}
-        >
-          {cameraMode === 'fly' ? '🕊️ Voo (1)' : '🎥 Órbita (1)'}
-        </button>
-        <span className="toolbar-sep" />
-        <button className="small" onClick={addBlankToken}>
-          ＋ Token
-        </button>
-        {Object.keys(characters).length > 0 && (
-          <select
-            className="small"
-            style={{ width: 130, padding: '4px 6px' }}
-            value=""
-            onChange={(e) => e.target.value && addFromCharacter(e.target.value)}
-          >
-            <option value="">＋ do personagem…</option>
-            {Object.values(characters).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+      {/* ===================================================== */}
+      {/* Botões/janelas flutuantes — casca visual nova do mapa 3D */}
+      {/* (toolbar antiga vivia toda aqui, ver histórico do arquivo; */}
+      {/* mesmo tratamento do mapa 2D, ver BattleMap.tsx) */}
+      {/* ===================================================== */}
+      <div className="battle-floating-layer" ref={floatingLayerRef}>
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Ficha"
+          icon={<FichaFloatIcon />}
+          active={fichaOpen}
+          onActivate={() => setFichaOpen((o) => !o)}
+          topFrac={0.08}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Mestre"
+          icon={<MestreFloatIcon />}
+          active={mestreOpen}
+          onActivate={() => setMestreOpen((o) => !o)}
+          topFrac={0.19}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Tokens"
+          icon={<TokensFloatIcon />}
+          active={tokensOpen}
+          onActivate={() => setTokensOpen((o) => !o)}
+          topFrac={0.3}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Câmera"
+          icon={<CameraFloatIcon />}
+          active={cameraOpen}
+          onActivate={() => setCameraOpen((o) => !o)}
+          topFrac={0.41}
+          rightFrac={0.04}
+        />
+        {/* Botões "universais" (Dados/Histórico/Músicas/Perfis) — mesmos
+            componentes/posições do mapa 2D (ver BattleMap.tsx), substituindo
+            o painel lateral antigo (Room.tsx) removido a pedido do usuário. */}
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Dados"
+          icon={<DadosFloatIcon />}
+          active={dadosOpen}
+          onActivate={() => setDadosOpen((o) => !o)}
+          topFrac={0.52}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Histórico"
+          icon={<HistoricoFloatIcon />}
+          active={historicoOpen}
+          onActivate={() => setHistoricoOpen((o) => !o)}
+          topFrac={0.63}
+          rightFrac={0.04}
+        />
+        {hasLan && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Músicas"
+            icon={<MusicasFloatIcon />}
+            active={musicasOpen}
+            onActivate={() => setMusicasOpen((o) => !o)}
+            topFrac={0.74}
+            rightFrac={0.04}
+          />
         )}
-        <span className="toolbar-sep" />
-        <details style={{ position: 'relative' }}>
-          <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '4px 6px' }}>🏔️ Cenário</summary>
-          <div className="map-cfg" style={{ width: 230 }}>
-            <div className="section-title" style={{ marginTop: 0 }}>
-              Chão
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Perfis"
+          icon={<PerfisFloatIcon />}
+          active={perfisOpen}
+          onActivate={() => setPerfisOpen((o) => !o)}
+          topFrac={0.85}
+          rightFrac={0.04}
+        />
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Ficha"
+          open={fichaOpen}
+          onClose={() => setFichaOpen(false)}
+          leftFrac={0.5}
+          topFrac={0.06}
+          defaultWidth={420}
+          defaultHeight={560}
+        >
+          <GmCharacterTabs
+            openIds={gmFichaTabs}
+            activeId={activeGmFichaTab}
+            onOpen={openGmFichaTab}
+            onClose={closeGmFichaTab}
+            onSelect={setActiveGmFichaTab}
+            floatingPicker
+          />
+        </FloatingWindow>
+
+        {/* Fichas abertas pelo mestre (GmCharacterTabs acima, "Abrir ficha")
+            — cada uma é sua PRÓPRIA FloatingWindow, IRMÃ da janela "Ficha"
+            (mesmo motivo de BattleMap.tsx: não aninhada dentro dela, senão
+            ficaria posicionada/recortada relativa à janelinha pequena em
+            vez da mesa inteira). */}
+        {gmFichaTabs.map((id, i) => {
+          const c = characters[id];
+          if (!c) return null;
+          return (
+            <FloatingWindow
+              key={id}
+              containerRef={floatingLayerRef}
+              title={c.name}
+              open
+              onClose={() => closeGmFichaTab(id)}
+              leftFrac={0.08 + (i % 4) * 0.1}
+              topFrac={0.1 + (i % 3) * 0.1}
+              defaultWidth={380}
+              defaultHeight={480}
+            >
+              <CharacterSheet character={c} />
+            </FloatingWindow>
+          );
+        })}
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Mestre"
+          open={mestreOpen}
+          onClose={() => setMestreOpen(false)}
+          leftFrac={0.62}
+          topFrac={0.06}
+          defaultWidth={300}
+          defaultHeight={560}
+        >
+          <div className="floating-sub">
+            <span className="floating-row-label">Cenário</span>
+            <div className="floating-row wrap" style={{ marginTop: 8 }}>
+              <select
+                className="small"
+                style={{ flex: 1, minWidth: 110, padding: '4px 6px' }}
+                value={activeSceneId}
+                onChange={(e) => switchScene(e.target.value)}
+              >
+                {scenes.map((sc) => (
+                  <option key={sc.id} value={sc.id}>
+                    {sc.name}
+                  </option>
+                ))}
+              </select>
+              <button className="small" title="Novo cenário" onClick={() => setShowPlacePicker(true)}>
+                ＋
+              </button>
+              <button
+                className="small"
+                title="Renomear cenário"
+                onClick={async () => {
+                  const n = await askText('Nome do cenário:', scene.name);
+                  if (n !== null) renameScene(scene.id, n.trim() || scene.name);
+                }}
+              >
+                ✎
+              </button>
+              <button
+                className="small"
+                title="Excluir cenário"
+                disabled={scenes.length <= 1}
+                onClick={() => {
+                  if (confirm(`Excluir o cenário "${scene.name}" e seus tokens?`)) deleteScene(scene.id);
+                }}
+              >
+                🗑
+              </button>
             </div>
+          </div>
+
+          <div className="floating-divider" />
+
+          {/* Painel "🏔️ Cenário" (chão/sky/terreno/tamanho) — condensado
+              aqui dentro, mesma ideia de "condensar tudo que sobrou da
+              toolbar antiga" já feita no mapa 2D (ver "Mapas" em
+              BattleMap.tsx). */}
+          <div className="floating-sub">
+            <span className="floating-row-label">Chão</span>
             {!ground && (
-              <p className="faint" style={{ fontSize: 11 }}>
+              <p className="faint" style={{ fontSize: 11, margin: '6px 0' }}>
                 Sem chão ainda.
               </p>
             )}
             {ground && (
               <>
-                <div className="row" style={{ gap: 6 }}>
+                <div className="floating-row" style={{ gap: 6, marginTop: 8 }}>
                   <button
                     className={'small' + (ground.mode === 'stretch' ? ' primary' : '')}
                     onClick={() => setGroundMode('stretch')}
@@ -745,7 +1065,7 @@ export function Battle3D() {
                   </button>
                 </div>
                 {ground.mode === 'tile' && (
-                  <div className="field">
+                  <div className="field" style={{ marginTop: 6 }}>
                     <label>Vezes que repete</label>
                     <input
                       type="number"
@@ -809,7 +1129,7 @@ export function Battle3D() {
                 </div>
               </>
             )}
-            <div className="row" style={{ marginTop: 8, flexWrap: 'wrap', gap: 6 }}>
+            <div className="floating-row wrap" style={{ marginTop: 8 }}>
               <button className="small" onClick={() => groundInputRef.current?.click()}>
                 🛣️ Chão
               </button>
@@ -833,7 +1153,137 @@ export function Battle3D() {
               </button>
             )}
           </div>
-        </details>
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Tokens"
+          open={tokensOpen}
+          onClose={() => setTokensOpen(false)}
+          leftFrac={0.62}
+          topFrac={0.5}
+          defaultWidth={320}
+          defaultHeight={380}
+        >
+          <div className="floating-row wrap">
+            <button className="small" onClick={addBlankToken}>
+              ＋ Token
+            </button>
+            {Object.keys(characters).length > 0 && (
+              <select
+                className="small"
+                style={{ flex: 1, minWidth: 130, padding: '4px 6px' }}
+                value=""
+                onChange={(e) => e.target.value && addFromCharacter(e.target.value)}
+              >
+                <option value="">＋ do personagem…</option>
+                {Object.values(characters).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <p className="faint" style={{ fontSize: 11, margin: 0 }}>
+            Arraste um token daqui pra dentro da mesa pra colocar.
+            {selectedToken && (
+              <>
+                {' '}
+                Com o token <b>{selectedToken.label}</b> selecionado, Shift+clique numa miniatura
+                adiciona ela como variante dele.
+              </>
+            )}
+          </p>
+          <TokenLibraryManager onShiftClickAsset={selectedToken ? addVariantFromAsset : undefined} />
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Câmera"
+          open={cameraOpen}
+          onClose={() => setCameraOpen(false)}
+          leftFrac={0.34}
+          topFrac={0.1}
+          defaultWidth={260}
+          defaultHeight={200}
+        >
+          <div className="floating-row">
+            <span className="floating-row-label">Enquadramento</span>
+            <button className="small" title="Volta a câmera pro enquadramento padrão" onClick={resetCamera}>
+              🎥 Resetar
+            </button>
+          </div>
+          <div className="floating-row" style={{ marginTop: 8 }}>
+            <span className="floating-row-label">Modo</span>
+            <button
+              className={'small' + (cameraMode === 'fly' ? ' primary' : '')}
+              title="Alterna entre câmera de órbita e voo livre (WASD + Space/Shift + mouse travado, estilo modo criativo) — atalho: tecla 1"
+              onClick={toggleCameraMode}
+            >
+              {cameraMode === 'fly' ? '🕊️ Voo (1)' : '🎥 Órbita (1)'}
+            </button>
+          </div>
+          <p className="faint" style={{ fontSize: 11, margin: '10px 0 0' }}>
+            A tecla <b>1</b> alterna entre órbita e voo livre a qualquer momento, mesmo com essa
+            janela fechada.
+          </p>
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Dados"
+          open={dadosOpen}
+          onClose={() => setDadosOpen(false)}
+          leftFrac={0.5}
+          topFrac={0.3}
+          defaultWidth={300}
+          defaultHeight={420}
+        >
+          <DiceRoller />
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Histórico"
+          open={historicoOpen}
+          onClose={() => setHistoricoOpen(false)}
+          leftFrac={0.62}
+          topFrac={0.1}
+          defaultWidth={300}
+          defaultHeight={420}
+        >
+          <RollLog />
+        </FloatingWindow>
+
+        {hasLan && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Músicas"
+            open={musicasOpen}
+            onClose={() => setMusicasOpen(false)}
+            leftFrac={0.34}
+            topFrac={0.1}
+            defaultWidth={320}
+            defaultHeight={460}
+          >
+            <MusicAndAmbientPanel />
+          </FloatingWindow>
+        )}
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Perfis"
+          open={perfisOpen}
+          onClose={() => setPerfisOpen(false)}
+          leftFrac={0.46}
+          topFrac={0.3}
+          defaultWidth={320}
+          defaultHeight={420}
+        >
+          <PlayerProfilesPanel />
+        </FloatingWindow>
+
         <input
           ref={objectInputRef}
           type="file"

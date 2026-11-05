@@ -11,6 +11,7 @@ const dgram = require('node:dgram');
 const crypto = require('node:crypto');
 const { exec } = require('node:child_process');
 const { WebSocketServer } = require('ws');
+const { renderFichaPage } = require('./fichaMobile');
 
 const HTTP_PORT = Number(process.env.ORDEM_PORT) || 47300;
 const DISCOVERY_PORT = 47310;
@@ -128,11 +129,24 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/scenery') || urlObj.pathname.startsWith('/scenery/')) {
     if (sceneryLibrary.handleApi(req, res, urlObj)) return;
   }
+  if (urlObj.pathname.startsWith('/api/models') || urlObj.pathname.startsWith('/models/')) {
+    if (modelLibrary.handleApi(req, res, urlObj)) return;
+  }
   if (urlObj.pathname.startsWith('/api/places')) {
     if (handlePlacesApi(req, res, urlObj)) return;
   }
   if (urlObj.pathname.startsWith('/api/map2d')) {
     if (handleMap2DApi(req, res, urlObj)) return;
+  }
+  // Ficha no celular via QR code (ver FichaQr.tsx) — página standalone
+  // (fora do bundle React), vira cliente da mesma sala WebSocket que o app
+  // desktop já usa (ver server/fichaMobile.js pro porquê de não duplicar
+  // armazenamento nenhum aqui).
+  if (urlObj.pathname.startsWith('/ficha/')) {
+    const charId = decodeURIComponent(urlObj.pathname.slice('/ficha/'.length));
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(renderFichaPage(charId));
+    return;
   }
   serveStatic(req, res);
 });
@@ -762,6 +776,34 @@ const sceneryLibrary = createAssetLibrary({
   libFile: path.join(SAVE_DIR, 'scenery-library.json'),
   mimeMap: IMAGE_MIME,
   defaultExt: 'png',
+});
+
+// Content-Type dos formatos de modelo 3D de verdade aceitos no editor de
+// cenário 3D (ver MODEL_FILE_ACCEPT em src/lib/scene3d.tsx) — .fbx não tem
+// MIME oficial registrado, 'application/octet-stream' basta (o GLTF/FBX/STL
+// loader do three.js lê o arquivo cru via ArrayBuffer, não depende do
+// Content-Type pra nada).
+const MODEL_MIME = {
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+  fbx: 'application/octet-stream',
+  stl: 'model/stl',
+};
+
+// Biblioteca de modelos/imagens pro editor de cenário 3D (src/pages/
+// Prototype3D.tsx) — pedido do usuário: biblioteca com arrastar-e-soltar
+// igual a sceneryLibrary acima (lado 2D), só que pro 3D, misturando os dois
+// tipos de asset que o editor aceita (imagem — billboard/chão/decalque — e
+// modelo 3D real .glb/.gltf/.fbx/.stl) numa biblioteca só; cada item sabe o
+// próprio tipo via `kind` (extraField abaixo, ver src/types.ts ModelAsset).
+const modelLibrary = createAssetLibrary({
+  apiPrefix: '/api/models',
+  fileRoutePrefix: '/models',
+  dir: path.join(SAVE_DIR, 'models'),
+  libFile: path.join(SAVE_DIR, 'model-library.json'),
+  mimeMap: { ...IMAGE_MIME, ...MODEL_MIME },
+  defaultExt: 'png',
+  extraFields: [{ key: 'kind', parse: (v) => (v === 'model' ? 'model' : 'image') }],
 });
 
 /* ---------------- "places" da mesa 3D: cenário salvo (nome + textura de ---

@@ -5,9 +5,11 @@ import type { NotifyEntry } from '../types';
 
 const TTL_MS = 9000;
 
-// Toasts flutuantes: aparecem só pro dono do personagem (+ sempre pro mestre) quando
-// alguém sobe de NEX, mostrando o que ganhou/pode escolher agora. O histórico completo
-// fica na aba "Notificações" (NotificationLog).
+// Toasts flutuantes: aparecem só pro JOGADOR dono do personagem (nunca pro
+// mestre — pedido do usuário: notificação deixou de ter botão/aba própria,
+// virou algo automático só pro jogador, pra avisar quando o mestre muda algo
+// na ficha dele, por exemplo subir de NEX) quando alguém sobe de NEX,
+// mostrando o que ganhou/pode escolher agora.
 export function NotificationToasts() {
   const notifications = useTableStore((s) => s.notifications);
   const code = useTableStore((s) => s.code);
@@ -25,7 +27,7 @@ export function NotificationToasts() {
       return;
     }
     const mine = notifications.filter(
-      (n) => !seen.current.has(n.id) && (n.ownerId === me.id || me.isGM),
+      (n) => !seen.current.has(n.id) && !me.isGM && n.ownerId === me.id,
     );
     if (mine.length === 0) return;
     for (const n of mine) seen.current.add(n.id);

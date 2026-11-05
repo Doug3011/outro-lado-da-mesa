@@ -7,6 +7,7 @@
 const path = require('node:path');
 const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const { scrapeCris } = require('./importCris');
 
 // Rede de segurança pro processo PRINCIPAL — achada numa varredura de bugs.
 // `server.cjs` (o servidor HTTP/WebSocket/UDP) roda `require()`ado aqui
@@ -171,6 +172,20 @@ ipcMain.handle('window:set-windowed', () => {
   if (borderless) {
     borderless = false;
     return recreateWindow({ frame: true });
+  }
+});
+
+// Importar ficha da Cris (crisordemparanormal.com) — pedido do usuário, ver
+// importCris.js pro porquê de precisar de uma BrowserWindow escondida (SPA
+// que só renderiza via JS). Devolve `{ok:true,data}` ou `{ok:false,error}` em
+// vez de deixar o IPC rejeitar — assim o renderer sempre recebe uma mensagem
+// legível pra mostrar na tela, erro de rede incluso.
+ipcMain.handle('cris:import', async (_e, url) => {
+  try {
+    const data = await scrapeCris(url);
+    return { ok: true, data };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : String(err) };
   }
 });
 

@@ -104,7 +104,25 @@ interface TableState {
   sendProfile: (name: string, ownerId: string, profile: PlayerProfile) => void;
 
   upsertToken: (t: Token) => void;
+  // versão "leve" de upsertToken pros commits PERIÓDICOS do giro/resize
+  // contínuo de token (ver `patchSelectedLive` em BattleMap.tsx) — só
+  // estado+rede, sem persist()/pushScenesToDb(), mesmo motivo de
+  // moveObject3dLive (achado numa varredura de performance: `upsertToken`
+  // chamado a cada ~45ms durante uma tecla de giro/resize segurada gravava a
+  // cena INTEIRA no localStorage e disparava um PUT assíncrono pro banco a
+  // cada tique, travando a UI — mesmo bug já corrigido pro arraste de
+  // token/objeto, só não tinha sido aplicado aqui ainda). O commit "de
+  // verdade" (com persist) continua sendo `upsertToken`, chamado só uma vez
+  // ao soltar a tecla.
+  patchTokenLive: (t: Token) => void;
   moveToken: (id: string, x: number, y: number) => void;
+  // Mesmo payload de rede de `moveToken`, mas SEM `set()` local — ver uso em
+  // Battle3D.tsx/moveTokenLive. Pensado pro tique throttled de um arraste de
+  // token no 3D: quem está arrastando já vê a posição certa via mutação
+  // direta do `Object3D` (ref do three.js, bypass de React) e não precisa
+  // que o PRÓPRIO Zustand mude pra isso — só os outros clientes (que recebem
+  // o evento e não têm esse bypass) precisam do commit de verdade.
+  broadcastTokenMove: (id: string, x: number, y: number) => void;
   deleteToken: (id: string) => void;
   updateMap: (patch: Partial<MapState>) => void;
 
@@ -590,6 +608,18 @@ export const useTableStore = create<TableState>((set, get) => {
       get().conn?.send({ type: 'token:upsert', payload: { sceneId, token: t } });
     },
 
+    patchTokenLive: (t) => {
+      const sceneId = get().activeSceneId;
+      set(() => ({
+        scenes: patchScene(sceneId, (sc) => ({ ...sc, tokens: { ...sc.tokens, [t.id]: t } })),
+      }));
+      // sem persist()/pushScenesToDb() de propósito — ver comentário na
+      // interface, acima. Mesmo tipo de mensagem de rede que upsertToken (o
+      // servidor/outros clientes não distinguem "leve" de "de verdade" —
+      // só QUEM chamou decide se persiste).
+      get().conn?.send({ type: 'token:upsert', payload: { sceneId, token: t } });
+    },
+
     moveToken: (id, x, y) => {
       const sceneId = get().activeSceneId;
       set(() => ({
@@ -599,6 +629,37 @@ export const useTableStore = create<TableState>((set, get) => {
           return { ...sc, tokens: { ...sc.tokens, [id]: { ...t, x, y } } };
         }),
       }));
+      get().conn?.send({ type: 'token:move', payload: { sceneId, id, x, y } });
+    },
+
+    // Achado numa varredura de performance (usuário: "no 3D trava só de
+    // mexer, mesmo devagar" — continuava mesmo depois do fix de useCallback/
+    // `live.ref` de uma leva anterior). Medido de verdade (FPS real via
+    // requestAnimationFrame, numa mesa 3D de teste com ~80 tokens, chamando
+    // `moveToken` a cada 60ms sem nenhum clique/arraste real envolvido, só
+    // pra isolar o custo do COMMIT em si): em várias rodadas, `moveToken`
+    // (que faz `set()`) ocasionalmente derrubava o FPS de ~60 pra algo entre
+    // 55 e 50, com picos de frame de até 68-84ms (orçamento normal é 16.6ms
+    // a 60fps) — picos que `broadcastTokenMove` (sem `set()`) nunca
+    // reproduziu nas mesmas condições, e que não apareciam com a cena mais
+    // vazia (~40 tokens). O efeito variou de rodada pra rodada (ruído de
+    // GC/thread principal), mas a tendência foi consistente: menos trabalho
+    // de reconciliação por commit = menos chance de estourar o orçamento de
+    // frame. Causa provável: `set()` troca a referência de `scenes`, o que
+    // faz `Battle3D()` re-executar e o React reconciliar a lista INTEIRA de
+    // `Token3D`/`SceneObject` de novo (o `memo` deles bloqueia o RE-RENDER
+    // de cada um, mas o CUSTO de comparar as props de todo mundo pra decidir
+    // isso ainda existe, e num orçamento de 16.6ms/frame isso é visível de
+    // um jeito que não é no 2D, que não tem relógio de frame). Igual ao 2D, a posição
+    // VISUAL de quem está arrastando já vem 100% do `live.ref` (mutação
+    // direta do `Object3D`, bypass de React — ver `useGroundDrag`,
+    // lib/scene3d.tsx) — então o commit local nem É necessário pra quem tá
+    // arrastando ver a posição certa. Só manda pela rede (quem recebe isso
+    // noutro cliente SEM bypass próprio) — o commit de verdade (com persist)
+    // continua acontecendo uma vez só, ao soltar (`onTokenDragEnd` →
+    // `upsertToken`).
+    broadcastTokenMove: (id, x, y) => {
+      const sceneId = get().activeSceneId;
       get().conn?.send({ type: 'token:move', payload: { sceneId, id, x, y } });
     },
 

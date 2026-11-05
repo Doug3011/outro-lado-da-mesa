@@ -35,6 +35,24 @@ export function urlToDownscaledDataURL(url: string, maxDim: number, quality = 0.
   });
 }
 
+// Busca uma URL já servida (ex.: um item da biblioteca de modelos 3D,
+// `/models/:id`) e devolve como um `File` de verdade — usado pra plantar no
+// cenário um asset que já estava importado na biblioteca, reaproveitando
+// SEM DUPLICAR as mesmas funções que processam um `File` recém-escolhido no
+// input nativo (fileToStandingDataURL/fileToDownscaledDataURL/fileToDataURL
+// em Prototype3D.tsx) — convertida a URL num `File`, o resto do pipeline
+// (recorte de margem, downscale, embutir como data URL) é idêntico.
+export async function urlToFile(url: string, name: string): Promise<File | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    return new File([blob], name, { type: blob.type });
+  } catch {
+    return null;
+  }
+}
+
 // Lê qualquer arquivo binário (ex.: um modelo .glb) como data URL cru, sem
 // passar por canvas/imagem — usado pra embutir modelos 3D do mesmo jeito que
 // imagens (mesmo motivo: precisa funcionar sem depender de rede entre

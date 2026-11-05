@@ -2,9 +2,13 @@ import { useState } from 'react';
 import type { Character } from '../domain/character';
 import { deleteMyCharacter, loadMyCharacters, saveMyCharacter } from '../lib/characterLibrary';
 import { uid } from '../lib/ids';
+import { CrisImportError, importFromCris } from '../lib/crisImport';
+import { isElectron } from '../lib/windowControls';
+import { askText } from '../state/promptDialog';
 import { CharacterCard } from './CharacterCard';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterWizard } from './CharacterWizard';
+import { TokenLinkDialog } from './TokenLinkDialog';
 
 // Biblioteca de fichas do jogador — vive fora de qualquer mesa. É aqui que se
 // cria e edita ficha agora; a mesa só recebe uma cópia vinculada (veja
@@ -21,10 +25,37 @@ export function CharacterLibrary({
   const [list, setList] = useState<Character[]>(loadMyCharacters);
   const [selId, setSelId] = useState<string | null>(null);
   const [wizard, setWizard] = useState(false);
+  const [importing, setImporting] = useState(false);
+  // Logo depois de criar uma ficha nova, oferece (sem obrigar) vincular um
+  // token já na mesa a ela — ver TokenLinkDialog.tsx. `null` = fechado.
+  const [linkPrompt, setLinkPrompt] = useState<Character | null>(null);
   const selected = list.find((c) => c.id === selId) ?? null;
   const wide = wizard || !!selected;
 
   const refresh = () => setList(loadMyCharacters());
+
+  // "Importar da Cris": alternativa ao wizard manual — cola o link da própria
+  // ficha em crisordemparanormal.com e traz os dados prontos (ver
+  // src/lib/crisImport.ts). Só funciona no app desktop (precisa do Electron
+  // pra renderizar a SPA deles numa janela escondida).
+  const onImportCris = async () => {
+    const url = await askText(
+      'Cole o link da sua ficha no C.R.I.S. (ex.: https://crisordemparanormal.com/agente/SEU_ID):',
+    );
+    if (!url?.trim()) return;
+    setImporting(true);
+    try {
+      const c = await importFromCris(url.trim(), ownerId);
+      saveMyCharacter(c);
+      refresh();
+      setSelId(c.id);
+    } catch (e) {
+      const msg = e instanceof CrisImportError ? e.message : 'Não deu pra importar essa ficha. Confira o link e tente de novo.';
+      alert(msg);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   return (
     <div className="daily-page library-page">
@@ -46,6 +77,7 @@ export function CharacterLibrary({
               refresh();
               setSelId(c.id);
               setWizard(false);
+              setLinkPrompt(c);
             }}
           />
         ) : selected ? (
@@ -111,6 +143,11 @@ export function CharacterLibrary({
               <button className="primary" style={{ flex: 'none' }} onClick={() => setWizard(true)}>
                 + Criar ficha
               </button>
+              {isElectron && (
+                <button className="ghost" style={{ flex: 'none' }} disabled={importing} onClick={onImportCris}>
+                  {importing ? 'Importando…' : '📥 Importar da Cris'}
+                </button>
+              )}
             </div>
 
             {list.length === 0 && (
@@ -135,6 +172,14 @@ export function CharacterLibrary({
         <Sigil />
         <span className="daily-sigil-line" />
       </div>
+
+      {linkPrompt && (
+        <TokenLinkDialog
+          character={linkPrompt}
+          mode="create"
+          onClose={() => setLinkPrompt(null)}
+        />
+      )}
     </div>
   );
 }

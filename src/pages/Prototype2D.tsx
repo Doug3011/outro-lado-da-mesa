@@ -6,6 +6,9 @@ import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
 import { sceneryAssetUrl } from '../lib/sceneryLibrary';
 import { fetchMap2D, saveMap2D, type Map2D } from '../lib/map2dLibrary';
 import { SCENERY_DRAG_MIME, SceneryLibraryManager, type SceneryDragPayload } from '../components/SceneryLibraryManager';
+import { FloatingButton } from '../components/FloatingButton';
+import { FloatingWindow } from '../components/FloatingWindow';
+import { LibraryFloatIcon, MapasFloatIcon, SelectionFloatIcon } from '../components/icons';
 import type { MapObject2D, SceneryAsset } from '../types';
 import { DEFAULT_MAP } from '../types';
 
@@ -60,6 +63,14 @@ export function Prototype2D() {
   const mapScrollRef = useRef<HTMLDivElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
+  // Botões/janelas flutuantes (retrofit — ver comentário no topo do
+  // arquivo) — mesmo padrão booleano por janela de BattleMap.tsx/
+  // Battle3D.tsx/Prototype3D.tsx.
+  const [mapaOpen, setMapaOpen] = useState(false);
+  const [pecasOpen, setPecasOpen] = useState(false);
+  const [selecionadaOpen, setSelecionadaOpen] = useState(false);
+  const floatingLayerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!routeMap2DId) return;
     void fetchMap2D(routeMap2DId).then((map2d) => {
@@ -76,6 +87,13 @@ export function Prototype2D() {
   }, [routeMap2DId]);
 
   const selected = selId ? objects2d.find((o) => o.id === selId) ?? null : null;
+
+  // Abre a janela "Selecionada" sozinha ao escolher uma peça (clique/plantio)
+  // — sem isso, com a janela fechada a seleção mudaria sem o usuário notar
+  // nada na tela (antes o editor ficava sempre visível na barra lateral fixa).
+  useEffect(() => {
+    if (selId) setSelecionadaOpen(true);
+  }, [selId]);
   const W = cols * cellSize;
   const H = rows * cellSize;
 
@@ -277,157 +295,218 @@ export function Prototype2D() {
 
   if (loading) {
     return (
-      <div className="cine-page">
-        <div className="cine-topbar">
-          <button className="small ghost" onClick={() => navigate('/')}>
-            ← Sair
-          </button>
-          <span className="cine-title">Carregando mapa…</span>
-        </div>
+      <div className="cine-page" style={{ display: 'grid', placeItems: 'center' }}>
+        <span className="faint">Carregando mapa…</span>
       </div>
     );
   }
 
   return (
     <div className="cine-page">
-      <div className="cine-topbar">
+      <div className="map-toolbar">
         <button className="small ghost" onClick={() => navigate('/')}>
           ← Sair do editor
         </button>
-        <input
-          className="proto3d-name-input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nome do mapa"
-        />
-        <div className="row" style={{ flex: 'none', gap: 6, flexWrap: 'wrap' }}>
-          <button className="small" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))}>
-            −
-          </button>
-          <button className="small" onClick={() => setZoom(1)} title="Ctrl + scroll no mapa também dá zoom">
-            {Math.round(zoom * 100)}%
-          </button>
-          <button className="small" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>
-            +
-          </button>
-          <button className="small" onClick={() => bgInputRef.current?.click()}>
-            🖼 {background ? 'Trocar fundo' : 'Importar fundo'}
-          </button>
-          {background && (
-            <button className="small ghost" onClick={() => setBackground(undefined)}>
-              limpar fundo
-            </button>
-          )}
-          <details style={{ position: 'relative' }}>
-            <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '4px 6px' }}>⚙︎ Grade</summary>
-            <div className="map-cfg">
-              <div className="row">
-                <div>
-                  <label>Colunas</label>
-                  <input type="number" value={cols} onChange={(e) => setCols(Math.max(5, Number(e.target.value)))} />
-                </div>
-                <div>
-                  <label>Linhas</label>
-                  <input type="number" value={rows} onChange={(e) => setRows(Math.max(5, Number(e.target.value)))} />
-                </div>
-              </div>
-              <div className="field" style={{ marginTop: 6 }}>
-                <label>Tamanho da célula (px)</label>
-                <input
-                  type="number"
-                  value={cellSize}
-                  onChange={(e) => setCellSize(Math.max(20, Number(e.target.value)))}
-                />
-              </div>
-            </div>
-          </details>
-          <button
-            className="small primary"
-            onClick={onSave}
-            disabled={saving === 'saving'}
-            title={saving === 'error' ? 'A gravação falhou — o mapa provavelmente ficou grande demais' : undefined}
-          >
-            {saving === 'saved' ? '✓ Salvo' : saving === 'saving' ? 'Salvando…' : saving === 'error' ? '✗ Erro ao salvar' : '💾 Salvar'}
-          </button>
+        <button
+          className="small primary"
+          onClick={onSave}
+          disabled={saving === 'saving'}
+          title={saving === 'error' ? 'A gravação falhou — o mapa provavelmente ficou grande demais' : undefined}
+        >
+          {saving === 'saved' ? '✓ Salvo' : saving === 'saving' ? 'Salvando…' : saving === 'error' ? '✗ Erro ao salvar' : '💾 Salvar'}
+        </button>
+      </div>
+      {saving === 'error' && (
+        <p className="faint" style={{ position: 'absolute', top: 44, left: 10, zIndex: 6, color: 'var(--blood-bright)', fontSize: 12, maxWidth: 320 }}>
+          Não deu pra salvar — o mapa provavelmente ficou grande demais (muitas peças de alta
+          resolução). Tente remover alguma peça ou usar imagens menores.
+        </p>
+      )}
+
+      <div className={'map-scroll' + (panning ? ' panning' : '')} ref={mapScrollRef} onWheel={onWheel}>
+        <div
+          className="grid-stage"
+          ref={stageRef}
+          style={{ width: W, height: H, transform: `scale(${zoom})` }}
+          onPointerDown={onStagePan}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onStageDrop}
+        >
+          {background && <div className="grid-bg" style={{ backgroundImage: `url(${background})` }} />}
+
+          {[...objects2d]
+            .sort((a, b) => a.zIndex - b.zIndex)
+            .map((o) => (
+              <div
+                key={o.id}
+                className={'map-object2d editable' + (selId === o.id ? ' selected' : '') + (o.locked ? ' locked' : '')}
+                onPointerDown={(e) => onObjectPointerDown(e, o)}
+                style={{
+                  left: renderX(o) * cellSize,
+                  top: renderY(o) * cellSize,
+                  width: o.width * cellSize,
+                  height: o.height * cellSize,
+                  transform: o.rotation ? `rotate(${o.rotation}deg)` : undefined,
+                  backgroundImage: `url(${o.imageUrl})`,
+                  backgroundSize:
+                    o.mode === 'tile' ? `${cellSize * (o.repeat || 1)}px ${cellSize * (o.repeat || 1)}px` : '100% 100%',
+                  backgroundRepeat: o.mode === 'tile' ? 'repeat' : 'no-repeat',
+                }}
+              />
+            ))}
+
+          <div
+            className="grid-lines"
+            style={{
+              backgroundImage:
+                'linear-gradient(to right, rgba(255,255,255,.12) 1px, transparent 1px),' +
+                'linear-gradient(to bottom, rgba(255,255,255,.12) 1px, transparent 1px)',
+              backgroundSize: `${cellSize}px ${cellSize}px`,
+            }}
+          />
         </div>
-        {saving === 'error' && (
-          <p className="faint" style={{ color: 'var(--blood-bright)', fontSize: 12, marginTop: 4 }}>
-            Não deu pra salvar — o mapa provavelmente ficou grande demais (muitas peças de alta
-            resolução). Tente remover alguma peça ou usar imagens menores.
+        {objects2d.length === 0 && !background && (
+          <p className="cine-scene-hint">
+            Sem nada ainda — abra "Peças" pra escolher uma e plantar no centro da tela, ou arraste
+            ela pro lugar exato. "Mapa" tem um fundo único (ex.: planta baixa pronta). Botão
+            esquerdo arrasta a câmera, Ctrl+scroll dá zoom.
           </p>
         )}
-        <input
-          ref={bgInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            void onPickBackground(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
       </div>
 
-      <div className="cine-body">
-        <div className={'map-scroll' + (panning ? ' panning' : '')} ref={mapScrollRef} onWheel={onWheel}>
-          <div
-            className="grid-stage"
-            ref={stageRef}
-            style={{ width: W, height: H, transform: `scale(${zoom})` }}
-            onPointerDown={onStagePan}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={onStageDrop}
-          >
-            {background && <div className="grid-bg" style={{ backgroundImage: `url(${background})` }} />}
+      <div className="battle-floating-layer" ref={floatingLayerRef}>
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Mapa"
+          icon={<MapasFloatIcon />}
+          active={mapaOpen}
+          onActivate={() => setMapaOpen((o) => !o)}
+          topFrac={0.08}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Peças"
+          icon={<LibraryFloatIcon />}
+          active={pecasOpen}
+          onActivate={() => setPecasOpen((o) => !o)}
+          topFrac={0.19}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Selecionada"
+          icon={<SelectionFloatIcon />}
+          active={selecionadaOpen}
+          onActivate={() => setSelecionadaOpen((o) => !o)}
+          topFrac={0.3}
+          rightFrac={0.04}
+        />
 
-            {[...objects2d]
-              .sort((a, b) => a.zIndex - b.zIndex)
-              .map((o) => (
-                <div
-                  key={o.id}
-                  className={'map-object2d editable' + (selId === o.id ? ' selected' : '') + (o.locked ? ' locked' : '')}
-                  onPointerDown={(e) => onObjectPointerDown(e, o)}
-                  style={{
-                    left: renderX(o) * cellSize,
-                    top: renderY(o) * cellSize,
-                    width: o.width * cellSize,
-                    height: o.height * cellSize,
-                    transform: o.rotation ? `rotate(${o.rotation}deg)` : undefined,
-                    backgroundImage: `url(${o.imageUrl})`,
-                    backgroundSize:
-                      o.mode === 'tile' ? `${cellSize * (o.repeat || 1)}px ${cellSize * (o.repeat || 1)}px` : '100% 100%',
-                    backgroundRepeat: o.mode === 'tile' ? 'repeat' : 'no-repeat',
-                  }}
-                />
-              ))}
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Mapa"
+          open={mapaOpen}
+          onClose={() => setMapaOpen(false)}
+          leftFrac={0.5}
+          topFrac={0.06}
+          defaultWidth={300}
+          defaultHeight={460}
+        >
+          <div className="field">
+            <label>Nome do mapa</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do mapa" />
+          </div>
 
-            <div
-              className="grid-lines"
-              style={{
-                backgroundImage:
-                  'linear-gradient(to right, rgba(255,255,255,.12) 1px, transparent 1px),' +
-                  'linear-gradient(to bottom, rgba(255,255,255,.12) 1px, transparent 1px)',
-                backgroundSize: `${cellSize}px ${cellSize}px`,
+          <div className="floating-row" style={{ marginTop: 8 }}>
+            <span className="floating-row-label">Zoom</span>
+            <div className="floating-row" style={{ gap: 4 }}>
+              <button className="small" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))}>
+                −
+              </button>
+              <button className="small" onClick={() => setZoom(1)} title="Ctrl + scroll no mapa também dá zoom">
+                {Math.round(zoom * 100)}%
+              </button>
+              <button className="small" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="floating-sub" style={{ marginTop: 8 }}>
+            <span className="floating-row-label">Fundo (imagem única)</span>
+            <div className="row" style={{ gap: 6 }}>
+              <button className="small" onClick={() => bgInputRef.current?.click()}>
+                🖼 {background ? 'Trocar fundo' : 'Importar fundo'}
+              </button>
+              {background && (
+                <button className="small ghost" onClick={() => setBackground(undefined)}>
+                  limpar
+                </button>
+              )}
+            </div>
+            <input
+              ref={bgInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                void onPickBackground(e.target.files?.[0]);
+                e.target.value = '';
               }}
             />
           </div>
-          {objects2d.length === 0 && !background && (
-            <p className="cine-scene-hint">
-              Sem nada ainda — escolha uma peça na lista à direita pra plantar no centro da tela,
-              ou arraste ela pro lugar exato. "🖼 Importar fundo" pra uma imagem de fundo única (ex.:
-              planta baixa pronta). Botão esquerdo arrasta a câmera, Ctrl+scroll dá zoom.
-            </p>
-          )}
-        </div>
 
-        <div className="cine-hud">
-          <div className="cine-hud-title">Peças de cenário</div>
+          <div className="floating-sub" style={{ marginTop: 8 }}>
+            <span className="floating-row-label">Grade</span>
+            <div className="row">
+              <div>
+                <label>Colunas</label>
+                <input type="number" value={cols} onChange={(e) => setCols(Math.max(5, Number(e.target.value)))} />
+              </div>
+              <div>
+                <label>Linhas</label>
+                <input type="number" value={rows} onChange={(e) => setRows(Math.max(5, Number(e.target.value)))} />
+              </div>
+            </div>
+            <div className="field" style={{ marginTop: 6 }}>
+              <label>Tamanho da célula (px)</label>
+              <input
+                type="number"
+                value={cellSize}
+                onChange={(e) => setCellSize(Math.max(20, Number(e.target.value)))}
+              />
+            </div>
+          </div>
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Peças"
+          open={pecasOpen}
+          onClose={() => setPecasOpen(false)}
+          leftFrac={0.3}
+          topFrac={0.06}
+          defaultWidth={420}
+          defaultHeight={560}
+        >
           <p className="faint" style={{ fontSize: 11 }}>
             Clique numa peça pra plantar no centro da tela, ou arraste pro mapa.
           </p>
           <SceneryLibraryManager onPlant={plantAsset} />
+        </FloatingWindow>
 
-          {selected && (
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Selecionada"
+          open={selecionadaOpen}
+          onClose={() => setSelecionadaOpen(false)}
+          leftFrac={0.62}
+          topFrac={0.06}
+          defaultWidth={280}
+          defaultHeight={460}
+        >
+          {selected ? (
             <div className="cine-editor">
               <div className="cine-editor-title">Peça selecionada</div>
               <p className="faint" style={{ fontSize: 11, margin: 0 }}>
@@ -512,8 +591,12 @@ export function Prototype2D() {
                 </button>
               </div>
             </div>
+          ) : (
+            <p className="faint" style={{ fontSize: 12 }}>
+              Nenhuma peça selecionada — clique numa peça do mapa pra editar.
+            </p>
           )}
-        </div>
+        </FloatingWindow>
       </div>
     </div>
   );

@@ -690,23 +690,6 @@ label {
 .ir-ico {
   filter: grayscale(0.15);
 }
-.ir-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 999px;
-  background: var(--gold);
-  color: #241a04;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
-}
-
 .sidebar-panel {
   flex: 1;
   min-width: 0;
@@ -1149,6 +1132,103 @@ label {
   font-weight: 600;
 }
 
+/* ---------- habilidades (aba Combate) ---------- */
+/* botões extras ao lado do título da seção (ex. "Expandir/Recolher todas"
+   quando a lista de habilidades é longa — ver CharacterSheet.tsx) */
+.section-title-actions {
+  float: right;
+  display: inline-flex;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.section-title-actions button {
+  font-size: 10px;
+  padding: 2px 8px;
+}
+.ability-group + .ability-group {
+  margin-top: 10px;
+}
+.ability-group-label {
+  font-family: var(--font-disp);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+/* cada habilidade é um card recolhível — cabeçalho (nome + origem) sempre
+   visível, descrição só aparece expandida (ver `abilityManyExpand` em
+   CharacterSheet.tsx) pra não empilhar textareas longas quando a ficha tem
+   muitas habilidades (ex. 11 importadas da Cris). */
+.ability-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 6px;
+}
+.ability-card.expanded {
+  border-color: var(--line-soft, var(--line));
+}
+.ability-card-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+.ability-chevron {
+  flex: none;
+  width: 14px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.ability-card-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ability-name-input {
+  font-family: var(--font-disp);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 2px 4px;
+}
+.ability-name-input:hover,
+.ability-name-input:focus {
+  border-color: var(--line);
+  background: var(--bg-3);
+}
+.ability-source-input {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 1px 4px;
+  width: auto;
+}
+.ability-source-input:hover,
+.ability-source-input:focus {
+  border-color: var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+}
+.ability-preview {
+  margin: 6px 0 0;
+  padding-left: 22px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.ability-description {
+  margin-top: 6px;
+}
+
 .char-card-list {
   display: flex;
   flex-direction: column;
@@ -1431,6 +1511,14 @@ label {
   outline-offset: 2px;
   box-shadow: 0 0 14px rgba(224, 30, 43, 0.6);
 }
+/* Lanterna ligada (ver Névoa modo "Lanterna" na janela Mestre) — só um sinal
+   visual de "isso tá acesa", o efeito de verdade é a névoa revelada em volta. */
+.token.lantern-on {
+  box-shadow: 0 0 12px 4px rgba(255, 210, 110, 0.85);
+}
+.token.lantern-on.selected {
+  box-shadow: 0 0 14px rgba(224, 30, 43, 0.6), 0 0 12px 4px rgba(255, 210, 110, 0.85);
+}
 .token .tk-label {
   position: absolute;
   bottom: -16px;
@@ -1483,7 +1571,20 @@ label {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 30;
+  /* 41, não 30 — achado numa varredura de bugs: a trilha de FloatingButton
+     (Ficha/Mestre/Tokens/Mapas/Dados/Histórico/Músicas/Perfis, ver
+     BattleMap.tsx) fica ANCORADA no mesmo canto superior direito
+     (rightFrac=0.04, topFrac de 0.08 a 0.85), exatamente a área onde esse
+     painel também vive. Com `.battle-floating-layer` em z-index:40 e
+     pointer-events:auto nos próprios botões, eles ficavam visualmente por
+     CIMA do painel E roubavam o clique de praticamente todo botão dele
+     (rename, cor, tamanho, PV, dono, imagem, troca de variante, e também as
+     ±15°/reset de rotação) — não é falta de handler, é o clique nunca
+     chegando no botão certo. 41 (um acima da camada flutuante) é suficiente
+     pra esse painel, quando aberto, ganhar a prioridade de clique/visual —
+     ainda fica atrás de uma FloatingWindow de verdade aberta (z-index 51+,
+     ver FloatingWindow.tsx), que é o esperado. */
+  z-index: 41;
   background: var(--bg-1);
   border: 1px solid var(--line);
   border-top: 2px solid var(--blood);
@@ -1491,6 +1592,209 @@ label {
   padding: 11px;
   width: 236px;
   box-shadow: var(--shadow);
+}
+
+/* ---------- botões/janelas flutuantes do mapa 2D ----------
+   Retrofit visual portado do protótipo Godot (FloatingButton.cs/
+   FloatingWindow.cs) — botão circular azul-escuro translúcido, achatado,
+   arrastável livremente; janela com barra de título arrastável (grip de
+   pontinhos), fechar e redimensionar. rgba(63,127,214,x) = var(--blue)
+   (#3f7fd6) com opacidade — mesmo tom usado no Godot, não é cor nova. */
+.map-hud-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.map-hud-scene {
+  font-family: var(--font-disp);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(20, 20, 23, 0.72);
+  border: 1px solid var(--line);
+  padding: 5px 12px;
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+}
+.battle-floating-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.floating-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+  touch-action: none;
+}
+.floating-btn-label {
+  font-family: var(--font-disp);
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--text);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  background: rgba(11, 11, 13, 0.5);
+  padding: 4px 10px;
+  border-radius: 14px;
+  white-space: nowrap;
+  user-select: none;
+}
+.floating-btn-circle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(63, 127, 214, 0.35);
+  background: rgba(18, 24, 36, 0.55);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9fc0ea;
+  cursor: grab;
+}
+.floating-btn-circle:active {
+  cursor: grabbing;
+}
+.floating-btn-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 1.5px solid var(--bg);
+}
+.floating-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: rgba(20, 20, 23, 0.88);
+  border: 1px solid rgba(63, 127, 214, 0.3);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  overflow: hidden;
+}
+.floating-window-titlebar {
+  flex: none;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  background: rgba(26, 27, 31, 0.8);
+  border-bottom: 1px solid var(--line);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.floating-window-titlewrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.floating-window-grip {
+  display: grid;
+  grid-template-columns: repeat(2, 3px);
+  grid-auto-rows: 3px;
+  gap: 2px;
+  opacity: 0.5;
+  flex: none;
+}
+.floating-window-grip span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.floating-window-title {
+  font-family: var(--font-disp);
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.floating-window-close {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  padding: 2px 4px;
+  font-size: 13px;
+  line-height: 1;
+  flex: none;
+}
+.floating-window-close:hover {
+  color: var(--text);
+}
+.floating-window-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.floating-window-resize {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 14px;
+  height: 14px;
+  color: #4a4b52;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.floating-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.floating-row.wrap {
+  flex-wrap: wrap;
+}
+.floating-row-label {
+  font-family: var(--font-disp);
+  font-size: 11.5px;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.floating-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+.floating-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 2px 0;
 }
 
 .empty {
@@ -1678,6 +1982,70 @@ label {
 }
 .map-picker-map:hover .asset-thumb {
   border-color: var(--green);
+}
+
+/* Catálogo de equipamento do livro (EquipmentCatalogDialog.tsx) — mesma
+   base visual do .map-picker, só mais largo (os itens têm texto de regra,
+   não miniatura) e com abas de categoria em cima do corpo. */
+.equip-catalog {
+  max-width: 820px;
+}
+.equip-catalog-tabs {
+  flex: none;
+  padding: 10px 14px 0;
+}
+.equip-catalog-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  position: relative;
+}
+.equip-catalog-item:hover {
+  border-color: var(--green);
+}
+.equip-catalog-item.added {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 14%, var(--bg-2));
+}
+.equip-catalog-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.equip-catalog-item-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.equip-catalog-item-badges {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.equip-catalog-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.equip-catalog-item-notes {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.equip-catalog-added-tag {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 11px;
+  color: var(--green);
 }
 
 /* Protótipo experimental "mesa 3D" — página isolada, própria rota, não
@@ -3668,350 +4036,6 @@ label {
   opacity: 1;
 }
 
-/* Ficha em papel — visão organizada, estilo ficha oficial de agente ------- */
-.sheet-view-toggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.paper-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: rgba(0, 0, 0, 0.78);
-  display: flex;
-  justify-content: center;
-  overflow-y: auto;
-  padding: 28px 16px;
-}
-.paper-overlay-inner {
-  width: 100%;
-  max-width: 860px;
-  margin: auto;
-}
-.paper-overlay-bar {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.paper-sheet {
-  --ink: #1c1a16;
-  --paper: #f2ecdd;
-  --paper-2: #e8e0cc;
-  display: flex;
-  background: var(--paper);
-  color: var(--ink);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  font-family: var(--font-body);
-}
-.paper-tab {
-  flex: none;
-  width: 26px;
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-}
-.paper-body {
-  flex: 1;
-  min-width: 0;
-  padding: 18px 20px;
-}
-.paper-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-.paper-id-row {
-  display: flex;
-  gap: 10px;
-  flex: 1;
-  min-width: 220px;
-}
-.paper-id-box {
-  flex: 1;
-  border: 1px solid var(--ink);
-  border-radius: 4px;
-  padding: 4px 10px;
-  display: flex;
-  flex-direction: column;
-}
-.paper-id-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.65;
-}
-.paper-id-value {
-  font-family: var(--font-disp);
-  font-size: 15px;
-}
-.paper-logo {
-  flex: none;
-  text-align: right;
-  line-height: 1;
-}
-.paper-logo-small {
-  display: block;
-  font-family: var(--font-disp);
-  letter-spacing: 0.3em;
-  font-size: 12px;
-}
-.paper-logo-big {
-  display: block;
-  font-family: var(--font-disp);
-  font-weight: 700;
-  font-size: 22px;
-  letter-spacing: 0.04em;
-}
-.paper-columns {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.paper-col-left {
-  flex: 1 1 320px;
-  min-width: 280px;
-}
-.paper-col-right {
-  flex: 1 1 280px;
-  min-width: 260px;
-}
-
-.attr-wheel {
-  position: relative;
-  width: 100%;
-  max-width: 260px;
-  aspect-ratio: 1 / 1;
-  margin: 0 auto 18px;
-}
-.attr-wheel-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 38%;
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--paper);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-family: var(--font-disp);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 6px;
-}
-.attr-wheel-node {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 30%;
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  background: var(--paper);
-  border: 2px solid var(--ink);
-  box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--ink);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-.attr-wheel-short {
-  font-family: var(--font-disp);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-}
-.attr-wheel-value {
-  font-family: var(--font-disp);
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.paper-bar {
-  display: block;
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 3px 3px 0 0;
-}
-.paper-field-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.paper-field {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.paper-field.small {
-  flex: none;
-  min-width: 110px;
-}
-.paper-fill {
-  border: 1px solid var(--ink);
-  border-top: none;
-  padding: 5px 8px;
-  font-size: 13px;
-  min-height: 24px;
-}
-.paper-fill.center {
-  text-align: center;
-  font-family: var(--font-disp);
-  font-size: 15px;
-}
-
-.paper-stat-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 8px;
-  align-items: stretch;
-}
-.paper-stat-box {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.paper-stat-value {
-  border: 1px solid var(--ink);
-  border-top: none;
-  padding: 8px;
-  text-align: center;
-  font-family: var(--font-disp);
-  font-size: 20px;
-}
-.paper-shield {
-  flex: none;
-  width: 110px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  border: 2px solid var(--ink);
-  border-radius: 10px 10px 40% 40%;
-  padding: 8px 4px;
-}
-.paper-shield-value {
-  font-family: var(--font-disp);
-  font-size: 24px;
-  font-weight: 700;
-}
-.paper-shield-label {
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-}
-.paper-shield-formula {
-  font-size: 9px;
-  opacity: 0.7;
-}
-
-.paper-line {
-  font-size: 12px;
-  padding: 3px 0;
-  border-bottom: 1px dotted var(--ink);
-}
-
-.paper-table-scroll {
-  overflow-x: auto;
-}
-.paper-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  margin-top: 0;
-}
-.paper-skills {
-  min-width: 320px;
-}
-.paper-table th {
-  background: var(--paper-2);
-  border: 1px solid var(--ink);
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  padding: 4px 6px;
-  text-align: left;
-}
-.paper-table td {
-  border: 1px solid var(--ink);
-  padding: 4px 6px;
-  vertical-align: top;
-}
-.paper-skills td,
-.paper-skills th {
-  padding: 2px 6px;
-}
-.paper-center {
-  text-align: center;
-  white-space: nowrap;
-}
-.paper-empty {
-  text-align: center;
-  opacity: 0.6;
-}
-.paper-legend {
-  font-size: 10px;
-  opacity: 0.65;
-  margin-top: 6px;
-}
-
-@media (max-width: 640px) {
-  .paper-tab {
-    display: none;
-  }
-  .paper-body {
-    padding: 14px;
-  }
-}
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .paper-overlay,
-  .paper-overlay * {
-    visibility: visible;
-  }
-  .paper-overlay {
-    position: static;
-    background: none;
-    padding: 0;
-    overflow: visible;
-  }
-  .paper-overlay-bar {
-    display: none;
-  }
-  .paper-sheet {
-    box-shadow: none;
-  }
-}
-
 /* ---------- protótipo do mini-jogo (combate por turnos, câmera fixa) ---------- */
 /* Referência visual: Dicemancer/Slay the Spire — fundo ilustrado parado,
    inimigo grande no centro, mão de cartas embaixo. Isolado (rota própria
@@ -4868,4 +4892,41 @@ label {
   border: 1px solid #4f8fe0;
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+/* QR code no rodapé da ficha (ver FichaQr.tsx) — abre a mesma ficha no
+   celular, pela rede local. */
+.ficha-qr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.ficha-qr-img {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  background: var(--bg-2);
+  image-rendering: pixelated;
+}
+.ficha-qr-loading {
+  border: 1px dashed var(--line);
+}
+.ficha-qr-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ficha-qr-text strong {
+  font-family: var(--font-disp);
+  font-size: 13px;
+}
+.ficha-qr-url {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  word-break: break-all;
 }

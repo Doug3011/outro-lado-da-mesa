@@ -1,5 +1,4 @@
-import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { useIdentity } from '../hooks/useIdentity';
 import { activeScene, useTableStore } from '../store/useTableStore';
@@ -11,51 +10,14 @@ import { getLinkedCharacterId } from '../lib/roomLinks';
 import { loadProfile } from '../lib/profile';
 import { hasFilledProfile } from '../domain/profile';
 import { TopBar } from '../components/TopBar';
-import { DiceRoller } from '../components/DiceRoller';
-import { RollLog } from '../components/RollLog';
-import { NotificationLog } from '../components/NotificationLog';
 import { NotificationToasts } from '../components/NotificationToasts';
 import { DiceRollFX } from '../components/DiceRollFX';
-import { CharacterPanel } from '../components/CharacterPanel';
-import { GmCharacterTabs } from '../components/GmCharacterTabs';
-import { PlayerProfilesPanel } from '../components/PlayerProfilesPanel';
-import { MusicPanel } from '../components/MusicPanel';
 import { MusicPlayer } from '../components/MusicPlayer';
-import { AmbientPanel } from '../components/AmbientPanel';
 import { AmbientPlayer } from '../components/AmbientPlayer';
-import { TokenPanel } from '../components/TokenPanel';
 import { BattleMap } from '../components/BattleMap';
 import { Battle3D } from '../components/Battle3D';
 import { SceneTransition } from '../components/SceneTransition';
 import { hasLan } from '../lib/lan';
-
-type Tab = 'dados' | 'ficha' | 'perfis' | 'tokens' | 'log' | 'notificacoes' | 'musicas' | 'ambiente';
-
-// Ícones provisórios (emoji) — trocar por símbolos rituais próprios da Ordem
-// quando entrar a passada de identidade visual.
-const BASE_TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'dados', label: 'Dados', icon: '🎲' },
-  { key: 'ficha', label: 'Ficha', icon: '📜' },
-  { key: 'log', label: 'Histórico', icon: '📖' },
-  { key: 'notificacoes', label: 'Notificações', icon: '🔔' },
-];
-
-// Cada aba com sua própria cor de destaque, em vez de todas ficarem na mesma
-// cor quando ativas — dados e música na cor do elemento Energia (roxo, o
-// mesmo elemento que já rege a sorte no Desafio Diário), ficha e
-// notificações em vermelho, perfis em dourado. Histórico não tem cor fixa —
-// cada rolagem lá dentro já é colorida pelo elemento da ficha de quem rolou
-// (ver RollLog.tsx / useTableStore.ts), então o ícone fica neutro/informativo.
-const TAB_COLOR: Partial<Record<Tab, string>> = {
-  dados: 'var(--purple)',
-  musicas: 'var(--purple)',
-  ambiente: 'var(--green)',
-  ficha: 'var(--blood)',
-  notificacoes: 'var(--blood)',
-  perfis: 'var(--gold)',
-  tokens: 'var(--green)',
-  log: 'var(--blue)',
-};
 
 export function Room() {
   const { code } = useParams<{ code: string }>();
@@ -63,69 +25,13 @@ export function Room() {
   const { me } = useIdentity();
   const connect = useTableStore((s) => s.connect);
   const disconnect = useTableStore((s) => s.disconnect);
-  const notifications = useTableStore((s) => s.notifications);
-  const roomCode = useTableStore((s) => s.code);
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
   const connected = useTableStore((s) => s.connected);
   const upsertCharacter = useTableStore((s) => s.upsertCharacter);
   const setActiveCharacter = useTableStore((s) => s.setActiveCharacter);
   const sendProfile = useTableStore((s) => s.sendProfile);
-  const [tab, setTab] = useState<Tab>('dados');
-  const [seenNotifCount, setSeenNotifCount] = useState(0);
-  // Abas de ficha do mestre (estilo navegador) — vivem aqui, não dentro do
-  // painel lateral, pra continuarem abertas quando o mestre troca de aba no
-  // trilho de ícones (o painel lateral remonta a cada troca, `key={tab}` logo
-  // abaixo).
-  const [gmTabs, setGmTabs] = useState<string[]>([]);
-  const [activeGmTab, setActiveGmTab] = useState<string | null>(null);
-  const openGmTab = (id: string) => {
-    setGmTabs((t) => (t.includes(id) ? t : [...t, id]));
-    setActiveGmTab(id);
-  };
-  const closeGmTab = (id: string) => {
-    setGmTabs((t) => {
-      const next = t.filter((x) => x !== id);
-      setActiveGmTab((cur) => (cur === id ? next[next.length - 1] ?? null : cur));
-      return next;
-    });
-  };
-  const seededCode = useRef<string | null | undefined>(undefined);
   const linkedPushed = useRef<string | null>(null);
-
-  // Perfis e Tokens só existem pra quem é mestre; Músicas e Tokens dependem
-  // do servidor local (arquivo servido por HTTP), então só aparecem no modo
-  // rede local.
-  const tabs: { key: Tab; label: string; icon: string }[] = [
-    BASE_TABS[0],
-    BASE_TABS[1],
-    ...(me.isGM ? [{ key: 'perfis' as Tab, label: 'Perfis', icon: '👤' }] : []),
-    ...(me.isGM && hasLan ? [{ key: 'tokens' as Tab, label: 'Tokens', icon: '🧩' }] : []),
-    ...(hasLan ? [{ key: 'musicas' as Tab, label: 'Músicas', icon: '🎵' }] : []),
-    ...(hasLan ? [{ key: 'ambiente' as Tab, label: 'Sons', icon: '🔊' }] : []),
-    BASE_TABS[2],
-    BASE_TABS[3],
-  ];
-
-  const myNotifCount = useMemo(
-    () => (me.isGM ? notifications : notifications.filter((n) => n.ownerId === me.id)).length,
-    [notifications, me.isGM, me.id],
-  );
-  const unread = Math.max(0, myNotifCount - seenNotifCount);
-
-  const selectTab = (t: Tab) => {
-    setTab(t);
-    if (t === 'notificacoes') setSeenNotifCount(myNotifCount);
-  };
-
-  useEffect(() => {
-    // ao (re)conectar numa sala, o que já veio do cache/sync não conta como "novo" —
-    // só o que chegar depois disso vira selo de não-lida no sino do trilho.
-    if (seededCode.current !== roomCode) {
-      setSeenNotifCount(myNotifCount);
-      seededCode.current = roomCode;
-    }
-  }, [roomCode, myNotifCount]);
 
   useEffect(() => {
     if (!code || !me.name.trim()) return;
@@ -215,8 +121,6 @@ export function Room() {
   if (!code) return <Navigate to="/" replace />;
   if (!me.name.trim()) return <Navigate to={`/?sala=${code}`} replace />;
 
-  const active = tabs.find((t) => t.key === tab) ?? tabs[0];
-
   return (
     <div className="room">
       <TopBar code={code.toUpperCase()} />
@@ -235,50 +139,6 @@ export function Room() {
               onReady={handleTransitionReady}
             />
           )}
-        </div>
-        <div className="sidebar">
-          <div className="icon-rail">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                className={tab === t.key ? 'active' : ''}
-                style={{ '--tab-accent': TAB_COLOR[t.key] } as CSSProperties}
-                title={t.label}
-                onClick={() => selectTab(t.key)}
-              >
-                <span className="ir-ico">{t.icon}</span>
-                {t.key === 'notificacoes' && unread > 0 && (
-                  <span className="ir-badge">{unread > 9 ? '9+' : unread}</span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="sidebar-panel" style={{ '--tab-accent': TAB_COLOR[tab] } as CSSProperties}>
-            <div className="sidebar-panel-head">
-              <span>{active.icon}</span> {active.label}
-            </div>
-            <div className="tab-content" key={tab}>
-              {tab === 'dados' && <DiceRoller />}
-              {tab === 'ficha' &&
-                (me.isGM ? (
-                  <GmCharacterTabs
-                    openIds={gmTabs}
-                    activeId={activeGmTab}
-                    onOpen={openGmTab}
-                    onClose={closeGmTab}
-                    onSelect={setActiveGmTab}
-                  />
-                ) : (
-                  <CharacterPanel />
-                ))}
-              {tab === 'perfis' && me.isGM && <PlayerProfilesPanel />}
-              {tab === 'tokens' && me.isGM && <TokenPanel />}
-              {tab === 'musicas' && <MusicPanel />}
-              {tab === 'ambiente' && <AmbientPanel />}
-              {tab === 'log' && <RollLog />}
-              {tab === 'notificacoes' && <NotificationLog />}
-            </div>
-          </div>
         </div>
       </div>
     </div>

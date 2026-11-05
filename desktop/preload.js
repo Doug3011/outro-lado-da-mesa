@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setWindowSize: (width, height) => ipcRenderer.invoke('window:set-size', width, height),
   setBorderless: (on) => ipcRenderer.invoke('window:set-borderless', on),
   setWindowed: () => ipcRenderer.invoke('window:set-windowed'),
+  // Importar ficha do C.R.I.S. (crisordemparanormal.com) — ver importCris.js.
+  importCrisAgent: (url) => ipcRenderer.invoke('cris:import', url),
 });

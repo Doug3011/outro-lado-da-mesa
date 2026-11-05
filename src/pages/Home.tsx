@@ -21,7 +21,6 @@ import { PlaceLibraryManager } from '../components/PlaceLibraryManager';
 import { PlacePickerDialog } from '../components/PlacePickerDialog';
 import type { Place } from '../lib/placeLibrary';
 import { Map2DLibraryManager } from '../components/Map2DLibraryManager';
-import { Map2DPickerDialog } from '../components/Map2DPickerDialog';
 import type { Map2D } from '../lib/map2dLibrary';
 import { SigilFlicker } from '../components/SigilFlicker';
 import { ALL_MENU_TRACKS } from '../data/menuTracks';
@@ -83,7 +82,6 @@ export function Home() {
   // `null` = mapa em branco) entre o clique em "Hospedar mesa (2D)" e o
   // `onHosting` disparar de fato.
   const pending2dRef = useRef<{ map2d: Map2D | null } | undefined>(undefined);
-  const [showMap2DPicker, setShowMap2DPicker] = useState(false);
 
   useEffect(() => {
     if (!hasLan || role === null) return;
@@ -638,7 +636,15 @@ export function Home() {
                     disabled={hosting}
                     onClick={() => {
                       if (!me.name.trim()) return setError('Escolha um nome.');
-                      setShowMap2DPicker(true);
+                      // Antes abria um diálogo pra escolher/criar um cenário
+                      // 2D antes de entrar — pedido do usuário: removido por
+                      // ser "inútil, só deixa mais confuso". Vai direto pra
+                      // mesa com um mapa em branco; escolher/trocar cenário
+                      // (inclusive carregar um mapa montado na Área do
+                      // Mestre) agora é feito de dentro da mesa, na janela
+                      // flutuante "Mestre"/"Mapas" (ver BattleMap.tsx).
+                      pending2dRef.current = { map2d: null };
+                      hostLan();
                     }}
                   >
                     {hosting ? 'Hospedando…' : 'Hospedar mesa (2D)'}
@@ -784,21 +790,6 @@ export function Home() {
         />
       )}
 
-      {showMap2DPicker && (
-        <Map2DPickerDialog
-          onClose={() => setShowMap2DPicker(false)}
-          onBlank={() => {
-            pending2dRef.current = { map2d: null };
-            setShowMap2DPicker(false);
-            hostLan();
-          }}
-          onPick={(map2d) => {
-            pending2dRef.current = { map2d };
-            setShowMap2DPicker(false);
-            hostLan();
-          }}
-        />
-      )}
     </div>
   );
 }

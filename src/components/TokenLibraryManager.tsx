@@ -18,7 +18,16 @@ import { askText } from '../state/promptDialog';
 // e organiza em pastas, igual a biblioteca de música. Não toca a mesa ainda
 // — é só o estoque pronto pra quando a aba "Ficha"/mapa da mesa ganhar um
 // jeito de puxar daqui (próximo passo, não desta leva).
-export function TokenLibraryManager() {
+export function TokenLibraryManager({
+  // Com um token selecionado no mapa (ver BattleMap.tsx), Shift+clique numa
+  // miniatura chama isso em vez do arraste normal — adiciona a imagem como
+  // VARIANTE do token selecionado (ver TokenSprite em types.ts) em vez de
+  // criar um token novo. Ausente (ou sem token selecionado) = Shift+clique
+  // não faz nada, só o arraste de sempre continua funcionando.
+  onShiftClickAsset,
+}: {
+  onShiftClickAsset?: (asset: TokenAsset) => void;
+} = {}) {
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [items, setItems] = useState<TokenAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,10 +172,17 @@ export function TokenLibraryManager() {
               className="asset-thumb asset-thumb-draggable"
               style={{ backgroundImage: `url(${tokenAssetUrl(t.id)})` }}
               draggable
-              title="Arraste pro mapa da mesa pra colocar como token"
+              title={
+                onShiftClickAsset
+                  ? 'Arraste pro mapa pra colocar como token novo — Shift+clique adiciona como variante do token selecionado'
+                  : 'Arraste pro mapa da mesa pra colocar como token'
+              }
               onDragStart={(e) => {
                 e.dataTransfer.setData(TOKEN_DRAG_MIME, JSON.stringify({ id: t.id, name: t.name }));
                 e.dataTransfer.effectAllowed = 'copy';
+              }}
+              onClick={(e) => {
+                if (e.shiftKey && onShiftClickAsset) onShiftClickAsset(t);
               }}
             />
             <span className="asset-name" title={t.name}>

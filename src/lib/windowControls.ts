@@ -1,5 +1,7 @@
 // Ponte pro `window.electronAPI` exposto pelo desktop/preload.js. Fora do
 // Electron (ex.: testando no navegador) tudo aqui vira no-op — nada quebra.
+import type { CrisRawData } from './crisImport';
+
 export interface WindowState {
   isElectron: boolean;
   borderless: boolean;
@@ -14,6 +16,8 @@ declare global {
       setWindowSize: (width: number, height: number) => Promise<void>;
       setBorderless: (on: boolean) => Promise<void>;
       setWindowed: () => Promise<void>;
+      // Importar ficha do C.R.I.S. — ver desktop/importCris.js e src/lib/crisImport.ts.
+      importCrisAgent: (url: string) => Promise<{ ok: true; data: CrisRawData } | { ok: false; error: string }>;
     };
   }
 }

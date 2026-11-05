@@ -11,6 +11,10 @@ import {
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
 
+// Botão/janela flutuante "Dados" — só teste de perícia + rolagem livre. O
+// histórico ("Últimas rolagens") saiu daqui e virou o botão flutuante
+// "Histórico" (RollLog.tsx, mesmo componente, log completo), separado de
+// propósito — pedido do usuário.
 export function DiceRoller() {
   const rollOrdem = useTableStore((s) => s.rollOrdem);
   const rollFree = useTableStore((s) => s.rollFree);
@@ -179,41 +183,6 @@ export function DiceRoller() {
         </div>
       </div>
 
-      <div className="section-title">Últimas rolagens</div>
-      <MiniLog />
-    </div>
-  );
-}
-
-function MiniLog() {
-  const rollLog = useTableStore((s) => s.rollLog);
-  if (rollLog.length === 0) return <p className="empty">Nenhuma rolagem ainda.</p>;
-  return (
-    <div className="log-list">
-      {rollLog.slice(0, 4).map((e) => (
-        <div key={e.id} className="log-entry" style={{ borderLeftColor: e.authorColor }}>
-          <div className="log-head">
-            <span className="log-author" style={{ color: e.authorColor }}>
-              {e.authorName}
-            </span>
-            <span className="log-label">{e.label}</span>
-          </div>
-          <div
-            className={
-              'log-total ' +
-              (e.result.kind === 'ordem-test' && e.result.critical
-                ? 'crit'
-                : e.result.kind === 'ordem-test' && e.result.success === true
-                  ? 'success'
-                  : e.result.kind === 'ordem-test' && e.result.success === false
-                    ? 'fail'
-                    : '')
-            }
-          >
-            {e.result.total}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

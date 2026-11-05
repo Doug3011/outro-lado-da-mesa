@@ -1,17 +1,108 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { activeScene, useTableStore } from '../store/useTableStore';
 import { useIdentity } from '../hooks/useIdentity';
 import { randomColor, uid } from '../lib/ids';
 import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
 import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
-import { useKeybinds } from '../lib/keybinds';
+import { keyLabel, useKeybinds } from '../lib/keybinds';
+import { hasLan } from '../lib/lan';
 import { MapPickerDialog } from './MapPickerDialog';
 import { PlacePickerDialog } from './PlacePickerDialog';
+import { FloatingButton } from './FloatingButton';
+import { FloatingWindow } from './FloatingWindow';
+import { TokenLibraryManager } from './TokenLibraryManager';
+import { Map2DLibraryManager } from './Map2DLibraryManager';
+import { CharacterPanel } from './CharacterPanel';
+import { CharacterSheet } from './CharacterSheet';
+import { GmCharacterTabs } from './GmCharacterTabs';
+import { DiceRoller } from './DiceRoller';
+import { RollLog } from './RollLog';
+import { MusicAndAmbientPanel } from './MusicAndAmbientPanel';
+import { PlayerProfilesPanel } from './PlayerProfilesPanel';
+import {
+  DadosFloatIcon,
+  FichaFloatIcon,
+  HistoricoFloatIcon,
+  MapasFloatIcon,
+  MestreFloatIcon,
+  MusicasFloatIcon,
+  PerfisFloatIcon,
+  TokensFloatIcon,
+  ViewFloatIcon,
+} from './icons';
 import type { Token, TokenSprite } from '../types';
 
 const SEND_EVERY_MS = 45;
+
+type TokenElProps = {
+  t: Token;
+  selected: boolean;
+  cellSize: number;
+  onPointerDown: (e: React.PointerEvent, t: Token) => void;
+  registerEl: (id: string, el: HTMLDivElement | null) => void;
+};
+
+// Extraído de dentro do `.map()` do BattleMap (varredura de performance:
+// "ainda trava ao arrastar, mesmo depois do fix anterior") — SEM isso,
+// cada token era um `<div>` cru dentro do JSX do BattleMap inteiro, não um
+// componente próprio: toda vez que `moveToken` comitava (a cada
+// SEND_EVERY_MS, durante QUALQUER arraste), o React re-executava e
+// re-diffava a lista INTEIRA de tokens de novo — medido via instrumentação
+// temporária: o número de "avaliações de token" por segundo era
+// `renders-do-BattleMap × quantidade-de-tokens-na-cena`, não só o token
+// arrastado. Com poucos tokens isso não aparece, mas numa mesa cheia (vários
+// tokens + névoa + peças de cenário) o custo por commit cresce com o tamanho
+// da cena, não fica fixo. Igual ao `Token3D`/`SceneObject` do lado 3D
+// (lib/scene3d.tsx) — token NÃO envolvido no arraste mantém a MESMA
+// referência de objeto (`patchScene`/`moveToken` só trocam a entrada do
+// token movido), então o `memo` abaixo bloqueia o re-render de todo o resto
+// — só o token realmente arrastado continua recalculando a cada commit.
+const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, registerEl }: TokenElProps) {
+  const free = !!t.image;
+  const px = t.sizePx ?? t.size * cellSize - 6;
+  return (
+    <div
+      ref={(el) => registerEl(t.id, el)}
+      className={'token ' + (free ? 'token-free ' : '') + (selected ? 'selected ' : '') + (t.lanternOn ? 'lantern-on' : '')}
+      onPointerDown={(e) => onPointerDown(e, t)}
+      style={{
+        left: t.x * cellSize,
+        top: t.y * cellSize,
+        width: px,
+        height: px,
+        margin: 3,
+        background: t.image ? undefined : t.color,
+        borderColor: free ? 'transparent' : t.color,
+        fontSize: Math.min(18, px * 0.3),
+      }}
+    >
+      {t.image && (
+        <span
+          className="tk-img"
+          style={{
+            backgroundImage: `url(${t.image})`,
+            backgroundSize: free ? 'contain' : 'cover',
+            transform: t.rotation ? `rotate(${t.rotation}deg)` : undefined,
+          }}
+        />
+      )}
+      {!t.image && t.label.slice(0, 2).toUpperCase()}
+      {t.hp && t.hp.max > 0 && (
+        <span className="tk-hp">
+          <span
+            style={{
+              width: `${Math.max(0, Math.min(100, (t.hp.current / t.hp.max) * 100))}%`,
+              background: t.hp.current / t.hp.max < 0.3 ? 'var(--blood)' : 'var(--green)',
+            }}
+          />
+        </span>
+      )}
+      <span className="tk-label">{t.label}</span>
+    </div>
+  );
+});
 
 export function BattleMap() {
   const { me } = useIdentity();
@@ -20,6 +111,7 @@ export function BattleMap() {
   const characters = useTableStore((s) => s.characters);
   const users = useTableStore((s) => s.users);
   const upsertToken = useTableStore((s) => s.upsertToken);
+  const patchTokenLive = useTableStore((s) => s.patchTokenLive);
   const moveToken = useTableStore((s) => s.moveToken);
   const deleteToken = useTableStore((s) => s.deleteToken);
   const updateMap = useTableStore((s) => s.updateMap);
@@ -49,6 +141,43 @@ export function BattleMap() {
   const [fogWorking, setFogWorking] = useState<Set<string> | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [showPlacePicker, setShowPlacePicker] = useState(false);
+
+  // ---- retrofit visual: toolbar antiga virou botões/janelas flutuantes
+  // (ver FloatingButton/FloatingWindow, portados do protótipo Godot) ----
+  const floatingLayerRef = useRef<HTMLDivElement>(null);
+  const [mestreOpen, setMestreOpen] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
+  const [mapasOpen, setMapasOpen] = useState(false);
+  const [fichaOpen, setFichaOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false); // janela "Mapa" do jogador (zoom/medir/token)
+  // Botões "universais" (Dados/Histórico/Músicas/Perfis) — moraram no
+  // painel lateral antigo (Room.tsx), que ficava fixo na tela ao lado dos
+  // botões flutuantes novos (bug relatado pelo usuário); agora entram
+  // nesse mesmo sistema de botões/janelas flutuantes, igual Ficha/Mestre/
+  // Tokens/Mapas acima. Room.tsx esconde o painel antigo pra cenário 2D
+  // (ver Room.tsx) — ele continua existindo só pra mesa 3D, que ainda não
+  // tem esse retrofit.
+  const [dadosOpen, setDadosOpen] = useState(false);
+  const [historicoOpen, setHistoricoOpen] = useState(false);
+  const [musicasOpen, setMusicasOpen] = useState(false);
+  const [perfisOpen, setPerfisOpen] = useState(false);
+  // Abas de ficha abertas na janela flutuante "Ficha" do mestre — estado
+  // independente das abas da barra lateral (Room.tsx/GmCharacterTabs), de
+  // propósito: são duas visões opcionais da mesma ficha, não precisam
+  // compartilhar estado.
+  const [gmFichaTabs, setGmFichaTabs] = useState<string[]>([]);
+  const [activeGmFichaTab, setActiveGmFichaTab] = useState<string | null>(null);
+  const openGmFichaTab = (id: string) => {
+    setGmFichaTabs((t) => (t.includes(id) ? t : [...t, id]));
+    setActiveGmFichaTab(id);
+  };
+  const closeGmFichaTab = (id: string) => {
+    setGmFichaTabs((t) => {
+      const next = t.filter((x) => x !== id);
+      setActiveGmFichaTab((cur) => (cur === id ? next[next.length - 1] ?? null : cur));
+      return next;
+    });
+  };
 
   const stageRef = useRef<HTMLDivElement>(null);
   const mapScrollRef = useRef<HTMLDivElement>(null);
@@ -89,8 +218,18 @@ export function BattleMap() {
      equivalente é mutar `style.left/top` do próprio <div> do token direto
      via `tokenElsRef`, sem passar pelo React. O envio pela rede continua
      throttled em SEND_EVERY_MS, só a atualização VISUAL local que deixou
-     de depender de re-render. */
-  const onTokenPointerDown = (e: React.PointerEvent, t: Token) => {
+     de depender de re-render.
+
+     `useCallback` (mesma varredura que achou o problema do `TokenEl` acima)
+     — sem isso, esse handler era uma função NOVA a cada render do
+     BattleMap, o que por si quebrava o `memo` de `TokenEl` pra TODO token
+     (prop "diferente" a cada comparação, mesmo sem mudança nenhuma). As
+     dependências abaixo (`measure`/`fogMode`/`map`/`zoom`/`moveToken`/
+     `upsertToken`) não mudam DURANTE um arraste — só quando o usuário troca
+     de ferramenta/cenário/zoom de verdade — então o handler fica estável
+     exatamente nos momentos em que importa (os commits throttled de
+     `moveToken`, 22x/s). */
+  const onTokenPointerDown = useCallback((e: React.PointerEvent, t: Token) => {
     if (measure || fogMode) return;
     e.stopPropagation();
     e.preventDefault();
@@ -144,7 +283,16 @@ export function BattleMap() {
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measure, fogMode, map, zoom, moveToken, upsertToken]);
+
+  // Ref-setter estável pro <div> de cada token em `tokenElsRef` — também
+  // precisa ser estável (mesmo motivo do `onTokenPointerDown` acima) pra não
+  // quebrar o `memo` de `TokenEl`.
+  const registerTokenEl = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) tokenElsRef.current.set(id, el);
+    else tokenElsRef.current.delete(id);
+  }, []);
 
   /* -------- mover a câmera arrastando o fundo do mapa (botão esquerdo) --------
      Antes só dava pra reposicionar usando as barras de rolagem, o que é ruim
@@ -187,7 +335,7 @@ export function BattleMap() {
 
   /* -------- medição -------- */
   const onStagePointerDown = (e: React.PointerEvent) => {
-    if (fogMode && me.isGM) {
+    if (fogMode && me.isGM && map.fogKind !== 'lantern') {
       onFogPointerDown(e);
       return;
     }
@@ -241,7 +389,45 @@ export function BattleMap() {
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   };
-  const fogSet = fogWorking ?? new Set(map.fogHidden ?? []);
+  // Névoa modo "Lanterna" — ver MapState.fogKind em types.ts. Cálculo portado
+  // do protótipo Godot (scenes/battle_map/FogLayer.cs, só leitura ali, usado
+  // só como referência): direção do cone = rotação do token (0° = "pra
+  // cima", mesmo sentido do `rotate()` CSS usado no sprite — cresce no
+  // sentido horário); alcance = (tamanho do token / 2) * 6 células;
+  // meio-ângulo do cone = 32°. A célula onde o próprio token está sempre
+  // conta como iluminada (senão ele ficaria escuro embaixo de si mesmo).
+  const LANTERN_HALF_ANGLE_DEG = 32;
+  const lanternRangeCells = (t: Token) => (t.size / 2) * 6;
+  const cellLitByToken = (cx: number, cy: number, t: Token) => {
+    const centerX = t.x + t.size / 2;
+    const centerY = t.y + t.size / 2;
+    const dx = cx + 0.5 - centerX;
+    const dy = cy + 0.5 - centerY;
+    const dist = Math.hypot(dx, dy);
+    if (dist > lanternRangeCells(t)) return false;
+    if (dist <= t.size / 2 + 0.5) return true;
+    const angleToCell = (Math.atan2(dx, -dy) * 180) / Math.PI; // 0° = "pra cima"
+    const diff = (((angleToCell - (t.rotation ?? 0) + 180) % 360) + 360) % 360 - 180;
+    return Math.abs(diff) <= LANTERN_HALF_ANGLE_DEG;
+  };
+  const lanternTokens = useMemo(
+    () => Object.values(tokens).filter((t) => t.lanternOn),
+    [tokens],
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- cellLitByToken é recriada a cada render mas é pura (só lê os campos do token recebido)
+  const lanternHidden = useMemo(() => {
+    if (map.fogKind !== 'lantern') return null;
+    const hidden = new Set<string>();
+    for (let x = 0; x < map.cols; x++) {
+      for (let y = 0; y < map.rows; y++) {
+        if (!lanternTokens.some((t) => cellLitByToken(x, y, t))) hidden.add(cellKey(x, y));
+      }
+    }
+    return hidden;
+  }, [map.fogKind, map.cols, map.rows, lanternTokens]);
+
+  const fogSet =
+    map.fogKind === 'lantern' ? lanternHidden ?? new Set<string>() : fogWorking ?? new Set(map.fogHidden ?? []);
   const tokenHidden = (t: Token) => {
     if (fogSet.size === 0) return false;
     for (let dx = 0; dx < t.size; dx++) {
@@ -341,15 +527,34 @@ export function BattleMap() {
     patchToken({ image: next.image, activeSpriteId: next.id });
   };
 
+  // Liga/desliga a lanterna do token selecionado (só importa visualmente
+  // quando a Névoa está em modo "Lanterna", ver MapState.fogKind) — toque
+  // único, igual cycleSprite acima.
+  const toggleLantern = () => {
+    if (!selected) return;
+    patchToken({ lanternOn: !selected.lanternOn });
+  };
+
   // Sempre aponta pro token selecionado MAIS RECENTE, sem precisar que o
   // loop de animação abaixo dependa dele (ver por quê no comentário do
   // useEffect principal) — lido a cada frame/evento, nunca fica obsoleto.
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  const patchSelectedLive = (p: Partial<Token>) => {
+  // `persistNow` default false — achado numa varredura de performance: o
+  // loop de giro/resize contínuo abaixo chama isso a cada ~45ms enquanto a
+  // tecla fica segurada, e `upsertToken` grava a cena INTEIRA no
+  // localStorage + dispara um PUT assíncrono pro banco (`persist()`/
+  // `pushScenesToDb()`) a cada chamada — rodando em loop isso travava a UI
+  // de verdade (igual ao bug já corrigido no arraste de token, que por isso
+  // usa `moveToken`, sem persist, pros tiques intermediários). Os commits
+  // PERIÓDICOS usam `patchTokenLive` (sem persist); só o commit FINAL, ao
+  // soltar a tecla, passa `persistNow:true` pra gravar de verdade.
+  const patchSelectedLive = (p: Partial<Token>, persistNow = false) => {
     const cur = selectedRef.current;
     if (!cur) return;
-    upsertToken({ ...cur, ...p });
+    const next = { ...cur, ...p };
+    if (persistNow) upsertToken(next);
+    else patchTokenLive(next);
   };
 
   // Atalhos de teclado pro token selecionado — teclas configuráveis (⚙
@@ -365,8 +570,9 @@ export function BattleMap() {
   // no arraste, `tokenElsRef`/`.tk-img`) — só o COMMIT pra store/rede fica
   // throttled em SEND_EVERY_MS, senão viraria o mesmo tipo de travamento
   // já corrigido no arraste (gravar o estado inteiro a cada frame).
-  // V (padrão) alterna pra próxima variante de imagem, Enter (padrão)
-  // abre a ficha — ambos de disparo único, não contínuo.
+  // R (padrão) alterna pra próxima variante de imagem, L (padrão) liga/
+  // desliga a lanterna do token, Enter (padrão) abre a ficha — os três de
+  // disparo único (toque), não contínuo.
   useEffect(() => {
     if (!selected) return;
     const heldCodes = new Set<string>();
@@ -439,6 +645,9 @@ export function BattleMap() {
       } else if (e.code === keybinds['token-cycle-sprite']) {
         e.preventDefault();
         cycleSprite();
+      } else if (e.code === keybinds['token-toggle-lantern']) {
+        e.preventDefault();
+        toggleLantern();
       } else if (e.code === keybinds['token-open-panel']) {
         e.preventDefault();
         setPanelOpen(true);
@@ -446,12 +655,19 @@ export function BattleMap() {
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (!heldCodes.delete(e.code)) return;
-      // commit final na hora de soltar — não espera o próximo throttle
-      patchSelectedLive({ rotation: liveRotation, sizePx: liveSizePx });
+      // commit final na hora de soltar — não espera o próximo throttle, e
+      // esse sim persiste de verdade (persistNow:true — ver patchSelectedLive)
+      patchSelectedLive({ rotation: liveRotation, sizePx: liveSizePx }, true);
     };
     // solta tudo se a janela perder o foco com alguma tecla presa (alt-tab
     // no meio do giro, por exemplo) — senão o estado "preso" nunca solta.
-    const onBlur = () => heldCodes.clear();
+    // Também persiste de verdade aqui (igual ao keyup) — sem isso, um
+    // alt-tab no meio do giro deixava o último commit só na versão "leve"
+    // (patchTokenLive, sem persist), podendo perder a rotação ao recarregar.
+    const onBlur = () => {
+      if (heldCodes.size > 0) patchSelectedLive({ rotation: liveRotation, sizePx: liveSizePx }, true);
+      heldCodes.clear();
+    };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
@@ -470,22 +686,42 @@ export function BattleMap() {
     if (url) patchToken({ image: url });
   };
 
-  // Adiciona uma nova variante de imagem — se o token ainda não tinha
-  // `sprites` registrado (token "clássico", só `image` solta), promove a
-  // imagem atual pra "Padrão" primeiro, pra não perder ela da lista.
+  // Adiciona uma variante nova à lista do token selecionado — se ele ainda
+  // não tinha `sprites` registrado (token "clássico", só `image` solta),
+  // promove a imagem atual pra "Padrão" primeiro, pra não perder ela da
+  // lista. Compartilhado pelos dois jeitos de adicionar variante: escolher
+  // um arquivo (addSprite) ou Shift+clique numa miniatura da biblioteca de
+  // tokens (addVariantFromLibrary, ver TokenLibraryManager/TokenPanel).
+  const pushSprite = (image: string, name: string) => {
+    if (!selected) return;
+    let sprites = selected.sprites ?? [];
+    if (sprites.length === 0 && selected.image) {
+      sprites = [{ id: uid(), name: 'Padrão', image: selected.image }];
+    }
+    const sprite: TokenSprite = { id: uid(), name: name.trim() || 'Sem nome', image };
+    sprites = [...sprites, sprite];
+    patchToken({ sprites, image: sprite.image, activeSpriteId: sprite.id });
+  };
+
   const addSprite = async (file: File | undefined) => {
     if (!file || !selected) return;
     const url = await fileToDownscaledDataURL(file, 320);
     if (!url) return;
     const name = await askText('Nome dessa variante (ex.: "Com espada"):');
     if (name === null) return;
-    let sprites = selected.sprites ?? [];
-    if (sprites.length === 0 && selected.image) {
-      sprites = [{ id: uid(), name: 'Padrão', image: selected.image }];
-    }
-    const sprite: TokenSprite = { id: uid(), name: name.trim() || 'Sem nome', image: url };
-    sprites = [...sprites, sprite];
-    patchToken({ sprites, image: sprite.image, activeSpriteId: sprite.id });
+    pushSprite(url, name);
+  };
+
+  // Shift+clique numa miniatura da biblioteca de tokens, com um token já
+  // selecionado no mapa, adiciona a imagem como VARIANTE dele em vez de criar
+  // um token novo — mesma decisão tomada no protótipo Godot. Sem token
+  // selecionado, o clique não faz nada (o jeito normal de usar a biblioteca
+  // continua sendo arrastar pro mapa).
+  const addVariantFromAsset = async (asset: { id: string; name: string }) => {
+    if (!selected) return;
+    const url = await urlToDownscaledDataURL(tokenAssetUrl(asset.id), 320);
+    if (!url) return;
+    pushSprite(url, asset.name);
   };
 
   const selectSprite = (sprite: TokenSprite) => {
@@ -533,214 +769,38 @@ export function BattleMap() {
 
   return (
     <>
-      <div className="map-toolbar">
-        {me.isGM ? (
-          <>
-            <select
-              className="small"
-              style={{ width: 120, padding: '4px 6px' }}
-              value={activeSceneId}
-              onChange={(e) => switchScene(e.target.value)}
-            >
-              {scenes.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.name}
-                </option>
-              ))}
-            </select>
-            <button className="small" title="Novo cenário" onClick={() => setShowMapPicker(true)}>
-              ＋ cenário
-            </button>
-            <button
-              className="small"
-              title="Renomear cenário"
-              onClick={async () => {
-                const n = await askText('Nome do cenário:', scene.name);
-                if (n !== null) renameScene(scene.id, n.trim() || scene.name);
-              }}
-            >
-              ✎
-            </button>
-            <button
-              className="small"
-              title="Excluir cenário"
-              disabled={scenes.length <= 1}
-              onClick={() => {
-                if (confirm(`Excluir o cenário "${scene.name}" e seus tokens?`))
-                  deleteScene(scene.id);
-              }}
-            >
-              🗑
-            </button>
-            <span className="toolbar-sep" />
-          </>
-        ) : (
-          <>
-            <span className="live-badge" title="Você está vendo o mapa do mestre ao vivo">
-              <span className="live-dot" /> AO VIVO · {scene.name}
-            </span>
-            <span className="toolbar-sep" />
-          </>
+      {/* HUD do cenário ativo — leve, não é uma janela flutuante (mesma ideia
+          do "scene pill" do mockup aprovado). Gestão de cenário (trocar,
+          +cenário, renomear, excluir) mora na janela "Mestre", só mestre. */}
+      <div className="map-hud-badge">
+        {!me.isGM && (
+          <span className="live-badge" title="Você está vendo o mapa do mestre ao vivo">
+            <span className="live-dot" /> AO VIVO
+          </span>
         )}
-
-        <button className="small" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))}>
-          −
-        </button>
-        <button className="small" onClick={() => setZoom(1)} title="Ctrl + scroll no mapa também dá zoom">
-          {Math.round(zoom * 100)}%
-        </button>
-        <button className="small" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>
-          +
-        </button>
-        {me.isGM && (
-          <button
-            className={'small ' + (map.showGrid ? 'primary' : '')}
-            onClick={() => updateMap({ showGrid: !map.showGrid })}
-          >
-            Grid
-          </button>
-        )}
-        <button
-          className={'small ' + (measure ? 'primary' : '')}
-          onClick={() => {
-            setMeasure((m) => !m);
-            setMeasureLine(null);
-            setFogMode(false);
-            setSelId(null);
-          }}
-        >
-          📏 Medir
-        </button>
-        {me.isGM && (
-          <button
-            className={'small ' + (fogMode ? 'primary' : '')}
-            title="Clique/arraste no mapa pra esconder ou revelar células dos jogadores"
-            onClick={() => {
-              setFogMode((f) => !f);
-              setMeasure(false);
-              setSelId(null);
-            }}
-          >
-            🌫 Névoa
-          </button>
-        )}
-        {me.isGM && fogMode && (
-          <details style={{ position: 'relative' }}>
-            <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '4px 6px' }}>▾</summary>
-            <div className="map-cfg" style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 140 }}>
-              <button className="small" onClick={() => updateMap({ fogHidden: [] })}>
-                revelar tudo
-              </button>
-              <button
-                className="small"
-                onClick={() => {
-                  const all: string[] = [];
-                  for (let x = 0; x < map.cols; x++)
-                    for (let y = 0; y < map.rows; y++) all.push(cellKey(x, y));
-                  updateMap({ fogHidden: all });
-                }}
-              >
-                cobrir tudo
-              </button>
-            </div>
-          </details>
-        )}
-
-        <span className="toolbar-sep" />
-
-        <button className="small" onClick={addBlank}>
-          ＋ Token
-        </button>
-        {Object.keys(characters).length > 0 && (
-          <select
-            className="small"
-            style={{ width: 130, padding: '4px 6px' }}
-            value=""
-            onChange={(e) => e.target.value && addFromCharacter(e.target.value)}
-          >
-            <option value="">＋ do personagem…</option>
-            {Object.values(characters).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        )}
-        {me.isGM && (
-          <>
-            <button className="small" onClick={() => bgInputRef.current?.click()}>
-              🖼 Fundo
-            </button>
-            {map.background && (
-              <button className="small" onClick={() => updateMap({ background: undefined })}>
-                limpar fundo
-              </button>
-            )}
-            <details style={{ position: 'relative' }}>
-              <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '4px 6px' }}>
-                ⚙︎ Grade
-              </summary>
-              <div className="map-cfg">
-            <div className="row">
-              <div>
-                <label>Colunas</label>
-                <input
-                  type="number"
-                  value={map.cols}
-                  onChange={(e) => updateMap({ cols: Math.max(5, Number(e.target.value)) })}
-                />
-              </div>
-              <div>
-                <label>Linhas</label>
-                <input
-                  type="number"
-                  value={map.rows}
-                  onChange={(e) => updateMap({ rows: Math.max(5, Number(e.target.value)) })}
-                />
-              </div>
-            </div>
-            <div className="field" style={{ marginTop: 6 }}>
-              <label>Tamanho da célula (px)</label>
-              <input
-                type="number"
-                value={map.cellSize}
-                onChange={(e) => updateMap({ cellSize: Math.max(20, Number(e.target.value)) })}
-              />
-            </div>
-                <div className="field">
-                  <label>Metros por célula</label>
-                  <input
-                    type="number"
-                    step={0.5}
-                    value={map.metersPerCell}
-                    onChange={(e) => updateMap({ metersPerCell: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
-            </details>
-            <input
-              ref={bgInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                void onPickBackground(e.target.files?.[0]);
-                e.target.value = '';
-              }}
-            />
-          </>
-        )}
-        <input
-          ref={tokenInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => {
-            void onPickTokenImage(e.target.files?.[0]);
-            e.target.value = '';
-          }}
-        />
+        <span className="map-hud-scene">{scene.name}</span>
       </div>
+
+      <input
+        ref={bgInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          void onPickBackground(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={tokenInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          void onPickTokenImage(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
 
       {selected && panelOpen && (
         <div className="token-editor">
@@ -873,11 +933,21 @@ export function BattleMap() {
               )}
             </div>
           )}
+          <div className="row" style={{ marginTop: 6, alignItems: 'center' }}>
+            <label style={{ flex: 'none' }}>Lanterna</label>
+            <button
+              className={'small ' + (selected.lanternOn ? 'primary' : '')}
+              title={`Tecla ${keyLabel(keybinds['token-toggle-lantern'])} liga/desliga — só importa com a Névoa em modo Lanterna`}
+              onClick={toggleLantern}
+            >
+              {selected.lanternOn ? '💡 Ligada' : 'Desligada'}
+            </button>
+          </div>
           <div style={{ marginTop: 8 }}>
             <label>Variantes de imagem</label>
             {selected.sprites && selected.sprites.length > 0 && (
               <p className="faint" style={{ fontSize: 11, margin: '0 0 4px' }}>
-                Tecla <b>V</b> alterna rápido pra próxima.
+                Tecla <b>{keyLabel(keybinds['token-cycle-sprite'])}</b> alterna rápido pra próxima.
               </p>
             )}
             <div className="token-sprite-list">
@@ -1010,55 +1080,16 @@ export function BattleMap() {
 
           {Object.values(tokens)
             .filter((t) => me.isGM || !tokenHidden(t))
-            .map((t) => {
-            // Token com imagem sempre mostra ela como foi importada (sem recortar
-            // em círculo) — só o token "vazio" (sem imagem) usa o círculo colorido.
-            const free = !!t.image;
-            return (
-            <div
-              key={t.id}
-              ref={(el) => {
-                if (el) tokenElsRef.current.set(t.id, el);
-                else tokenElsRef.current.delete(t.id);
-              }}
-              className={'token ' + (free ? 'token-free ' : '') + (selId === t.id ? 'selected' : '')}
-              onPointerDown={(e) => onTokenPointerDown(e, t)}
-              style={{
-                left: t.x * map.cellSize,
-                top: t.y * map.cellSize,
-                width: tokenPxSize(t),
-                height: tokenPxSize(t),
-                margin: 3,
-                background: t.image ? undefined : t.color,
-                borderColor: free ? 'transparent' : t.color,
-                fontSize: Math.min(18, tokenPxSize(t) * 0.3),
-              }}
-            >
-              {t.image && (
-                <span
-                  className="tk-img"
-                  style={{
-                    backgroundImage: `url(${t.image})`,
-                    backgroundSize: free ? 'contain' : 'cover',
-                    transform: t.rotation ? `rotate(${t.rotation}deg)` : undefined,
-                  }}
-                />
-              )}
-              {!t.image && t.label.slice(0, 2).toUpperCase()}
-              {t.hp && t.hp.max > 0 && (
-                <span className="tk-hp">
-                  <span
-                    style={{
-                      width: `${Math.max(0, Math.min(100, (t.hp.current / t.hp.max) * 100))}%`,
-                      background: t.hp.current / t.hp.max < 0.3 ? 'var(--blood)' : 'var(--green)',
-                    }}
-                  />
-                </span>
-              )}
-              <span className="tk-label">{t.label}</span>
-            </div>
-            );
-          })}
+            .map((t) => (
+              <TokenEl
+                key={t.id}
+                t={t}
+                selected={selId === t.id}
+                cellSize={map.cellSize}
+                onPointerDown={onTokenPointerDown}
+                registerEl={registerTokenEl}
+              />
+            ))}
 
           {measureLine && (
             <>
@@ -1124,6 +1155,583 @@ export function BattleMap() {
           }}
         />
       )}
+
+      {/* ===================================================== */}
+      {/* Botões/janelas flutuantes — casca visual nova do mapa 2D */}
+      {/* (toolbar antiga vivia toda aqui, ver histórico do arquivo) */}
+      {/* ===================================================== */}
+      <div className="battle-floating-layer" ref={floatingLayerRef}>
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Ficha"
+          icon={<FichaFloatIcon />}
+          active={fichaOpen}
+          onActivate={() => setFichaOpen((o) => !o)}
+          topFrac={0.08}
+          rightFrac={0.04}
+        />
+        {me.isGM && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Mestre"
+            icon={<MestreFloatIcon />}
+            active={mestreOpen}
+            onActivate={() => setMestreOpen((o) => !o)}
+            topFrac={0.19}
+            rightFrac={0.04}
+          />
+        )}
+        {me.isGM && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Tokens"
+            icon={<TokensFloatIcon />}
+            active={tokensOpen}
+            onActivate={() => setTokensOpen((o) => !o)}
+            topFrac={0.3}
+            rightFrac={0.04}
+          />
+        )}
+        {me.isGM && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Mapas"
+            icon={<MapasFloatIcon />}
+            active={mapasOpen}
+            onActivate={() => setMapasOpen((o) => !o)}
+            topFrac={0.41}
+            rightFrac={0.04}
+          />
+        )}
+        {!me.isGM && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Mapa"
+            icon={<ViewFloatIcon />}
+            active={viewOpen}
+            onActivate={() => setViewOpen((o) => !o)}
+            topFrac={0.19}
+            rightFrac={0.04}
+          />
+        )}
+        {/* Botões "universais" (Dados/Histórico/Músicas/Perfis) — ver
+            comentário do estado `dadosOpen` acima; disponíveis pra
+            mestre e jogador (Perfis só pra mestre), igual eram as abas
+            equivalentes no painel lateral antigo (Room.tsx). */}
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Dados"
+          icon={<DadosFloatIcon />}
+          active={dadosOpen}
+          onActivate={() => setDadosOpen((o) => !o)}
+          topFrac={me.isGM ? 0.52 : 0.3}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          label="Histórico"
+          icon={<HistoricoFloatIcon />}
+          active={historicoOpen}
+          onActivate={() => setHistoricoOpen((o) => !o)}
+          topFrac={me.isGM ? 0.63 : 0.41}
+          rightFrac={0.04}
+        />
+        {hasLan && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Músicas"
+            icon={<MusicasFloatIcon />}
+            active={musicasOpen}
+            onActivate={() => setMusicasOpen((o) => !o)}
+            topFrac={me.isGM ? 0.74 : 0.52}
+            rightFrac={0.04}
+          />
+        )}
+        {me.isGM && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            label="Perfis"
+            icon={<PerfisFloatIcon />}
+            active={perfisOpen}
+            onActivate={() => setPerfisOpen((o) => !o)}
+            topFrac={0.85}
+            rightFrac={0.04}
+          />
+        )}
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Ficha"
+          open={fichaOpen}
+          onClose={() => setFichaOpen(false)}
+          leftFrac={0.5}
+          topFrac={0.06}
+          defaultWidth={420}
+          defaultHeight={560}
+        >
+          {me.isGM ? (
+            <GmCharacterTabs
+              openIds={gmFichaTabs}
+              activeId={activeGmFichaTab}
+              onOpen={openGmFichaTab}
+              onClose={closeGmFichaTab}
+              onSelect={setActiveGmFichaTab}
+              floatingPicker
+            />
+          ) : (
+            <CharacterPanel />
+          )}
+        </FloatingWindow>
+
+        {/* Fichas abertas pelo mestre (GmCharacterTabs acima, "Abrir ficha")
+            — cada uma é sua PRÓPRIA FloatingWindow, IRMÃ da janela "Ficha"
+            (não aninhada dentro dela, senão ficaria posicionada/recortada
+            relativa à janelinha pequena em vez da mesa inteira). O
+            `<CharacterSheet>` recebe `characters[id]` direto da store
+            (useTableStore acima), por isso reflete em tempo real qualquer
+            mudança vinda do celular (/ficha/:id, ver server/fichaMobile.js)
+            sem precisar fechar/reabrir a janela — e vice-versa. */}
+        {me.isGM &&
+          gmFichaTabs.map((id, i) => {
+            const c = characters[id];
+            if (!c) return null;
+            return (
+              <FloatingWindow
+                key={id}
+                containerRef={floatingLayerRef}
+                title={c.name}
+                open
+                onClose={() => closeGmFichaTab(id)}
+                leftFrac={0.08 + (i % 4) * 0.1}
+                topFrac={0.1 + (i % 3) * 0.1}
+                defaultWidth={380}
+                defaultHeight={480}
+              >
+                <CharacterSheet character={c} />
+              </FloatingWindow>
+            );
+          })}
+
+        {me.isGM && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Mestre"
+            open={mestreOpen}
+            onClose={() => setMestreOpen(false)}
+            leftFrac={0.62}
+            topFrac={0.06}
+            defaultWidth={300}
+            defaultHeight={460}
+          >
+            <div className="floating-row">
+              <span className="floating-row-label">Grid</span>
+              <button
+                className={'small ' + (map.showGrid ? 'primary' : '')}
+                onClick={() => updateMap({ showGrid: !map.showGrid })}
+              >
+                {map.showGrid ? 'Ligado' : 'Desligado'}
+              </button>
+            </div>
+
+            <div className="floating-row">
+              <span className="floating-row-label">Zoom</span>
+              <div className="floating-row" style={{ gap: 4 }}>
+                <button className="small" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))}>
+                  −
+                </button>
+                <button className="small" onClick={() => setZoom(1)} title="Ctrl + scroll no mapa também dá zoom">
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button className="small" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="floating-row">
+              <span className="floating-row-label">Medir</span>
+              <button
+                className={'small ' + (measure ? 'primary' : '')}
+                onClick={() => {
+                  setMeasure((m) => !m);
+                  setMeasureLine(null);
+                  setFogMode(false);
+                  setSelId(null);
+                }}
+              >
+                {measure ? 'Ativo' : 'Ativar'}
+              </button>
+            </div>
+
+            <div className="floating-sub">
+              <div className="floating-row">
+                <span className="floating-row-label">Névoa</span>
+                <div className="floating-row" style={{ gap: 4 }}>
+                  <button
+                    className={'small ' + (map.fogKind !== 'lantern' ? 'primary' : '')}
+                    title="Pintura manual — esconde/revela célula a célula"
+                    onClick={() => updateMap({ fogKind: 'paint' })}
+                  >
+                    Padrão
+                  </button>
+                  <button
+                    className={'small ' + (map.fogKind === 'lantern' ? 'primary' : '')}
+                    title="Área escura por padrão — cada token com a lanterna ligada revela um cone na frente dele"
+                    onClick={() => {
+                      updateMap({ fogKind: 'lantern' });
+                      setFogMode(false);
+                    }}
+                  >
+                    Lanterna
+                  </button>
+                </div>
+              </div>
+
+              {map.fogKind !== 'lantern' ? (
+                <>
+                  <div className="floating-row">
+                    <span className="floating-row-label" />
+                    <button
+                      className={'small ' + (fogMode ? 'primary' : '')}
+                      title="Clique/arraste no mapa pra esconder ou revelar células dos jogadores"
+                      onClick={() => {
+                        setFogMode((f) => !f);
+                        setMeasure(false);
+                        setSelId(null);
+                      }}
+                    >
+                      {fogMode ? 'Ativa' : 'Ativar'}
+                    </button>
+                  </div>
+                  {fogMode && (
+                    <div className="floating-row">
+                      <button className="small" onClick={() => updateMap({ fogHidden: [] })}>
+                        revelar tudo
+                      </button>
+                      <button
+                        className="small"
+                        onClick={() => {
+                          const all: string[] = [];
+                          for (let x = 0; x < map.cols; x++)
+                            for (let y = 0; y < map.rows; y++) all.push(cellKey(x, y));
+                          updateMap({ fogHidden: all });
+                        }}
+                      >
+                        cobrir tudo
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="faint" style={{ fontSize: 11, margin: '4px 0' }}>
+                    Tudo escuro por padrão. Selecione um token no mapa e aperte{' '}
+                    <b>{keyLabel(keybinds['token-toggle-lantern'])}</b> (ou use a lista abaixo) pra
+                    ligar a lanterna dele — revela um cone na direção que ele está virado
+                    (tamanho do token = mais alcance).
+                  </p>
+                  <div className="floating-row wrap">
+                    {Object.values(tokens).length === 0 && (
+                      <span className="faint" style={{ fontSize: 11 }}>
+                        Nenhum token no mapa ainda.
+                      </span>
+                    )}
+                    {Object.values(tokens).map((t) => (
+                      <button
+                        key={t.id}
+                        className={'small ' + (t.lanternOn ? 'primary' : 'ghost')}
+                        onClick={() => upsertToken({ ...t, lanternOn: !t.lanternOn })}
+                      >
+                        {t.lanternOn ? '💡' : '·'} {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="floating-divider" />
+
+            <div className="floating-row">
+              <span className="floating-row-label">Fundo</span>
+              <div className="floating-row" style={{ gap: 4 }}>
+                <button className="small" onClick={() => bgInputRef.current?.click()}>
+                  🖼 Importar
+                </button>
+                {map.background && (
+                  <button className="small ghost" onClick={() => updateMap({ background: undefined })}>
+                    limpar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="floating-sub">
+              <span className="floating-row-label">Grade</span>
+              <div className="row" style={{ marginTop: 8 }}>
+                <div>
+                  <label>Colunas</label>
+                  <input
+                    type="number"
+                    value={map.cols}
+                    onChange={(e) => updateMap({ cols: Math.max(5, Number(e.target.value)) })}
+                  />
+                </div>
+                <div>
+                  <label>Linhas</label>
+                  <input
+                    type="number"
+                    value={map.rows}
+                    onChange={(e) => updateMap({ rows: Math.max(5, Number(e.target.value)) })}
+                  />
+                </div>
+              </div>
+              <div className="field" style={{ marginTop: 6 }}>
+                <label>Tamanho da célula (px)</label>
+                <input
+                  type="number"
+                  value={map.cellSize}
+                  onChange={(e) => updateMap({ cellSize: Math.max(20, Number(e.target.value)) })}
+                />
+              </div>
+              <div className="field">
+                <label>Metros por célula</label>
+                <input
+                  type="number"
+                  step={0.5}
+                  value={map.metersPerCell}
+                  onChange={(e) => updateMap({ metersPerCell: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+          </FloatingWindow>
+        )}
+
+        {me.isGM && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Tokens"
+            open={tokensOpen}
+            onClose={() => setTokensOpen(false)}
+            leftFrac={0.62}
+            topFrac={0.5}
+            defaultWidth={320}
+            defaultHeight={380}
+          >
+            <div className="floating-row wrap">
+              <button className="small" onClick={addBlank}>
+                ＋ Token em branco
+              </button>
+              {Object.keys(characters).length > 0 && (
+                <select
+                  className="small"
+                  style={{ flex: 1, minWidth: 130, padding: '4px 6px' }}
+                  value=""
+                  onChange={(e) => e.target.value && addFromCharacter(e.target.value)}
+                >
+                  <option value="">＋ do personagem…</option>
+                  {Object.values(characters).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <p className="faint" style={{ fontSize: 11, margin: 0 }}>
+              Arraste um token daqui pra dentro do mapa pra colocar.
+              {selected && (
+                <>
+                  {' '}
+                  Com o token <b>{selected.label}</b> selecionado, Shift+clique numa miniatura
+                  adiciona ela como variante dele.
+                </>
+              )}
+            </p>
+            <TokenLibraryManager onShiftClickAsset={selected ? addVariantFromAsset : undefined} />
+          </FloatingWindow>
+        )}
+
+        {me.isGM && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Mapas"
+            open={mapasOpen}
+            onClose={() => setMapasOpen(false)}
+            leftFrac={0.34}
+            topFrac={0.5}
+            defaultWidth={320}
+            defaultHeight={420}
+          >
+            {/* Cenário (trocar/+/renomear/excluir) morava na janela "Mestre"
+                — pedido do usuário: faz mais sentido junto da gestão de
+                mapas. Reorganização simples, lógica igual a antes. */}
+            <div className="floating-sub">
+              <span className="floating-row-label">Cenário</span>
+              <div className="floating-row wrap" style={{ marginTop: 8 }}>
+                <select
+                  className="small"
+                  style={{ flex: 1, minWidth: 110, padding: '4px 6px' }}
+                  value={activeSceneId}
+                  onChange={(e) => switchScene(e.target.value)}
+                >
+                  {scenes.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      {sc.name}
+                    </option>
+                  ))}
+                </select>
+                <button className="small" title="Novo cenário" onClick={() => setShowMapPicker(true)}>
+                  ＋
+                </button>
+                <button
+                  className="small"
+                  title="Renomear cenário"
+                  onClick={async () => {
+                    const n = await askText('Nome do cenário:', scene.name);
+                    if (n !== null) renameScene(scene.id, n.trim() || scene.name);
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  className="small"
+                  title="Excluir cenário"
+                  disabled={scenes.length <= 1}
+                  onClick={() => {
+                    if (confirm(`Excluir o cenário "${scene.name}" e seus tokens?`)) deleteScene(scene.id);
+                  }}
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+
+            <div className="floating-divider" />
+
+            <Map2DLibraryManager />
+          </FloatingWindow>
+        )}
+
+        {!me.isGM && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Mapa"
+            open={viewOpen}
+            onClose={() => setViewOpen(false)}
+            leftFrac={0.62}
+            topFrac={0.22}
+            defaultWidth={260}
+            defaultHeight={280}
+          >
+            <div className="floating-row">
+              <span className="floating-row-label">Zoom</span>
+              <div className="floating-row" style={{ gap: 4 }}>
+                <button className="small" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(2)))}>
+                  −
+                </button>
+                <button className="small" onClick={() => setZoom(1)} title="Ctrl + scroll no mapa também dá zoom">
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button className="small" onClick={() => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)))}>
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="floating-row">
+              <span className="floating-row-label">Medir</span>
+              <button
+                className={'small ' + (measure ? 'primary' : '')}
+                onClick={() => {
+                  setMeasure((m) => !m);
+                  setMeasureLine(null);
+                  setFogMode(false);
+                  setSelId(null);
+                }}
+              >
+                {measure ? 'Ativo' : 'Ativar'}
+              </button>
+            </div>
+            <div className="floating-divider" />
+            <div className="floating-row wrap">
+              <button className="small" onClick={addBlank}>
+                ＋ Token
+              </button>
+              {Object.keys(characters).length > 0 && (
+                <select
+                  className="small"
+                  style={{ flex: 1, minWidth: 110, padding: '4px 6px' }}
+                  value=""
+                  onChange={(e) => e.target.value && addFromCharacter(e.target.value)}
+                >
+                  <option value="">＋ do personagem…</option>
+                  {Object.values(characters).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </FloatingWindow>
+        )}
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Dados"
+          open={dadosOpen}
+          onClose={() => setDadosOpen(false)}
+          leftFrac={0.5}
+          topFrac={0.3}
+          defaultWidth={300}
+          defaultHeight={420}
+        >
+          <DiceRoller />
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          title="Histórico"
+          open={historicoOpen}
+          onClose={() => setHistoricoOpen(false)}
+          leftFrac={0.62}
+          topFrac={0.1}
+          defaultWidth={300}
+          defaultHeight={420}
+        >
+          <RollLog />
+        </FloatingWindow>
+
+        {hasLan && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Músicas"
+            open={musicasOpen}
+            onClose={() => setMusicasOpen(false)}
+            leftFrac={0.34}
+            topFrac={0.1}
+            defaultWidth={320}
+            defaultHeight={460}
+          >
+            <MusicAndAmbientPanel />
+          </FloatingWindow>
+        )}
+
+        {me.isGM && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            title="Perfis"
+            open={perfisOpen}
+            onClose={() => setPerfisOpen(false)}
+            leftFrac={0.46}
+            topFrac={0.3}
+            defaultWidth={320}
+            defaultHeight={420}
+          >
+            <PlayerProfilesPanel />
+          </FloatingWindow>
+        )}
+      </div>
     </>
   );
 }
