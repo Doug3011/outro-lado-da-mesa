@@ -412,6 +412,82 @@ export function ModelObject(props: ObjProps<'model'>) {
   return <GlbModel {...props} />;
 }
 
+// Foco de luz posicionável (pedido do usuário: "preciso poder colocar focos
+// de luz, o mapa tá escuro demais, adicione um botão pra isso") — `point`
+// ilumina em volta (lâmpada solta), `spot` é foco direcional em cone, sempre
+// apontando pra baixo a partir da posição (sem controle de mira — só o
+// ângulo do cone é ajustável; apontar pra um lado específico ficaria pra uma
+// fase futura, ver comentário no relatório). O bulbo (esfera emissiva) é o
+// que recebe o `onPointerDown` de arraste/seleção — `pointLight`/`spotLight`
+// não têm geometria própria, então sem ele a luz ficaria invisível/
+// impossível de selecionar no mapa, especialmente apagada ou de costas pra
+// câmera.
+function LightObject({ obj, selected, onSelect, onMove, controlsRef, onDragEnd, terrain }: ObjProps<'light'>) {
+  const groupRef = useRef<THREE.Group>(null);
+  const elevation = obj.elevation ?? 2.5;
+  // alvo do spot — objeto comum do three.js, criado uma vez e plantado como
+  // filho do group (abaixo dele); por ser filho, a matriz de mundo acompanha
+  // o group automaticamente ao mover/arrastar, sem precisar recalcular nada
+  // aqui.
+  const spotTarget = useMemo(() => new THREE.Object3D(), []);
+  const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd, {
+    ref: groupRef,
+    computeY: (x, z) => elevation + terrainHeight(x, z, terrain),
+  });
+  const angleRad = Math.min(Math.PI / 2 - 0.05, ((obj.angle ?? 45) * Math.PI) / 180 / 2);
+  return (
+    <group ref={groupRef} position={[obj.x, elevation + terrainHeight(obj.x, obj.z, terrain), obj.z]}>
+      {obj.lightKind === 'spot' ? (
+        <>
+          <primitive object={spotTarget} position={[0, -2, 0]} />
+          <spotLight
+            color={obj.color}
+            intensity={obj.intensity}
+            distance={obj.distance}
+            angle={angleRad}
+            penumbra={0.5}
+            target={spotTarget}
+          />
+        </>
+      ) : (
+        <pointLight color={obj.color} intensity={obj.intensity} distance={obj.distance} />
+      )}
+      <mesh onPointerDown={onPointerDown}>
+        <sphereGeometry args={[0.14, 12, 12]} />
+        <meshStandardMaterial color={obj.color} emissive={obj.color} emissiveIntensity={1.6} toneMapped={false} />
+      </mesh>
+      {selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -elevation + 0.02, 0]}>
+          <ringGeometry args={[0.3, 0.38, 24]} />
+          <meshBasicMaterial color={obj.anchored ? '#e8b21e' : '#2fae66'} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+// Valores de partida ao plantar uma luz nova (botão "+ Luz") — compartilhado
+// entre o editor de place (Prototype3D.tsx) e a mesa 3D de verdade
+// (Battle3D.tsx) pra não duplicar os "números mágicos". Intensidade/alcance
+// nesses valores (unidades físicas do three.js a partir da r155 — candela
+// pra point/spot) são só um ponto de partida razoável; o slider de
+// intensidade no editor é o jeito de ajustar ao gosto/tamanho da cena.
+export function makeLightObject(id: string, x: number, z: number): Extract<PlaceObject, { kind: 'light' }> {
+  return {
+    id,
+    kind: 'light',
+    x,
+    z,
+    elevation: 2.5,
+    lightKind: 'point',
+    color: '#ffd9a0',
+    intensity: 25,
+    distance: 10,
+    angle: 45,
+    anchored: false,
+  };
+}
+
 // `memo` (pedido do usuário: "mini lags ao mover tokens no 3D") — sem
 // isso, cada objeto/modelo da cena inteira re-renderizava (recalculava
 // JSX, reconciliava props) a CADA pointermove durante QUALQUER arraste
@@ -433,6 +509,7 @@ export const SceneObject = memo(function SceneObject(props: {
 }) {
   if (props.obj.kind === 'standing') return <StandingObject {...props} obj={props.obj} />;
   if (props.obj.kind === 'patch') return <GroundPatch {...props} obj={props.obj} />;
+  if (props.obj.kind === 'light') return <LightObject {...props} obj={props.obj} />;
   return <ModelObject {...props} obj={props.obj} />;
 });
 
@@ -539,4 +616,67 @@ export const kindLabel: Record<PlaceObject['kind'], string> = {
   standing: '🌳 em pé',
   patch: '🟫 decalque',
   model: '🧊 modelo 3D',
+  light: '💡 luz',
 };
+
+// Faixa do slider de elevação (TAREFA pedida pelo usuário: "uma barra pra
+// poder levar e abaixar o objeto, com base na altura do chão") — mesma
+// faixa pros 3 tipos de objeto e pro token, compartilhada entre o editor de
+// place (Prototype3D.tsx) e a mesa 3D de verdade (Battle3D.tsx). Min/max
+// generosos pra cobrir tanto "enterrar" um pouco um objeto (corrigir margem
+// de imagem) quanto flutuar bem alto (luz de teto, pássaro etc.); passo
+// pequeno pro ajuste fino pedido.
+export const ELEVATION_MIN = -3;
+export const ELEVATION_MAX = 5;
+export const ELEVATION_STEP = 0.05;
+
+// Controle de elevação compartilhado — barra deslizante (pedido explícito do
+// usuário: "uma barra") + botões ▲▼ nas pontas pra ajuste fino sem precisar
+// acertar o pixel certo no slider, + número ao lado mostrando o valor atual.
+// Usado pelo editor de place E pela mesa 3D de verdade, pros 3 tipos de
+// objeto (standing/model/light) e pro token — um componente só em vez de
+// duplicar esse bloco de JSX em cada lugar/tipo.
+export function ElevationSlider({
+  value,
+  onChange,
+  label = 'Elevação (m) — mover pra cima/baixo',
+  hint,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  label?: string;
+  hint?: string;
+}) {
+  const clamp = (v: number) => Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, v));
+  const set = (v: number) => onChange(+clamp(v).toFixed(2));
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+        <button className="small ghost" title="Descer" onClick={() => set(value - 0.1)}>
+          ▼
+        </button>
+        <input
+          type="range"
+          min={ELEVATION_MIN}
+          max={ELEVATION_MAX}
+          step={ELEVATION_STEP}
+          value={value}
+          onChange={(e) => set(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <button className="small ghost" title="Subir" onClick={() => set(value + 0.1)}>
+          ▲
+        </button>
+        <span className="faint" style={{ fontSize: 11, minWidth: 44, textAlign: 'right' }}>
+          {value.toFixed(2)} m
+        </span>
+      </div>
+      {hint && (
+        <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}

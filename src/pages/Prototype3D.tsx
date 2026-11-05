@@ -10,12 +10,14 @@ import { fetchPlace, savePlace, type Place } from '../lib/placeLibrary';
 import { modelAssetUrl } from '../lib/modelLibrary';
 import type { GroundConfig, ModelAsset, PlaceObject, SkyPreset, TerrainConfig } from '../types';
 import {
+  ElevationSlider,
   FlyCamera,
   GroundPlane,
   SceneObject,
   SceneSky,
   groundPointFromPointer,
   kindLabel,
+  makeLightObject,
   modelFormatFromFileName,
 } from '../lib/scene3d';
 import * as THREE from 'three';
@@ -187,6 +189,24 @@ export function Prototype3D() {
       rotationY: 0,
       anchored: false,
     };
+    setObjects((cur) => [...cur, obj]);
+    setSelectedId(obj.id);
+  };
+
+  // Botão "+ Luz" (TAREFA 2 — "preciso poder colocar focos de luz, o mapa
+  // tá escuro demais") — sem arquivo nenhum pra escolher (luz não tem
+  // imagem/modelo), planta direto no ponto do chão sob o CENTRO da visão
+  // atual (raycast a partir do meio da tela, mesma função usada pro
+  // arraste/soltura de outros objetos) em vez da posição aleatória de
+  // addStanding/addPatch/addModel.
+  const addLight = () => {
+    let pos = { x: 0, z: 0 };
+    if (camRef.current && domRef.current) {
+      const rect = domRef.current.getBoundingClientRect();
+      const p = groundPointFromPointer(rect.left + rect.width / 2, rect.top + rect.height / 2, camRef.current, domRef.current);
+      if (p) pos = { x: +p.x.toFixed(2), z: +p.z.toFixed(2) };
+    }
+    const obj = makeLightObject(uid(), pos.x, pos.z);
     setObjects((cur) => [...cur, obj]);
     setSelectedId(obj.id);
   };
@@ -582,6 +602,11 @@ export function Prototype3D() {
           defaultHeight={520}
         >
           <div className="cine-hud-title">Objetos na cena</div>
+          <div className="floating-row" style={{ margin: '4px 0 8px' }}>
+            <button className="small" title="Planta uma luz no centro da visão atual" onClick={addLight}>
+              💡 + Luz
+            </button>
+          </div>
           {objects.length === 0 && (
             <p className="faint" style={{ fontSize: 12 }}>
               Nenhum objeto ainda.
@@ -595,6 +620,10 @@ export function Prototype3D() {
             >
               {o.kind === 'model' ? (
                 <span className="asset-thumb proto3d-obj-thumb proto3d-model-thumb">🧊</span>
+              ) : o.kind === 'light' ? (
+                <span className="asset-thumb proto3d-obj-thumb proto3d-model-thumb" style={{ backgroundColor: o.color }}>
+                  💡
+                </span>
               ) : (
                 <span className="asset-thumb proto3d-obj-thumb" style={{ backgroundImage: `url(${o.imageUrl})` }} />
               )}
@@ -618,19 +647,12 @@ export function Prototype3D() {
                       onChange={(e) => updateSelected({ height: Math.max(0.4, Number(e.target.value)) })}
                     />
                   </div>
-                  <div className="field">
-                    <label>Elevação (m)</label>
-                    <input
-                      type="number"
-                      step={0.05}
-                      value={selected.elevation ?? 0}
-                      onChange={(e) => updateSelected({ elevation: Number(e.target.value) })}
-                    />
-                    <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
-                      Ajusta pra cima (+) ou baixo (−) — corrige imagem com margem transparente
-                      embaixo do desenho, que senão fica flutuando.
-                    </p>
-                  </div>
+                  <ElevationSlider
+                    label="Elevação (m)"
+                    value={selected.elevation ?? 0}
+                    onChange={(v) => updateSelected({ elevation: v })}
+                    hint="Ajusta pra cima (+) ou baixo (−) — corrige imagem com margem transparente embaixo do desenho, que senão fica flutuando."
+                  />
                 </>
               )}
               {selected.kind === 'patch' && (
@@ -684,6 +706,98 @@ export function Prototype3D() {
                       onChange={(e) => updateSelected({ rotationY: Number(e.target.value) })}
                     />
                   </div>
+                  <ElevationSlider
+                    value={selected.elevation ?? 0}
+                    onChange={(v) => updateSelected({ elevation: v })}
+                    hint="Ajusta pra cima (+) ou baixo (−) — corrige modelo flutuando/enterrado."
+                  />
+                </>
+              )}
+              {selected.kind === 'light' && (
+                <>
+                  <div className="field">
+                    <label>Tipo de luz</label>
+                    <div className="row" style={{ gap: 6 }}>
+                      <button
+                        className={'small' + (selected.lightKind === 'point' ? ' primary' : '')}
+                        onClick={() => updateSelected({ lightKind: 'point' })}
+                      >
+                        💡 Ponto
+                      </button>
+                      <button
+                        className={'small' + (selected.lightKind === 'spot' ? ' primary' : '')}
+                        onClick={() => updateSelected({ lightKind: 'spot' })}
+                      >
+                        🔦 Foco (spot)
+                      </button>
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>Cor</label>
+                    <input
+                      type="color"
+                      value={selected.color}
+                      onChange={(e) => updateSelected({ color: e.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Intensidade</label>
+                    <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="range"
+                        min={0}
+                        max={150}
+                        step={1}
+                        value={selected.intensity}
+                        onChange={(e) => updateSelected({ intensity: Number(e.target.value) })}
+                        style={{ flex: 1 }}
+                      />
+                      <span className="faint" style={{ fontSize: 11, minWidth: 28, textAlign: 'right' }}>
+                        {selected.intensity}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>Alcance (m)</label>
+                    <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                      <input
+                        type="range"
+                        min={1}
+                        max={40}
+                        step={0.5}
+                        value={selected.distance}
+                        onChange={(e) => updateSelected({ distance: Number(e.target.value) })}
+                        style={{ flex: 1 }}
+                      />
+                      <span className="faint" style={{ fontSize: 11, minWidth: 28, textAlign: 'right' }}>
+                        {selected.distance}
+                      </span>
+                    </div>
+                  </div>
+                  {selected.lightKind === 'spot' && (
+                    <div className="field">
+                      <label>Ângulo do cone (°)</label>
+                      <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                        <input
+                          type="range"
+                          min={5}
+                          max={89}
+                          step={1}
+                          value={selected.angle ?? 45}
+                          onChange={(e) => updateSelected({ angle: Number(e.target.value) })}
+                          style={{ flex: 1 }}
+                        />
+                        <span className="faint" style={{ fontSize: 11, minWidth: 28, textAlign: 'right' }}>
+                          {selected.angle ?? 45}°
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <ElevationSlider value={selected.elevation ?? 2.5} onChange={(v) => updateSelected({ elevation: v })} />
+                  <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
+                    O foco (spot) sempre aponta pra baixo — o ângulo controla só a abertura do
+                    cone.
+                  </p>
                 </>
               )}
               <button className="small" onClick={() => toggleAnchor(selected.id)}>

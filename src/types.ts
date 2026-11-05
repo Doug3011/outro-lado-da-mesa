@@ -159,11 +159,19 @@ export interface TerrainConfig {
 // existir, zero regressão em cenário salvo).
 export type SkyPreset = 'dia' | 'entardecer' | 'noite' | 'nublado';
 
-// três tipos de objeto de cenário num cenário 3D:
+// tipo de luz posicionável (TAREFA pedida pelo usuário: "preciso poder
+// colocar focos de luz, o mapa tá escuro demais") — "point" ilumina em volta
+// (lâmpada/lanterna solta), "spot" é foco direcional (cone, aponta pra baixo
+// a partir da posição — ver LightObject em lib/scene3d.tsx).
+export type LightKind = 'point' | 'spot';
+
+// quatro tipos de objeto de cenário num cenário 3D:
 // - "standing": imagem em pé, billboard que sempre encara a câmera (árvore, poste)
 // - "patch": imagem deitada no chão, decalque livre (posição/tamanho/rotação) —
 //   usado pra sobrepor um caminho, uma mancha de textura diferente etc.
 // - "model": modelo 3D de verdade (.glb) importado e plantado na cena
+// - "light": foco de luz posicionável (sem imagem/modelo — só parâmetros de
+//   luz), ver LightKind acima e LightObject em lib/scene3d.tsx
 export type PlaceObject =
   | {
       id: string;
@@ -207,6 +215,25 @@ export type PlaceObject =
       // mover o modelo pra cima (+) ou baixo (-) do chão, em metros — opcional
       // pra não quebrar objetos salvos antes desse campo existir (`?? 0`).
       elevation?: number;
+      anchored: boolean;
+    }
+  | {
+      id: string;
+      kind: 'light';
+      x: number;
+      z: number;
+      // altura da luz acima do chão, em metros — aqui faz o papel de
+      // "posição vertical" (não é correção de margem de imagem como nos
+      // outros tipos, já que luz não tem imagem/geometria própria).
+      elevation?: number;
+      lightKind: LightKind;
+      color: string; // hex, ex. "#ffd9a0"
+      intensity: number;
+      // alcance/distância em metros — além disso a luz praticamente não
+      // ilumina mais nada (decaimento físico do three.js já cuida do resto).
+      distance: number;
+      // ângulo do cone em graus — só usado quando lightKind==='spot'.
+      angle?: number;
       anchored: boolean;
     };
 

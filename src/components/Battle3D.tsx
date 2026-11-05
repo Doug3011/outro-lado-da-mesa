@@ -11,12 +11,14 @@ import { fileToDataURL, fileToDownscaledDataURL, fileToStandingDataURL, urlToDow
 import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
 import {
+  ElevationSlider,
   FlyCamera,
   GroundPlane,
   MODEL_FILE_ACCEPT,
   SceneObject,
   SceneSky,
   groundPointFromPointer,
+  makeLightObject,
   modelFormatFromFileName,
   terrainHeight,
   useGroundDrag,
@@ -401,6 +403,22 @@ export function Battle3D() {
       rotationY: 0,
       anchored: false,
     };
+    updatePlace3d({ objects3d: [...objects, obj] });
+    setSelKind('object');
+    setSelId(obj.id);
+  };
+  // Botão "💡 Luz" (TAREFA 2 — "preciso poder colocar focos de luz, o mapa
+  // tá escuro demais") — mesma ideia de addLight em Prototype3D.tsx: sem
+  // arquivo pra escolher, planta no ponto do chão sob o centro da visão
+  // atual.
+  const addLight = () => {
+    let pos = { x: 0, z: 0 };
+    if (camRef.current && domRef.current) {
+      const rect = domRef.current.getBoundingClientRect();
+      const p = groundPointFromPointer(rect.left + rect.width / 2, rect.top + rect.height / 2, camRef.current, domRef.current);
+      if (p) pos = { x: +p.x.toFixed(2), z: +p.z.toFixed(2) };
+    }
+    const obj = makeLightObject(uid(), pos.x, pos.z);
     updatePlace3d({ objects3d: [...objects, obj] });
     setSelKind('object');
     setSelId(obj.id);
@@ -1146,6 +1164,9 @@ export function Battle3D() {
               >
                 🧊 Modelo
               </button>
+              <button className="small" title="Planta uma luz no centro da visão atual" onClick={addLight}>
+                💡 Luz
+              </button>
             </div>
             {ground && (
               <button className="small ghost" style={{ marginTop: 6 }} onClick={removeGround}>
@@ -1387,34 +1408,12 @@ export function Battle3D() {
               />
             </div>
           </div>
-          <div className="field" style={{ marginTop: 6 }}>
-            <label>Elevação (m) — mover pra cima/baixo</label>
-            <div className="row" style={{ gap: 6 }}>
-              <button
-                className="small ghost"
-                title="Descer"
-                onClick={() => patchToken({ elevation: Number(((selectedToken.elevation ?? 0) - 0.1).toFixed(2)) })}
-              >
-                ▼
-              </button>
-              <input
-                type="number"
-                step={0.05}
-                value={selectedToken.elevation ?? 0}
-                onChange={(e) => patchToken({ elevation: Number(e.target.value) })}
-              />
-              <button
-                className="small ghost"
-                title="Subir"
-                onClick={() => patchToken({ elevation: Number(((selectedToken.elevation ?? 0) + 0.1).toFixed(2)) })}
-              >
-                ▲
-              </button>
-            </div>
-            <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
-              Ajusta pra cima (+) ou baixo (−) — corrige token flutuando por causa de margem
-              transparente na imagem.
-            </p>
+          <div style={{ marginTop: 6 }}>
+            <ElevationSlider
+              value={selectedToken.elevation ?? 0}
+              onChange={(v) => patchToken({ elevation: v })}
+              hint="Ajusta pra cima (+) ou baixo (−) — corrige token flutuando por causa de margem transparente na imagem."
+            />
           </div>
           <div className="row" style={{ marginTop: 6 }}>
             <div>
@@ -1532,35 +1531,11 @@ export function Battle3D() {
                   onChange={(e) => updateObjPatch({ height: Math.max(0.4, Number(e.target.value)) })}
                 />
               </div>
-              <div className="field">
-                <label>Elevação (m) — mover pra cima/baixo</label>
-                <div className="row" style={{ gap: 6 }}>
-                  <button
-                    className="small ghost"
-                    title="Descer"
-                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) - 0.1).toFixed(2)) })}
-                  >
-                    ▼
-                  </button>
-                  <input
-                    type="number"
-                    step={0.05}
-                    value={selectedObj.elevation ?? 0}
-                    onChange={(e) => updateObjPatch({ elevation: Number(e.target.value) })}
-                  />
-                  <button
-                    className="small ghost"
-                    title="Subir"
-                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) + 0.1).toFixed(2)) })}
-                  >
-                    ▲
-                  </button>
-                </div>
-                <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
-                  Ajusta pra cima (+) ou baixo (−) — corrige imagem com margem transparente
-                  embaixo do desenho.
-                </p>
-              </div>
+              <ElevationSlider
+                value={selectedObj.elevation ?? 0}
+                onChange={(v) => updateObjPatch({ elevation: v })}
+                hint="Ajusta pra cima (+) ou baixo (−) — corrige imagem com margem transparente embaixo do desenho."
+              />
             </>
           )}
           {selectedObj.kind === 'patch' && (
@@ -1614,31 +1589,89 @@ export function Battle3D() {
                   onChange={(e) => updateObjPatch({ rotationY: Number(e.target.value) })}
                 />
               </div>
+              <ElevationSlider value={selectedObj.elevation ?? 0} onChange={(v) => updateObjPatch({ elevation: v })} />
+            </>
+          )}
+          {selectedObj.kind === 'light' && (
+            <>
               <div className="field">
-                <label>Elevação (m) — mover pra cima/baixo</label>
+                <label>Tipo de luz</label>
                 <div className="row" style={{ gap: 6 }}>
                   <button
-                    className="small ghost"
-                    title="Descer"
-                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) - 0.1).toFixed(2)) })}
+                    className={'small' + (selectedObj.lightKind === 'point' ? ' primary' : '')}
+                    onClick={() => updateObjPatch({ lightKind: 'point' })}
                   >
-                    ▼
+                    💡 Ponto
                   </button>
-                  <input
-                    type="number"
-                    step={0.05}
-                    value={selectedObj.elevation ?? 0}
-                    onChange={(e) => updateObjPatch({ elevation: Number(e.target.value) })}
-                  />
                   <button
-                    className="small ghost"
-                    title="Subir"
-                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) + 0.1).toFixed(2)) })}
+                    className={'small' + (selectedObj.lightKind === 'spot' ? ' primary' : '')}
+                    onClick={() => updateObjPatch({ lightKind: 'spot' })}
                   >
-                    ▲
+                    🔦 Foco (spot)
                   </button>
                 </div>
               </div>
+              <div className="field">
+                <label>Cor</label>
+                <input type="color" value={selectedObj.color} onChange={(e) => updateObjPatch({ color: e.target.value })} />
+              </div>
+              <div className="field">
+                <label>Intensidade</label>
+                <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="range"
+                    min={0}
+                    max={150}
+                    step={1}
+                    value={selectedObj.intensity}
+                    onChange={(e) => updateObjPatch({ intensity: Number(e.target.value) })}
+                    style={{ flex: 1 }}
+                  />
+                  <span className="faint" style={{ fontSize: 11, minWidth: 28, textAlign: 'right' }}>
+                    {selectedObj.intensity}
+                  </span>
+                </div>
+              </div>
+              <div className="field">
+                <label>Alcance (m)</label>
+                <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="range"
+                    min={1}
+                    max={40}
+                    step={0.5}
+                    value={selectedObj.distance}
+                    onChange={(e) => updateObjPatch({ distance: Number(e.target.value) })}
+                    style={{ flex: 1 }}
+                  />
+                  <span className="faint" style={{ fontSize: 11, minWidth: 28, textAlign: 'right' }}>
+                    {selectedObj.distance}
+                  </span>
+                </div>
+              </div>
+              {selectedObj.lightKind === 'spot' && (
+                <div className="field">
+                  <label>Ângulo do cone (°)</label>
+                  <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                    <input
+                      type="range"
+                      min={5}
+                      max={89}
+                      step={1}
+                      value={selectedObj.angle ?? 45}
+                      onChange={(e) => updateObjPatch({ angle: Number(e.target.value) })}
+                      style={{ flex: 1 }}
+                    />
+                    <span className="faint" style={{ fontSize: 11, minWidth: 28, textAlign: 'right' }}>
+                      {selectedObj.angle ?? 45}°
+                    </span>
+                  </div>
+                </div>
+              )}
+              <ElevationSlider value={selectedObj.elevation ?? 2.5} onChange={(v) => updateObjPatch({ elevation: v })} />
+              <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
+                O foco (spot) sempre aponta pra baixo — o ângulo controla só a abertura do cone.
+              </p>
             </>
           )}
           <button className="small" onClick={() => toggleAnchor(selectedObj.id)}>
