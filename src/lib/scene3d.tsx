@@ -361,14 +361,15 @@ function ModelMesh({
   terrain,
 }: ObjProps<'model'> & { object3d: THREE.Object3D }) {
   const groupRef = useRef<THREE.Group>(null);
+  const elevation = obj.elevation ?? 0;
   const onPointerDown = useGroundDrag(obj.id, obj.anchored, onSelect, onMove, controlsRef, onDragEnd, {
     ref: groupRef,
-    computeY: (x, z) => terrainHeight(x, z, terrain),
+    computeY: (x, z) => elevation + terrainHeight(x, z, terrain),
   });
   return (
     <group
       ref={groupRef}
-      position={[obj.x, terrainHeight(obj.x, obj.z, terrain), obj.z]}
+      position={[obj.x, elevation + terrainHeight(obj.x, obj.z, terrain), obj.z]}
       rotation={[0, (obj.rotationY * Math.PI) / 180, 0]}
     >
       <primitive object={object3d} scale={obj.scale} onPointerDown={onPointerDown} />

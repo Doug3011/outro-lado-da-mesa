@@ -1388,13 +1388,29 @@ export function Battle3D() {
             </div>
           </div>
           <div className="field" style={{ marginTop: 6 }}>
-            <label>Elevação (m)</label>
-            <input
-              type="number"
-              step={0.05}
-              value={selectedToken.elevation ?? 0}
-              onChange={(e) => patchToken({ elevation: Number(e.target.value) })}
-            />
+            <label>Elevação (m) — mover pra cima/baixo</label>
+            <div className="row" style={{ gap: 6 }}>
+              <button
+                className="small ghost"
+                title="Descer"
+                onClick={() => patchToken({ elevation: Number(((selectedToken.elevation ?? 0) - 0.1).toFixed(2)) })}
+              >
+                ▼
+              </button>
+              <input
+                type="number"
+                step={0.05}
+                value={selectedToken.elevation ?? 0}
+                onChange={(e) => patchToken({ elevation: Number(e.target.value) })}
+              />
+              <button
+                className="small ghost"
+                title="Subir"
+                onClick={() => patchToken({ elevation: Number(((selectedToken.elevation ?? 0) + 0.1).toFixed(2)) })}
+              >
+                ▲
+              </button>
+            </div>
             <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
               Ajusta pra cima (+) ou baixo (−) — corrige token flutuando por causa de margem
               transparente na imagem.
@@ -1517,13 +1533,29 @@ export function Battle3D() {
                 />
               </div>
               <div className="field">
-                <label>Elevação (m)</label>
-                <input
-                  type="number"
-                  step={0.05}
-                  value={selectedObj.elevation ?? 0}
-                  onChange={(e) => updateObjPatch({ elevation: Number(e.target.value) })}
-                />
+                <label>Elevação (m) — mover pra cima/baixo</label>
+                <div className="row" style={{ gap: 6 }}>
+                  <button
+                    className="small ghost"
+                    title="Descer"
+                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) - 0.1).toFixed(2)) })}
+                  >
+                    ▼
+                  </button>
+                  <input
+                    type="number"
+                    step={0.05}
+                    value={selectedObj.elevation ?? 0}
+                    onChange={(e) => updateObjPatch({ elevation: Number(e.target.value) })}
+                  />
+                  <button
+                    className="small ghost"
+                    title="Subir"
+                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) + 0.1).toFixed(2)) })}
+                  >
+                    ▲
+                  </button>
+                </div>
                 <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
                   Ajusta pra cima (+) ou baixo (−) — corrige imagem com margem transparente
                   embaixo do desenho.
@@ -1581,6 +1613,31 @@ export function Battle3D() {
                   value={selectedObj.rotationY}
                   onChange={(e) => updateObjPatch({ rotationY: Number(e.target.value) })}
                 />
+              </div>
+              <div className="field">
+                <label>Elevação (m) — mover pra cima/baixo</label>
+                <div className="row" style={{ gap: 6 }}>
+                  <button
+                    className="small ghost"
+                    title="Descer"
+                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) - 0.1).toFixed(2)) })}
+                  >
+                    ▼
+                  </button>
+                  <input
+                    type="number"
+                    step={0.05}
+                    value={selectedObj.elevation ?? 0}
+                    onChange={(e) => updateObjPatch({ elevation: Number(e.target.value) })}
+                  />
+                  <button
+                    className="small ghost"
+                    title="Subir"
+                    onClick={() => updateObjPatch({ elevation: Number(((selectedObj.elevation ?? 0) + 0.1).toFixed(2)) })}
+                  >
+                    ▲
+                  </button>
+                </div>
               </div>
             </>
           )}

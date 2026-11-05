@@ -204,6 +204,9 @@ export type PlaceObject =
       z: number;
       scale: number;
       rotationY: number;
+      // mover o modelo pra cima (+) ou baixo (-) do chão, em metros — opcional
+      // pra não quebrar objetos salvos antes desse campo existir (`?? 0`).
+      elevation?: number;
       anchored: boolean;
     };
 
