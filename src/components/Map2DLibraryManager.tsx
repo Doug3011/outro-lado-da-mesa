@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { deleteMap2D, fetchMap2Ds, newMap2DId, type Map2DSummary } from '../lib/map2dLibrary';
+import { CloseFloatIcon, MapasFloatIcon, PlusIcon } from './icons';
 
 // Lista de mapas 2D montados ("Map2D") — cada um foi composto no editor
 // (peças de cenário plantadas/arrastadas, ver Prototype2D.tsx) e fica
-// pronto pra usar como ponto de partida ao hospedar uma mesa 2D.
-export function Map2DLibraryManager() {
+// pronto pra usar como ponto de partida ao hospedar uma mesa 2D. Também é
+// usada DENTRO de uma mesa (BattleMap.tsx) pra escolher outro mapa sem
+// sair — mesmo componente, mesma lógica, só o visual muda (`theme`).
+export function Map2DLibraryManager({ theme }: { theme?: 'energia' } = {}) {
   const navigate = useNavigate();
   const [maps, setMaps] = useState<Map2DSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +27,47 @@ export function Map2DLibraryManager() {
   };
 
   const formatDate = (ts: number) => new Date(ts).toLocaleDateString('pt-BR');
+
+  if (theme === 'energia') {
+    return (
+      <div>
+        <button className="rd-gm-btn-primary" style={{ marginBottom: 2 }} onClick={() => navigate(`/mapa-2d/${newMap2DId()}`)}>
+          <PlusIcon /> NOVO MAPA 2D
+        </button>
+
+        {loading && <p className="rd-gm-hint">Carregando…</p>}
+        {!loading && maps.length === 0 && (
+          <p className="rd-gm-hint">Nenhum mapa 2D montado ainda — clique em "Novo mapa 2D" pra começar.</p>
+        )}
+
+        {!loading && maps.length > 0 && (
+          <div className="rd-gm-grid">
+            {maps.map((m) => (
+              <div key={m.id} className="rd-gm-card">
+                <div className="rd-gm-card-thumb" onClick={() => navigate(`/mapa-2d/${m.id}`)} style={{ cursor: 'pointer' }}>
+                  <span className="rd-gm-card-thumb-icon">
+                    <MapasFloatIcon />
+                  </span>
+                </div>
+                <span className="rd-gm-card-name" title={m.name}>
+                  {m.name}
+                </span>
+                <span className="rd-gm-card-meta">{formatDate(m.updatedAt)}</span>
+                <div className="rd-gm-card-actions">
+                  <button className="rd-gm-card-btn" onClick={() => navigate(`/mapa-2d/${m.id}`)}>
+                    Editar
+                  </button>
+                  <button className="rd-gm-icon-btn" title="Excluir" onClick={() => onRemove(m.id)}>
+                    <CloseFloatIcon />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>

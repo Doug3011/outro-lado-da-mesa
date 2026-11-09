@@ -11,6 +11,7 @@ import {
   uploadMapImages,
 } from '../lib/mapLibrary';
 import { askText } from '../state/promptDialog';
+import { CloseFloatIcon, PencilIcon, UploadIcon } from './icons';
 
 // Biblioteca de mapas do mestre (Área do Mestre, menu principal) — mesma
 // mecânica da de tokens, só que cada mapa é marcado como 2D ou 3D na hora de
@@ -27,6 +28,7 @@ export function MapLibraryManager() {
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const refresh = () => {
     void fetchMapLibrary().then((data) => {
@@ -86,61 +88,78 @@ export function MapLibraryManager() {
 
   return (
     <div>
-      <div className="chip-row" style={{ marginBottom: 8 }}>
-        <span className={`chip ${kindFilter === 'all' ? 'on' : ''}`} onClick={() => setKindFilter('all')}>
-          Todos
-        </span>
-        <span className={`chip ${kindFilter === '2d' ? 'on' : ''}`} onClick={() => setKindFilter('2d')}>
-          Mesa 2D
-        </span>
-        <span className={`chip ${kindFilter === '3d' ? 'on' : ''}`} onClick={() => setKindFilter('3d')}>
-          Mesa 3D
-        </span>
-      </div>
-
-      <div className="chip-row" style={{ marginBottom: 10 }}>
-        <span className={`chip ${folderFilter === 'all' ? 'on' : ''}`} onClick={() => setFolderFilter('all')}>
+      <div className="rd-gm-toolbar">
+        <div className="rd-gm-segmented" role="group" aria-label="Tipo de mesa">
+          <button
+            className={`rd-gm-segmented-btn ${kindFilter === 'all' ? 'active' : ''}`}
+            aria-pressed={kindFilter === 'all'}
+            onClick={() => setKindFilter('all')}
+          >
+            Todos
+          </button>
+          <button
+            className={`rd-gm-segmented-btn ${kindFilter === '2d' ? 'active' : ''}`}
+            aria-pressed={kindFilter === '2d'}
+            onClick={() => setKindFilter('2d')}
+          >
+            Mesa 2D
+          </button>
+          <button
+            className={`rd-gm-segmented-btn ${kindFilter === '3d' ? 'active' : ''}`}
+            aria-pressed={kindFilter === '3d'}
+            onClick={() => setKindFilter('3d')}
+          >
+            Mesa 3D
+          </button>
+        </div>
+        <span
+          className={`rd-gm-chip ${folderFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setFolderFilter('all')}
+        >
           Todas as pastas
         </span>
         {folders.map((f) => (
           <span
             key={f.id}
-            className={`chip ${folderFilter === f.id ? 'on' : ''}`}
+            className={`rd-gm-chip ${folderFilter === f.id ? 'active' : ''}`}
             onClick={() => setFolderFilter(f.id)}
             title="Clique pra filtrar; ✕ apaga a pasta"
           >
             {f.name}
             <button
-              className="chip-x"
+              className="rd-gm-chip-x"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemoveFolder(f.id);
               }}
             >
-              ✕
+              <CloseFloatIcon />
             </button>
           </span>
         ))}
-        <span className="chip" onClick={onAddFolder}>
+        <span className="rd-gm-chip-ghost" onClick={onAddFolder}>
           + pasta
         </span>
       </div>
 
-      <div className="row" style={{ marginBottom: 10, alignItems: 'center' }}>
-        <select
-          className="small"
-          style={{ flex: 'none', width: 120 }}
-          value={importKind}
-          onChange={(e) => setImportKind(e.target.value as MapAssetKind)}
-          title="Pra qual mesa esses mapas são"
-        >
-          <option value="2d">Mesa 2D</option>
-          <option value="3d">Mesa 3D</option>
-        </select>
-        <button className="primary" style={{ flex: 'none' }} onClick={() => fileInputRef.current?.click()}>
-          Importar mapas{importing ? `… (${importing.done}/${importing.total})` : ''}
+      <div className="rd-gm-field-row">
+        <label className="rd-gm-field">
+          <span className="rd-gm-field-label">Importar como</span>
+          <select
+            className="rd-gm-select-lg"
+            value={importKind}
+            onChange={(e) => setImportKind(e.target.value as MapAssetKind)}
+            title="Pra qual mesa esses mapas são"
+          >
+            <option value="2d">Mesa 2D</option>
+            <option value="3d">Mesa 3D</option>
+          </select>
+        </label>
+        <button className="rd-gm-btn-primary" onClick={() => fileInputRef.current?.click()}>
+          <UploadIcon />
+          {importing ? `IMPORTANDO… (${importing.done}/${importing.total})` : 'IMPORTAR MAPAS'}
         </button>
-        <button className="ghost" style={{ flex: 'none' }} onClick={() => folderInputRef.current?.click()}>
+        <button className="rd-gm-btn-ghost" onClick={() => folderInputRef.current?.click()}>
           Importar pasta inteira
         </button>
         <input
@@ -167,49 +186,71 @@ export function MapLibraryManager() {
             e.target.value = '';
           }}
         />
+        <span className="rd-gm-field-hint">
+          "Mesa 2D" ou "Mesa 3D" é só uma etiqueta pra organizar; cada mapa serve nas duas.
+        </span>
       </div>
-      <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-        Escolha "Mesa 2D" ou "Mesa 3D" antes de importar — é só uma etiqueta pra organizar, cada mapa serve
-        uma das duas.
-      </p>
 
-      {loading && <p className="faint">Carregando biblioteca…</p>}
+      {loading && <p className="rd-gm-hint">Carregando biblioteca…</p>}
+
       {!loading && visible.length === 0 && (
-        <p className="empty">
-          {folderFilter === 'all' && kindFilter === 'all'
-            ? 'Nenhum mapa importado ainda.'
-            : 'Nenhum mapa nesse filtro ainda.'}
-        </p>
+        <button
+          type="button"
+          className={`rd-gm-empty${dragOver ? ' drag-over' : ''}`}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            onImportFiles(e.dataTransfer.files);
+          }}
+        >
+          <span className="rd-gm-empty-icon">
+            <UploadIcon />
+          </span>
+          <span className="rd-gm-empty-title">Importar mapas</span>
+          <span className="rd-gm-empty-sub">
+            {folderFilter === 'all' && kindFilter === 'all'
+              ? 'Nenhum mapa importado ainda. Clique ou arraste as imagens aqui.'
+              : 'Nenhum mapa nesse filtro ainda.'}
+          </span>
+        </button>
       )}
 
-      <div className="asset-grid">
-        {visible.map((t) => (
-          <div className="asset-card" key={t.id}>
-            <div className="asset-thumb" style={{ backgroundImage: `url(${mapAssetUrl(t.id)})` }}>
-              <span className={`asset-kind-badge asset-kind-${t.kind}`}>{t.kind.toUpperCase()}</span>
+      {!loading && visible.length > 0 && (
+        <div className="rd-gm-grid">
+          {visible.map((t) => (
+            <div className="rd-gm-card" key={t.id}>
+              <div className="rd-gm-card-thumb" style={{ backgroundImage: `url(${mapAssetUrl(t.id)})` }}>
+                <span className="rd-gm-card-kind">{t.kind.toUpperCase()}</span>
+              </div>
+              <span className="rd-gm-card-name" title={t.name}>
+                {t.name}
+              </span>
+              <div className="rd-gm-card-actions">
+                <select className="rd-gm-select" value={t.folderId ?? ''} onChange={(e) => onMove(t, e.target.value)}>
+                  <option value="">sem pasta</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+                <button className="rd-gm-icon-btn" title="Renomear" onClick={() => onRename(t)}>
+                  <PencilIcon />
+                </button>
+                <button className="rd-gm-icon-btn" title="Excluir" onClick={() => onDelete(t)}>
+                  <CloseFloatIcon />
+                </button>
+              </div>
             </div>
-            <span className="asset-name" title={t.name}>
-              {t.name}
-            </span>
-            <div className="asset-actions">
-              <select className="small" value={t.folderId ?? ''} onChange={(e) => onMove(t, e.target.value)}>
-                <option value="">sem pasta</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-              <button className="small ghost" title="Renomear" onClick={() => onRename(t)}>
-                ✎
-              </button>
-              <button className="small ghost" title="Excluir" onClick={() => onDelete(t)}>
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

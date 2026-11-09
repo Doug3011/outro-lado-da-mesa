@@ -1,4 +1,17 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  BackChevronIcon,
+  BrandEyeIcon,
+  LockIcon,
+  MapasFloatIcon,
+  MusicasFloatIcon,
+  PauseIcon,
+  PlayIcon,
+  SceneObjectToolIcon,
+  Scenery2DIcon,
+  SpeakerIcon,
+  TokensFloatIcon,
+} from '../components/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useIdentity } from '../hooks/useIdentity';
 import { hasSupabase } from '../lib/supabase';
@@ -40,6 +53,29 @@ const PALETTE = ['#e01e2b', '#7b2cbf', '#2fae66', '#e8b21e', '#3f7fd6', '#ff8fab
 // "cor, 5 opções") — reaproveita as 5 primeiras da paleta acima em vez de
 // criar uma paleta nova só pra essa tela.
 const ROLE_COLORS = PALETTE.slice(0, 5);
+
+// Faíscas subindo no fundo da Área do Mestre (redesign Passo 8, tema
+// Energia) — mesma fórmula determinística da referência (Mestre-Musicas.dc.html,
+// `renderVals().sparks`), sem nada aleatório (evita re-sortear a cada render).
+const GM_SPARK_COLORS = ['#b57cff', '#00e5ff', '#ff2bd6', '#d6a8ff'];
+// `--rd-drift-x` é uma propriedade CSS customizada (lida pelo keyframe
+// rd-ember-rise) — o tipo CSSProperties do React/csstype não declara essas
+// chaves, por isso o cast; o valor em si é só uma string de CSS normal.
+const GM_SPARKS: CSSProperties[] = Array.from({ length: 16 }, (_, i) => {
+  const left = 50 + ((i * 31) % 50);
+  const dur = 4 + (i % 4) * 1.5;
+  const delay = -((i * 0.9) % dur);
+  const dx = ((i % 5) - 2) * 30;
+  const color = GM_SPARK_COLORS[i % GM_SPARK_COLORS.length];
+  return {
+    left: `${left}%`,
+    background: color,
+    boxShadow: `0 0 8px ${color}`,
+    animationDuration: `${dur}s`,
+    animationDelay: `${delay.toFixed(1)}s`,
+    '--rd-drift-x': `${dx}px`,
+  } as unknown as CSSProperties;
+});
 
 export function Home() {
   const navigate = useNavigate();
@@ -290,197 +326,254 @@ export function Home() {
   }
 
   if (view === 'gm-area') {
-    return (
-      <div className="daily-page gm-area-page">
-        <img className="daily-sigil-corner" src="/sigils/sigil-circle.png" alt="" aria-hidden />
+    const otherTracks = ALL_MENU_TRACKS.filter((t) => t.id !== menuTrack.id);
+    const gmTabs: { key: GmAreaTab; label: string; icon: ReactNode }[] = [
+      { key: 'music', label: 'Músicas', icon: <MusicasFloatIcon /> },
+      { key: 'ambient', label: 'Sons Ambiente', icon: <SpeakerIcon level={1} /> },
+      { key: 'tokens', label: 'Tokens', icon: <TokensFloatIcon /> },
+      { key: 'scenery', label: 'Cenário 2D', icon: <Scenery2DIcon /> },
+      { key: 'maps', label: 'Mapas', icon: <MapasFloatIcon /> },
+      { key: 'places', label: 'Cenários 3D', icon: <SceneObjectToolIcon /> },
+    ];
 
-        <div className="daily-topbar">
-          <Sigil />
-          <span>O Outro Lado da Mesa</span>
+    return (
+      <div className="rd-gm">
+        <div className="rd-gm-bg" aria-hidden="true">
+          <div className="rd-gm-glow-a" />
+          <div className="rd-gm-glow-b" />
+          <div className="rd-gm-core">
+            <svg className="rd-gm-core-ring-a" viewBox="0 0 400 400">
+              <circle cx="200" cy="200" r="180" fill="none" stroke="#5a2db0" strokeWidth="1" strokeDasharray="40 14 4 14" opacity="0.7" />
+              <circle cx="200" cy="200" r="150" fill="none" stroke="#7b45e0" strokeWidth="0.6" strokeDasharray="2 8" opacity="0.6" />
+            </svg>
+            <svg className="rd-gm-core-ring-b" viewBox="0 0 400 400">
+              <path d="M200 70A130 130 0 0 1 330 200" fill="none" stroke="#b57cff" strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+              <path d="M200 330A130 130 0 0 1 70 200" fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+              <path d="M120 120A112 112 0 0 1 200 88" fill="none" stroke="#ff2bd6" strokeWidth="2" strokeLinecap="round" opacity="0.5" />
+            </svg>
+            <svg className="rd-gm-core-ring-c" viewBox="0 0 400 400">
+              <circle cx="200" cy="200" r="90" fill="none" stroke="#9b5cff" strokeWidth="1.4" strokeDasharray="6 10" opacity="0.7" />
+            </svg>
+            <div className="rd-gm-core-center" />
+          </div>
+          <svg className="rd-gm-rays" viewBox="0 0 1440 1200" preserveAspectRatio="xMaxYMin slice">
+            <polyline points="1440,120 1300,190 1330,240 1190,330 1220,370 1080,470" fill="none" stroke="#d6a8ff" strokeWidth="2" strokeLinejoin="bevel" style={{ filter: 'drop-shadow(0 0 6px #9b5cff)' }} />
+            <polyline points="1440,860 1340,820 1360,780 1240,740 1260,700 1150,690" fill="none" stroke="#b5f3ff" strokeWidth="1.6" strokeLinejoin="bevel" style={{ filter: 'drop-shadow(0 0 6px #00e5ff)' }} />
+            <polyline points="900,0 930,80 890,120 950,210 920,250" fill="none" stroke="#e8c8ff" strokeWidth="1.4" strokeLinejoin="bevel" style={{ filter: 'drop-shadow(0 0 6px #b57cff)' }} />
+          </svg>
+          <div className="rd-gm-sparks">
+            {GM_SPARKS.map((style, i) => (
+              <span key={i} className="rd-gm-spark" style={style} />
+            ))}
+          </div>
+          <svg className="rd-gm-static" aria-hidden>
+            <filter id="rd-gm-noise">
+              <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
+              <feColorMatrix values="0 0 0 0 .8  0 0 0 0 .6  0 0 0 0 1  0 0 0 1.4 -0.2" />
+            </filter>
+            <rect width="100%" height="100%" filter="url(#rd-gm-noise)" />
+          </svg>
+          <div className="rd-vignette" />
         </div>
 
-        <div className="daily-content gm-area-content">
-          <button className="daily-back" onClick={() => setView('hub')}>
-            ← Voltar
+        <div className="rd-gm-top">
+          <BrandEyeIcon />
+          <span className="rd-gm-top-text">O Outro Lado da Mesa</span>
+        </div>
+
+        <div className="rd-gm-main">
+          <button className="rd-gm-back" onClick={() => setView('hub')}>
+            <BackChevronIcon /> VOLTAR
           </button>
 
-          <h1 className="daily-title">Área do Mestre</h1>
-          <div className="daily-title-rule" />
-
-          <p className="daily-rule-box">
-            Prepare tudo com calma antes da mesa — músicas, tokens e mapas ficam salvos aqui,
-            prontos pra usar em qualquer mesa que <b>você criar como mestre</b>.
-          </p>
-
-          <div className="chip-row gm-area-tabs">
-            <span
-              className={`chip ${gmAreaTab === 'music' ? 'on' : ''}`}
-              onClick={() => setGmAreaTab('music')}
-            >
-              🎵 Músicas
-            </span>
-            <span
-              className={`chip ${gmAreaTab === 'ambient' ? 'on' : ''}`}
-              onClick={() => setGmAreaTab('ambient')}
-            >
-              🔊 Sons Ambiente
-            </span>
-            <span
-              className={`chip ${gmAreaTab === 'tokens' ? 'on' : ''}`}
-              onClick={() => setGmAreaTab('tokens')}
-            >
-              🧩 Tokens
-            </span>
-            <span
-              className={`chip ${gmAreaTab === 'scenery' ? 'on' : ''}`}
-              onClick={() => setGmAreaTab('scenery')}
-            >
-              🧱 Cenário 2D
-            </span>
-            <span
-              className={`chip ${gmAreaTab === 'maps' ? 'on' : ''}`}
-              onClick={() => setGmAreaTab('maps')}
-            >
-              🗺 Mapas
-            </span>
-            <span
-              className={`chip ${gmAreaTab === 'places' ? 'on' : ''}`}
-              onClick={() => setGmAreaTab('places')}
-            >
-              🧊 Cenários 3D
-            </span>
+          <div className="rd-gm-head">
+            <div className="rd-gm-head-row">
+              <h1 className="rd-gm-title">
+                ÁREA DO <span>MESTRE</span>
+              </h1>
+              <span className="rd-gm-crumb">// PREPARAÇÃO DA SESSÃO</span>
+            </div>
+            <span className="rd-gm-rule" />
+            <p className="rd-gm-sub">
+              Prepare tudo com calma antes da mesa: músicas, sons, tokens e mapas ficam salvos aqui,
+              prontos pra usar em qualquer mesa que <b>você criar como mestre</b>.
+            </p>
           </div>
 
+          <nav className="rd-gm-tabs" role="tablist" aria-label="Seções da área do mestre">
+            {gmTabs.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={gmAreaTab === t.key}
+                className={`rd-gm-tab ${gmAreaTab === t.key ? 'active' : ''}`}
+                onClick={() => setGmAreaTab(t.key)}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </nav>
+
           {gmAreaTab === 'music' && (
-            <>
-              <div className="row" style={{ alignItems: 'center', marginBottom: 4 }}>
-                <div className="section-title" style={{ margin: 0, flex: 1 }}>
-                  Música do menu
+            <div className="rd-gm-split">
+              <div className="rd-gm-panel">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span className="rd-gm-eyebrow">Música do menu</span>
+                  <p className="rd-gm-desc">
+                    Escolha qual faixa toca em loop nas telas do menu. Ganhe o Desafio Diário pra
+                    desbloquear as outras.
+                  </p>
                 </div>
-                <button className="small" onClick={() => setMenuPlaying(!menuPlaying)}>
-                  {menuPlaying ? '⏸ Pausar' : '▶ Tocar'}
-                </button>
-              </div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Escolha qual faixa toca em loop nas telas do menu. Ganhe o Desafio Diário pra
-                desbloquear as outras.
-              </p>
-              <div className="menu-track-list">
-                {ALL_MENU_TRACKS.map((t) => {
-                  const unlocked = isTrackUnlocked(t.id);
-                  const active = menuTrack.id === t.id;
-                  return (
+
+                <div className="rd-gm-nowplaying">
+                  <div className="rd-gm-nowplaying-inner">
                     <button
-                      key={t.id}
-                      className={'menu-track-row' + (active ? ' active' : '') + (unlocked ? '' : ' locked')}
-                      disabled={!unlocked}
-                      onClick={() => (unlocked ? changeMenuTrack(t) : undefined)}
-                      title={unlocked ? undefined : 'Ganhe o Desafio Diário pra desbloquear'}
+                      className="rd-gm-play-big"
+                      aria-label={menuPlaying ? 'Pausar' : 'Tocar'}
+                      onClick={() => setMenuPlaying(!menuPlaying)}
                     >
-                      <span className="menu-track-name">{unlocked ? t.name : '🔒 ???'}</span>
-                      {active && (
-                        <span className="menu-track-playing">
-                          {menuPlaying ? 'tocando agora' : 'pausada'}
-                        </span>
-                      )}
+                      {menuPlaying ? <PauseIcon /> : <PlayIcon />}
                     </button>
-                  );
-                })}
+                    <div className="rd-gm-nowplaying-info">
+                      <span className="rd-gm-nowplaying-name">{menuTrack.name}</span>
+                      <span className="rd-gm-nowplaying-status">
+                        {menuPlaying ? '● TOCANDO AGORA · EM LOOP' : 'PAUSADA'}
+                      </span>
+                    </div>
+                    <div className={`rd-gm-eq-big${menuPlaying ? '' : ' paused'}`} aria-hidden>
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rd-gm-list">
+                  {otherTracks.map((t) => {
+                    const unlocked = isTrackUnlocked(t.id);
+                    if (!unlocked) {
+                      return (
+                        <div
+                          key={t.id}
+                          className="rd-gm-track-row locked"
+                          title="Ganhe o Desafio Diário pra desbloquear"
+                        >
+                          <LockIcon />
+                          <span className="rd-gm-track-locked-text">? ? ? ? ?</span>
+                          <span className="rd-gm-track-tag">Desafio Diário</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <button key={t.id} className="rd-gm-track-row" onClick={() => changeMenuTrack(t)}>
+                        <MusicasFloatIcon />
+                        <span className="rd-gm-track-row-name">{t.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="section-title">Biblioteca compartilhada</div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Importe músicas do seu computador e organize em pastas — dá pra ouvir uma prévia por
-                aqui; pra tocar pra mesa toda, use a aba Músicas dentro da mesa.
-              </p>
-              <MusicLibraryManager mode="preview" />
-            </>
+              <div className="rd-gm-panel" style={{ flex: '1.4 1 480px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span className="rd-gm-eyebrow">Biblioteca compartilhada</span>
+                  <p className="rd-gm-desc">
+                    Importe músicas do seu computador e organize em pastas — dá pra ouvir uma prévia
+                    por aqui; pra tocar pra mesa toda, use a aba Músicas dentro da mesa.
+                  </p>
+                </div>
+                <MusicLibraryManager mode="preview" />
+              </div>
+            </div>
           )}
 
           {gmAreaTab === 'ambient' && (
-            <>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                Sons ambiente
+            <div className="rd-gm-panel" style={{ maxWidth: 760 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span className="rd-gm-eyebrow">Sons ambiente</span>
+                <p className="rd-gm-desc">
+                  Importe efeitos do seu computador (porta abrindo, trovão, passos...) e organize em
+                  pastas — área separada da música. Pra disparar pra mesa toda durante a sessão, use
+                  a aba "Sons" dentro da mesa.
+                </p>
               </div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Importe efeitos do seu computador (porta abrindo, trovão, passos...) e organize em
-                pastas — área separada da música. Pra disparar pra mesa toda durante a sessão, use a
-                aba "Sons" dentro da mesa.
-              </p>
               <AmbientLibraryManager mode="preview" />
-            </>
+            </div>
           )}
 
           {gmAreaTab === 'tokens' && (
-            <>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                Tokens
+            <div className="rd-gm-panel">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span className="rd-gm-eyebrow">Tokens</span>
+                <p className="rd-gm-desc">
+                  Importe imagens do seu computador — uma a uma ou uma pasta inteira de uma vez — e
+                  organize em pastas. Ficam prontas pra colocar em qualquer mesa que você criar como
+                  mestre.
+                </p>
               </div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Importe imagens do seu computador — uma a uma ou uma pasta inteira de uma vez — e
-                organize em pastas. Ficam prontas pra colocar em qualquer mesa que você criar como
-                mestre.
-              </p>
-              <TokenLibraryManager />
-            </>
+              <TokenLibraryManager theme="energia" />
+            </div>
           )}
 
           {gmAreaTab === 'scenery' && (
-            <>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                Mapas montados
+            <div className="rd-gm-split">
+              <div className="rd-gm-panel">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span className="rd-gm-eyebrow">Mapas montados</span>
+                  <p className="rd-gm-desc">
+                    Monte o mapa aqui (plante paredes, móveis, texturas de chão) e salve — fica
+                    pronto pra escolher como ponto de partida ao hospedar uma mesa 2D. Dentro da
+                    mesa o cenário fica travado (só os tokens se mexem), pra manter o jogo limpo.
+                  </p>
+                </div>
+                <Map2DLibraryManager theme="energia" />
               </div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Monte o mapa aqui (plante paredes, móveis, texturas de chão) e salve — fica pronto
-                pra escolher como ponto de partida ao hospedar uma mesa 2D. Dentro da mesa o
-                cenário fica travado (só os tokens se mexem), pra manter o jogo limpo.
-              </p>
-              <Map2DLibraryManager />
 
-              <div className="section-title" style={{ marginTop: 22 }}>
-                Peças soltas
+              <div className="rd-gm-panel">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span className="rd-gm-eyebrow">Peças soltas</span>
+                  <p className="rd-gm-desc">
+                    Estoque de peças pra usar nos mapas acima — móveis, paredes, texturas de chão.
+                    Importe uma pasta inteira organizada em subpastas e cada subpasta vira uma
+                    categoria aqui.
+                  </p>
+                </div>
+                <SceneryLibraryManager />
               </div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Estoque de peças pra usar nos mapas acima — móveis, paredes, texturas de chão.
-                Importe uma pasta inteira organizada em subpastas e cada subpasta vira uma
-                categoria aqui.
-              </p>
-              <SceneryLibraryManager />
-            </>
+            </div>
           )}
 
           {gmAreaTab === 'maps' && (
-            <>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                Mapas
-              </div>
+            <div className="rd-gm-panel" style={{ maxWidth: 900 }}>
+              <span className="rd-gm-eyebrow">Mapas</span>
               <MapLibraryManager />
-            </>
+            </div>
           )}
 
           {gmAreaTab === 'places' && (
-            <>
-              <div className="section-title" style={{ marginTop: 0 }}>
-                Cenários 3D
+            <div className="rd-gm-panel">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 640 }}>
+                <span className="rd-gm-eyebrow">
+                  Cenários 3D <span className="rd-gm-badge">Experimental</span>
+                </span>
+                <p className="rd-gm-desc">
+                  Monte um cenário na câmera livre (objetos em pé, textura de chão) e salve — fica
+                  pronto pra usar como ponto de partida em qualquer mesa 3D. Ainda experimental.
+                  Precisa de modelos 3D pra importar?{' '}
+                  <a href="https://poly.pizza" target="_blank" rel="noopener noreferrer">
+                    Poly Pizza
+                  </a>{' '}
+                  tem um catálogo grande de modelos gratuitos em .glb, prontos pra importar aqui.
+                </p>
               </div>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Monte um cenário na câmera livre (objetos em pé, textura de chão) e salve — fica
-                pronto pra usar como ponto de partida em qualquer mesa 3D. Ainda experimental.
-                <br />
-                Precisa de modelos 3D pra importar?{' '}
-                <a href="https://poly.pizza" target="_blank" rel="noopener noreferrer">
-                  Poly Pizza
-                </a>{' '}
-                tem um catálogo grande de modelos gratuitos em .glb, prontos pra importar aqui.
-              </p>
               <PlaceLibraryManager />
-            </>
+            </div>
           )}
-        </div>
-
-        <div className="daily-sigil-small">
-          <Sigil />
-          <span className="daily-sigil-line" />
         </div>
       </div>
     );

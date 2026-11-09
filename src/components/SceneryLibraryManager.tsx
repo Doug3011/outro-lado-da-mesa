@@ -11,6 +11,7 @@ import {
   uploadSceneryImage,
 } from '../lib/sceneryLibrary';
 import { askText } from '../state/promptDialog';
+import { CloseFloatIcon, PencilIcon, UploadIcon } from './icons';
 
 // Tipo MIME próprio pro drag-and-drop de peça de cenário da biblioteca pro
 // mapa (ver BattleMap.tsx) — mesmo padrão de TOKEN_DRAG_MIME.
@@ -26,6 +27,11 @@ interface SceneryLibraryManagerProps {
   // miniatura planta ela no mapa em vez de só gerenciar a biblioteca — a
   // peça também continua arrastável pro mapa (SCENERY_DRAG_MIME), as duas
   // formas convivem.
+  //
+  // Essa prop também é o que escolhe o visual (Passo 8): só existe uma mesa
+  // de verdade passando `onPlant` (BattleMap.tsx) — a Área do Mestre
+  // (Home.tsx) chama sem essa prop. Então "sem onPlant" = visual novo
+  // (tema Energia); "com onPlant" = visual antigo, ainda não redesenhado.
   onPlant?: (asset: SceneryAsset) => void;
 }
 
@@ -43,6 +49,7 @@ export function SceneryLibraryManager({ onPlant }: SceneryLibraryManagerProps) {
   const [importing, setImporting] = useState<{ done: number; total: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const refresh = () => {
     void fetchSceneryLibrary().then((data) => {
@@ -166,6 +173,163 @@ export function SceneryLibraryManager({ onPlant }: SceneryLibraryManagerProps) {
     void deleteSceneryAsset(a.id).then(() => refresh());
   };
 
+  if (!onPlant) {
+    // Visual novo (Área do mestre, tema Energia) — ver comentário em
+    // `onPlant` na assinatura do componente sobre por que ele decide isso.
+    return (
+      <div>
+        <div className="rd-gm-toolbar">
+          <span
+            className={`rd-gm-chip ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            Todas
+          </span>
+          {folders.map((f) => (
+            <span
+              key={f.id}
+              className={`rd-gm-chip ${filter === f.id ? 'active' : ''}`}
+              onClick={() => setFilter(f.id)}
+              title="Clique pra filtrar; ✕ apaga a pasta"
+            >
+              {f.name}
+              <button
+                className="rd-gm-chip-x"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveFolder(f.id);
+                }}
+              >
+                <CloseFloatIcon />
+              </button>
+            </span>
+          ))}
+          <span className="rd-gm-chip-ghost" onClick={onAddFolder}>
+            + pasta
+          </span>
+        </div>
+
+        <div className="rd-gm-toolbar">
+          <button className="rd-gm-btn-primary" onClick={() => folderInputRef.current?.click()}>
+            <UploadIcon />
+            IMPORTAR PASTA INTEIRA
+          </button>
+          <button className="rd-gm-btn-ghost" onClick={() => fileInputRef.current?.click()}>
+            Importar imagens{importing ? `… (${importing.done}/${importing.total})` : ''}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              onImportFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={folderInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            // @ts-expect-error atributo não tipado, mas suportado no Chromium
+            webkitdirectory=""
+            onChange={(e) => {
+              void onImportFolder(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </div>
+
+        <div className="rd-gm-info">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5M12 8h.01" />
+          </svg>
+          <span>
+            "Importar pasta inteira" cria uma pasta da biblioteca pra cada subpasta
+            automaticamente (ex.: Cadeiras, Paredes) — mantém a organização que você
+            já tem no computador.
+          </span>
+        </div>
+
+        {loading && <p className="rd-gm-hint">Carregando biblioteca…</p>}
+
+        {!loading && visible.length === 0 && (
+          <button
+            type="button"
+            className={`rd-gm-empty${dragOver ? ' drag-over' : ''}`}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              onImportFiles(e.dataTransfer.files);
+            }}
+          >
+            <span className="rd-gm-empty-icon">
+              <UploadIcon />
+            </span>
+            <span className="rd-gm-empty-title">Importar peças</span>
+            <span className="rd-gm-empty-sub">
+              {filter === 'all'
+                ? 'Nenhuma peça importada ainda. Clique ou arraste as imagens aqui, ou use "Importar pasta inteira" pra trazer tudo de uma vez.'
+                : 'Nenhuma peça nessa pasta ainda.'}
+            </span>
+          </button>
+        )}
+
+        {!loading && visible.length > 0 && (
+          <div className="rd-gm-grid">
+            {visible.map((a) => (
+              <div className="rd-gm-card" key={a.id}>
+                <div
+                  className="rd-gm-card-thumb rd-gm-card-thumb-draggable"
+                  style={{ backgroundImage: `url(${sceneryAssetUrl(a.id)})` }}
+                  draggable
+                  title="Arraste pro mapa da mesa pra plantar"
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(SCENERY_DRAG_MIME, JSON.stringify({ id: a.id, name: a.name }));
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                />
+                <span className="rd-gm-card-name" title={a.name}>
+                  {a.name}
+                </span>
+                <div className="rd-gm-card-actions">
+                  <select className="rd-gm-select" value={a.folderId ?? ''} onChange={(e) => onMove(a, e.target.value)}>
+                    <option value="">sem pasta</option>
+                    {folders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="rd-gm-icon-btn" title="Renomear" onClick={() => onRename(a)}>
+                    <PencilIcon />
+                  </button>
+                  <button className="rd-gm-icon-btn" title="Excluir" onClick={() => onDelete(a)}>
+                    <CloseFloatIcon />
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button type="button" className="rd-gm-dropcard" onClick={() => fileInputRef.current?.click()}>
+              <UploadIcon />
+              Arraste imagens aqui
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="chip-row" style={{ marginBottom: 10 }}>
@@ -250,8 +414,8 @@ export function SceneryLibraryManager({ onPlant }: SceneryLibraryManagerProps) {
               className="asset-thumb asset-thumb-draggable"
               style={{ backgroundImage: `url(${sceneryAssetUrl(a.id)})` }}
               draggable
-              title={onPlant ? 'Clique pra plantar no mapa, ou arraste' : 'Arraste pro mapa da mesa pra plantar'}
-              onClick={() => onPlant?.(a)}
+              title="Clique pra plantar no mapa, ou arraste"
+              onClick={() => onPlant(a)}
               onDragStart={(e) => {
                 e.dataTransfer.setData(SCENERY_DRAG_MIME, JSON.stringify({ id: a.id, name: a.name }));
                 e.dataTransfer.effectAllowed = 'copy';

@@ -11,6 +11,7 @@ import {
   uploadTracks,
 } from '../lib/musicLibrary';
 import { askText } from '../state/promptDialog';
+import { CloseFloatIcon, PauseIcon, PencilIcon, PlayIcon, UploadIcon } from './icons';
 
 // Biblioteca de música: pastas + faixas, importadas do PC do mestre. Usada em
 // dois lugares — menu principal ("Músicas", só gerencia/pré-ouve) e dentro da
@@ -41,6 +42,11 @@ export function MusicLibraryManager({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLAudioElement>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  // Só usado no visual novo (Área do mestre, tema Energia, `mode="preview"`)
+  // pro realce ao arrastar um arquivo por cima do estado vazio — o mesmo
+  // `onImportFiles` de sempre é chamado no drop, nada na lógica de upload
+  // muda. Dentro de uma mesa (`mode="room"`, visual antigo) fica sem uso.
+  const [dragOver, setDragOver] = useState(false);
 
   const refresh = () => {
     void fetchMusicLibrary(roomHost).then((data) => {
@@ -119,11 +125,154 @@ export function MusicLibraryManager({
     setPreviewingId(t.id);
   };
 
+  const audioEl = mode === 'preview' && (
+    <audio ref={previewRef} onEnded={() => setPreviewingId(null)} style={{ display: 'none' }} />
+  );
+
+  // Visual novo (Área do mestre, tema Energia) — só quando `mode="preview"`,
+  // ou seja, só fora de mesa (ver Home.tsx). Dentro de uma mesa (`mode="room"`,
+  // MusicPanel.tsx) continua no visual antigo mais abaixo, intocado.
+  if (mode === 'preview') {
+    return (
+      <>
+        {audioEl}
+
+        <div className="rd-gm-toolbar">
+          <span
+            className={`rd-gm-chip ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            Todas
+          </span>
+          {folders.map((f) => (
+            <span
+              key={f.id}
+              className={`rd-gm-chip ${filter === f.id ? 'active' : ''}`}
+              onClick={() => setFilter(f.id)}
+              title="Clique pra filtrar; ✕ apaga a pasta"
+            >
+              {f.name}
+              <button
+                className="rd-gm-chip-x"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveFolder(f.id);
+                }}
+              >
+                <CloseFloatIcon />
+              </button>
+            </span>
+          ))}
+          <span className="rd-gm-chip-ghost" onClick={onAddFolder}>
+            + pasta
+          </span>
+          <button
+            className="rd-gm-btn-primary"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadIcon />
+            {importing ? `IMPORTANDO… (${importing.done}/${importing.total})` : 'IMPORTAR MÚSICA'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              onImportFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+        </div>
+
+        {loading && <p className="rd-gm-hint">Carregando biblioteca…</p>}
+
+        {!loading && visible.length === 0 && (
+          <button
+            type="button"
+            className={`rd-gm-empty${dragOver ? ' drag-over' : ''}`}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              onImportFiles(e.dataTransfer.files);
+            }}
+          >
+            <span className="rd-gm-empty-icon">
+              <UploadIcon />
+            </span>
+            <span className="rd-gm-empty-title">Importar música</span>
+            <span className="rd-gm-empty-sub">
+              {filter === 'all'
+                ? 'Nenhuma música importada ainda. Clique ou arraste os arquivos aqui — pode soltar vários de uma vez.'
+                : 'Nenhuma música nessa pasta ainda.'}
+            </span>
+          </button>
+        )}
+
+        {!loading && visible.length > 0 && (
+          <div className="rd-gm-list">
+            {visible.map((t) => {
+              const isPreviewing = previewingId === t.id;
+              return (
+                <div className={`rd-gm-row${isPreviewing ? ' playing' : ''}`} key={t.id}>
+                  <button
+                    className="rd-gm-row-play"
+                    title={isPreviewing ? 'Pausar prévia' : 'Ouvir prévia'}
+                    onClick={() => togglePreview(t)}
+                  >
+                    {isPreviewing ? <PauseIcon /> : <PlayIcon />}
+                  </button>
+                  <div className="rd-gm-row-info">
+                    <span className="rd-gm-row-name" title={t.name}>
+                      {t.name}
+                    </span>
+                  </div>
+                  {isPreviewing && (
+                    <div className="rd-gm-row-eq" aria-hidden>
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  )}
+                  <select
+                    className="rd-gm-select"
+                    style={{ width: 120 }}
+                    value={t.folderId ?? ''}
+                    onChange={(e) => onMove(t, e.target.value)}
+                  >
+                    <option value="">sem pasta</option>
+                    {folders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="rd-gm-icon-btn" title="Renomear" onClick={() => onRename(t)}>
+                    <PencilIcon />
+                  </button>
+                  <button className="rd-gm-icon-btn" title="Excluir" onClick={() => onDelete(t)}>
+                    <CloseFloatIcon />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div>
-      {mode === 'preview' && (
-        <audio ref={previewRef} onEnded={() => setPreviewingId(null)} style={{ display: 'none' }} />
-      )}
+      {audioEl}
 
       <div className="chip-row" style={{ marginBottom: 10 }}>
         <span className={`chip ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
@@ -183,17 +332,16 @@ export function MusicLibraryManager({
         </p>
       )}
 
+      {/* Chegando aqui, `mode` só pode ser 'room' — o `mode === 'preview'`
+          já retornou lá em cima. Lista pra escolher a faixa que toca pra
+          mesa toda (MusicPanel.tsx); a lista de prévia (ouvir sozinho) é
+          só pro visual novo, no branch acima. */}
       {visible.map((t) => {
-        const isActive = mode === 'room' && activeTrackId === t.id;
-        const isPreviewing = mode === 'preview' && previewingId === t.id;
+        const isActive = activeTrackId === t.id;
         return (
           <div className={`list-item music-row ${isActive ? 'music-row-active' : ''}`} key={t.id}>
-            <button
-              className="small"
-              title={mode === 'room' ? 'Tocar pra mesa toda' : 'Ouvir prévia'}
-              onClick={() => (mode === 'room' ? onSelectTrack?.(t.id) : togglePreview(t))}
-            >
-              {isActive && isPlaying ? '⏸' : isPreviewing ? '⏸' : '▶'}
+            <button className="small" title="Tocar pra mesa toda" onClick={() => onSelectTrack?.(t.id)}>
+              {isActive && isPlaying ? '⏸' : '▶'}
             </button>
             <span className="music-row-name" title={t.name}>
               {t.name}

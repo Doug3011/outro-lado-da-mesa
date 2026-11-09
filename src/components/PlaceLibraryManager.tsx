@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { deletePlace, fetchPlaces, newPlaceId, type PlaceSummary } from '../lib/placeLibrary';
+import { CloseFloatIcon, PlusIcon, SceneObjectToolIcon } from './icons';
 
 // Lista de cenários 3D ("places") salvos — cada um foi montado no editor
 // (câmera livre, objetos-imagem, textura de chão) e fica pronto pra usar
@@ -28,38 +29,38 @@ export function PlaceLibraryManager() {
 
   return (
     <div>
-      <button className="primary" style={{ marginBottom: 14 }} onClick={() => navigate(`/prototipo-3d/${newPlaceId()}`)}>
-        ＋ Novo cenário 3D
+      <button className="rd-gm-btn-primary" style={{ marginBottom: 2 }} onClick={() => navigate(`/prototipo-3d/${newPlaceId()}`)}>
+        <PlusIcon /> NOVO CENÁRIO 3D
       </button>
 
-      {loading && <p className="faint">Carregando…</p>}
+      {loading && <p className="rd-gm-hint">Carregando…</p>}
       {!loading && places.length === 0 && (
-        <p className="empty">Nenhum cenário 3D criado ainda — clique em "Novo cenário 3D" pra começar.</p>
+        <p className="rd-gm-hint">Nenhum cenário 3D criado ainda — clique em "Novo cenário 3D" pra começar.</p>
       )}
 
-      <div className="asset-grid">
-        {places.map((p) => (
-          <div key={p.id} className="asset-card">
-            <div className="asset-thumb proto3d-place-thumb" onClick={() => navigate(`/prototipo-3d/${p.id}`)}>
-              🧊
+      {!loading && places.length > 0 && (
+        <div className="rd-gm-grid rd-gm-grid-lg">
+          {places.map((p) => (
+            <div key={p.id} className="rd-gm-card">
+              <div className="rd-gm-3d-thumb" onClick={() => navigate(`/prototipo-3d/${p.id}`)} style={{ cursor: 'pointer' }}>
+                <SceneObjectToolIcon />
+              </div>
+              <span className="rd-gm-card-name" title={p.name}>
+                {p.name}
+              </span>
+              <span className="rd-gm-card-meta">{formatDate(p.updatedAt)}</span>
+              <div className="rd-gm-card-actions">
+                <button className="rd-gm-card-btn" onClick={() => navigate(`/prototipo-3d/${p.id}`)}>
+                  Editar
+                </button>
+                <button className="rd-gm-icon-btn" title="Excluir" onClick={() => onRemove(p.id)}>
+                  <CloseFloatIcon />
+                </button>
+              </div>
             </div>
-            <span className="asset-name" title={p.name}>
-              {p.name}
-            </span>
-            <span className="faint" style={{ fontSize: 11 }}>
-              {formatDate(p.updatedAt)}
-            </span>
-            <div className="asset-actions">
-              <button className="small" onClick={() => navigate(`/prototipo-3d/${p.id}`)}>
-                Editar
-              </button>
-              <button className="small ghost" title="Excluir" onClick={() => onRemove(p.id)}>
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
