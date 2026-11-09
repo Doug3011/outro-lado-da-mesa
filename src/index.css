@@ -5172,6 +5172,13 @@ label {
   0% { transform: translateX(-10%); }
   100% { transform: translateX(10%); }
 }
+/* novo nesta etapa (Passo 2: Menu principal) — névoa que desliza e cresce;
+   fica na seção reutilizável porque outras telas do redesign (Entrar numa
+   Mesa, Mesa do mestre) também devem ter esse mesmo fundo de névoa. */
+@keyframes rd-fog-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-60px, 30px) scale(1.15); }
+}
 @keyframes rd-ember-rise {
   0% { transform: translateY(0) translateX(0); opacity: 0; }
   15% { opacity: 0.9; }
@@ -5495,4 +5502,392 @@ label {
   inset: 0;
   pointer-events: none;
   background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px);
+}
+
+/* =====================================================================
+   REDESIGN — Passo 2: Menu principal (Home.tsx, view === 'hub')
+   Troca o fundo antigo (vídeo mesa-bg.mp4 + sigilos aleatórios do
+   SigilFlicker) por névoa animada, granulado, scanlines, vinheta e um
+   sigilo central girando/pulsando — fiel à referência (Menu-Mesa.dc.html).
+   mesa-bg.mp4 e o componente SigilFlicker continuam no projeto, só
+   pararam de ser usados NESTA tela (podem voltar a ser usados em outra
+   tela depois, se fizer sentido). Ícones dos itens e dos botões do topo
+   são SVG em traço — sem emoji. Todo texto/numero aqui embaixo é
+   só estrutura visual: os dados reais (nome, cor, contagem de fichas,
+   hasLan/hasSupabase) continuam vindo de Home.tsx.
+   ===================================================================== */
+.rd-menu {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--rd-sangue-bg);
+  color: #e9e4dc;
+  font-family: var(--rd-font-disp);
+  display: flex;
+  flex-direction: column;
+}
+
+.rd-menu-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.rd-menu-fog {
+  position: absolute;
+  border-radius: 50%;
+}
+.rd-menu-fog-a {
+  right: -8%;
+  top: 4%;
+  width: 70%;
+  height: 92%;
+  background: radial-gradient(closest-side, rgba(150, 10, 18, 0.42), rgba(150, 10, 18, 0.12) 55%, transparent 75%);
+  animation: rd-fog-drift 18s ease-in-out infinite;
+}
+.rd-menu-fog-b {
+  left: 30%;
+  bottom: -30%;
+  width: 60%;
+  height: 70%;
+  background: radial-gradient(closest-side, rgba(90, 6, 12, 0.35), transparent 70%);
+  animation: rd-fog-drift 26s ease-in-out infinite reverse;
+}
+.rd-menu-grain {
+  position: absolute;
+  left: -20%;
+  top: -20%;
+  width: 140%;
+  height: 140%;
+  opacity: 0.09;
+  mix-blend-mode: screen;
+  animation: rd-grain 0.9s steps(4) infinite;
+}
+
+.rd-menu-top,
+.rd-menu-body,
+.rd-menu-footer {
+  position: relative;
+  z-index: 2;
+}
+
+.rd-menu-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 32px 56px 0;
+}
+.rd-menu-top-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.rd-menu-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rd-menu-player {
+  height: var(--rd-tap-min);
+  padding: 0 14px 0 6px;
+  border-radius: var(--rd-radius-pill);
+  border: 1px solid rgba(233, 228, 220, 0.14);
+  background: rgba(10, 9, 12, 0.6);
+  color: #e9e4dc;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.rd-menu-player:hover {
+  border-color: var(--rd-sangue);
+  background: rgba(224, 22, 30, 0.12);
+}
+.rd-menu-player-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex: none;
+}
+.rd-menu-player-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+.rd-menu-player-name {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rd-menu-player-meta {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #9a938b;
+}
+.rd-menu-settings {
+  width: var(--rd-tap-min);
+  height: var(--rd-tap-min);
+  border-radius: 50%;
+  border: 1px solid rgba(233, 228, 220, 0.14);
+  background: rgba(10, 9, 12, 0.6);
+  color: #b9b2a9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rd-menu-settings:hover {
+  border-color: var(--rd-sangue);
+  color: #fff;
+}
+
+.rd-menu-body {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  align-items: center;
+  padding: 24px 56px;
+  gap: 24px;
+}
+
+.rd-menu-nav {
+  flex: 1 1 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: flex-end;
+  padding-bottom: 12px;
+}
+.rd-menu-nav-label {
+  display: block;
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--rd-sangue-soft);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.rd-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0;
+  min-height: var(--rd-tap-min);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #a39c94;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.1;
+  font-family: var(--rd-font-disp);
+  transition: color 0.15s, transform 0.15s, font-size 0.15s;
+}
+.rd-menu-item:hover,
+.rd-menu-item:focus-visible {
+  color: #fff;
+  transform: translateX(6px);
+}
+.rd-menu-item.active {
+  color: var(--rd-sangue-bright);
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(224, 22, 30, 0.45);
+}
+.rd-menu-item.active:hover,
+.rd-menu-item.active:focus-visible {
+  transform: none;
+}
+.rd-menu-item-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rd-menu-item-num {
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  width: 22px;
+  flex: none;
+  color: #5e5852;
+}
+.rd-menu-item.active .rd-menu-item-num {
+  color: var(--rd-sangue-bright);
+}
+.rd-menu-item-bar {
+  height: 2px;
+  width: 0;
+  border-radius: 2px;
+  background: var(--rd-sangue);
+  transition: width 0.2s;
+}
+.rd-menu-item.active .rd-menu-item-bar {
+  width: 20px;
+}
+.rd-menu-item-desc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 2px 0 14px 56px;
+}
+.rd-menu-item-desc-text {
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  color: #b9b2a9;
+  letter-spacing: 0.02em;
+}
+.rd-menu-item-enter {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #7e7770;
+  border: 1px solid #3a3336;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.rd-menu-sigil {
+  flex: 1 1 420px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 420px;
+}
+.rd-menu-sigil-stage {
+  position: relative;
+  width: min(440px, 90%);
+  aspect-ratio: 1 / 1;
+}
+.rd-menu-ring {
+  position: absolute;
+  width: 118%;
+  height: 118%;
+  inset: -9%;
+}
+.rd-menu-ring-outer {
+  animation: rd-spin 80s linear infinite;
+}
+.rd-menu-ring-inner {
+  inset: 2%;
+  width: 96%;
+  height: 96%;
+  animation: rd-spin-back 140s linear infinite;
+}
+.rd-menu-sigil-img {
+  position: absolute;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
+  filter: drop-shadow(0 0 18px rgba(224, 22, 30, 0.55)) drop-shadow(0 0 2px rgba(255, 60, 60, 0.9));
+  animation: rd-pulse-glow 7s ease-in-out infinite, rd-flicker 6.3s linear infinite;
+}
+.rd-menu-signal {
+  position: absolute;
+  right: 4%;
+  bottom: 6%;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #9e2a30;
+  animation: rd-blink 2.4s steps(1) infinite;
+}
+
+.rd-menu-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 56px 28px;
+}
+.rd-menu-footer-note {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #6e6862;
+  letter-spacing: 0.08em;
+}
+.rd-menu-net-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+}
+.rd-menu-net-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--rd-net-dot, #3ddc84);
+  box-shadow: 0 0 8px var(--rd-net-dot, #3ddc84);
+}
+.rd-menu-net-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--rd-font-mono);
+}
+.rd-menu-net-title {
+  font-size: 12px;
+  color: #e9e4dc;
+}
+.rd-menu-net-sub {
+  font-size: 11px;
+  color: #9a938b;
+}
+
+@media (max-width: 760px) {
+  .rd-menu-top,
+  .rd-menu-body,
+  .rd-menu-footer {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .rd-menu-top {
+    padding-top: 20px;
+  }
+  .rd-menu-item {
+    font-size: 19px;
+  }
+  .rd-menu-item.active {
+    font-size: 30px;
+  }
+  .rd-menu-sigil {
+    min-height: 260px;
+  }
+  .rd-menu-player-name {
+    max-width: 96px;
+  }
 }

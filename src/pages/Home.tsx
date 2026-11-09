@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useIdentity } from '../hooks/useIdentity';
 import { hasSupabase } from '../lib/supabase';
@@ -22,7 +22,10 @@ import { PlacePickerDialog } from '../components/PlacePickerDialog';
 import type { Place } from '../lib/placeLibrary';
 import { Map2DLibraryManager } from '../components/Map2DLibraryManager';
 import type { Map2D } from '../lib/map2dLibrary';
-import { SigilFlicker } from '../components/SigilFlicker';
+// SigilFlicker (sigilos aleatórios piscando sobre o vídeo de fundo antigo)
+// não é usado nesta tela desde o redesign do Passo 2 — o componente continua
+// em ../components/SigilFlicker.tsx pra uso futuro em outra tela, se fizer
+// sentido.
 import { ALL_MENU_TRACKS } from '../data/menuTracks';
 import { isTrackUnlocked } from '../lib/menuTracks';
 import { useMenuMusicStore } from '../state/menuMusic';
@@ -48,6 +51,11 @@ export function Home() {
   const [error, setError] = useState('');
   const [gmAreaTab, setGmAreaTab] = useState<GmAreaTab>('music');
   const [extrasTab, setExtrasTab] = useState<ExtrasTab>('minigames');
+  // Item em destaque no menu principal (redesign Passo 2) — hover/foco troca
+  // qual item fica grande, com descrição e dica "ENTER"; o clique continua
+  // navegando direto, não depende desse estado. Começa em 2 = "Entrar numa
+  // Mesa", o item já destacado (classe .featured) no menu antigo.
+  const [activeIdx, setActiveIdx] = useState(2);
 
   // Trilha sonora ambiente do menu — quem realmente toca é o MenuMusicController
   // (montado globalmente em App.tsx, sobrevive à troca de rota); aqui só lê e
@@ -438,54 +446,189 @@ export function Home() {
   }
 
   if (view === 'hub') {
+    type MenuItem = { key: string; label: string; desc: string; icon: ReactNode; onClick: () => void };
+    const menuItems: MenuItem[] = [
+      {
+        key: 'profile',
+        label: 'Meu Perfil',
+        desc: 'Nome, cor e preferências do agente',
+        icon: <ProfileIcon />,
+        onClick: () => setView('profile'),
+      },
+      {
+        key: 'library',
+        label: `Minhas Fichas${myChars.length > 0 ? ` (${myChars.length})` : ''}`,
+        desc:
+          myChars.length > 0
+            ? `${myChars.length} ficha${myChars.length > 1 ? 's' : ''} salva${myChars.length > 1 ? 's' : ''} · criar, editar e duplicar`
+            : 'Nenhuma ficha salva ainda · criar a primeira',
+        icon: <FichasIcon />,
+        onClick: goToLibrary,
+      },
+      {
+        key: 'connect',
+        label: 'Entrar numa Mesa',
+        desc: hasLan
+          ? 'Hospede ou encontre mesas na sua rede local'
+          : 'Conecte-se à mesa do mestre pelo código',
+        icon: <EnterIcon />,
+        onClick: () => setView('connect'),
+      },
+      {
+        key: 'history',
+        label: 'Histórico de Mesas',
+        desc: 'Sessões anteriores e como você entrou nelas',
+        icon: <HistoryIcon />,
+        onClick: () => setView('history'),
+      },
+      {
+        key: 'extras',
+        label: 'Extras',
+        desc: 'Desafio diário, mini-jogos e utilidades',
+        icon: <ExtrasIcon />,
+        onClick: () => setView('extras'),
+      },
+    ];
+    if (hasLan) {
+      menuItems.push({
+        key: 'gm-area',
+        label: 'Área do Mestre',
+        desc: 'Prepare músicas, tokens e mapas para suas mesas',
+        icon: <GmAreaIcon />,
+        onClick: () => setView('gm-area'),
+      });
+    }
+
+    const netMode = hasLan
+      ? {
+          dot: '#3ddc84',
+          title: 'MODO REDE LOCAL',
+          sub: 'Sem internet nem contas · todos na mesma rede (ex.: Radmin VPN)',
+        }
+      : hasSupabase
+        ? {
+            dot: '#00e5ff',
+            title: 'MODO ONLINE',
+            sub: 'O mestre compartilha o link e todos jogam juntos',
+          }
+        : {
+            dot: '#6a6b73',
+            title: 'MODO LOCAL (SÓ NESTE NAVEGADOR)',
+            sub: 'Configure o Supabase (README) para jogar pela internet',
+          };
+
+    const playerLabel = me.name.trim() || 'Agente';
+    const avatarInitial = playerLabel.charAt(0).toUpperCase();
+
     return (
-      <div className="menu-hero">
-        <video
-          className="menu-hero-video"
-          src="/mesa-bg.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          disablePictureInPicture
-        />
-        <div className="menu-hero-scrim" />
-        <SigilFlicker />
-        <div className="menu-hero-brand">
-          <Sigil />
-          <span>O Outro Lado da Mesa</span>
+      <div className="rd-menu">
+        <div className="rd-menu-bg" aria-hidden="true">
+          <div className="rd-menu-fog rd-menu-fog-a" />
+          <div className="rd-menu-fog rd-menu-fog-b" />
+          <svg className="rd-menu-grain" aria-hidden="true" focusable="false">
+            <filter id="rd-menu-noise">
+              <feTurbulence type="fractalNoise" baseFrequency={0.85} numOctaves={2} stitchTiles="stitch" />
+              <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -0.2" />
+            </filter>
+            <rect width="100%" height="100%" filter="url(#rd-menu-noise)" />
+          </svg>
+          <div className="rd-scanlines" />
+          <div className="rd-vignette" />
         </div>
 
-        <nav className="menu-nav">
-          <button className="menu-nav-item" onClick={() => setView('profile')}>
-            Meu Perfil
-          </button>
-          <button className="menu-nav-item" onClick={goToLibrary}>
-            Minhas Fichas{myChars.length > 0 ? ` (${myChars.length})` : ''}
-          </button>
-          <button className="menu-nav-item featured" onClick={() => setView('connect')}>
-            Entrar numa Mesa
-          </button>
-          <button className="menu-nav-item" onClick={() => setView('history')}>
-            Histórico de Mesas
-          </button>
-          <button className="menu-nav-item" onClick={() => setView('extras')}>
-            Extras
-          </button>
-          {hasLan && (
-            <button className="menu-nav-item" onClick={() => setView('gm-area')}>
-              Área do Mestre
+        <header className="rd-menu-top">
+          <div className="rd-menu-top-brand">
+            <Sigil />
+            <span>O Outro Lado da Mesa</span>
+          </div>
+          <div className="rd-menu-top-actions">
+            <button className="rd-menu-player" onClick={() => setView('profile')}>
+              <span
+                className="rd-menu-player-avatar"
+                style={{ background: `color-mix(in srgb, ${me.color} 26%, #09070a)`, color: me.color }}
+              >
+                {avatarInitial}
+              </span>
+              <span className="rd-menu-player-info">
+                <span className="rd-menu-player-name">{playerLabel}</span>
+                <span className="rd-menu-player-meta">
+                  AGENTE · {myChars.length} FICHA{myChars.length === 1 ? '' : 'S'}
+                </span>
+              </span>
             </button>
-          )}
-        </nav>
+            <button className="rd-menu-settings" aria-label="Configurações" onClick={() => setView('profile')}>
+              <GearIcon />
+            </button>
+          </div>
+        </header>
 
-        <p className="menu-hero-hint">
-          {hasLan
-            ? '● Modo rede local: sem internet nem contas — todos precisam estar na mesma rede (Radmin VPN, por exemplo).'
-            : hasSupabase
-              ? '● Modo online: o mestre compartilha o link e todos jogam juntos.'
-              : '● Modo local: sincroniza só entre abas deste navegador. Configure o Supabase (README) para jogar pela internet.'}
-        </p>
+        <div className="rd-menu-body">
+          <nav className="rd-menu-nav" aria-label="Menu principal">
+            <span className="rd-menu-nav-label">// Selecione um arquivo</span>
+            {menuItems.map((it, i) => {
+              const active = activeIdx === i;
+              return (
+                <div key={it.key}>
+                  <button
+                    className={`rd-menu-item${active ? ' active' : ''}`}
+                    onClick={it.onClick}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    onFocus={() => setActiveIdx(i)}
+                    aria-current={active ? 'true' : undefined}
+                  >
+                    <span className="rd-menu-item-num">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="rd-menu-item-icon">{it.icon}</span>
+                    <span className="rd-menu-item-bar" />
+                    <span>{it.label}</span>
+                  </button>
+                  {active && (
+                    <div className="rd-menu-item-desc">
+                      <span className="rd-menu-item-desc-text">{it.desc}</span>
+                      <span className="rd-menu-item-enter">ENTER</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+
+          <div className="rd-menu-sigil" aria-hidden="true">
+            <div className="rd-menu-sigil-stage">
+              <svg className="rd-menu-ring rd-menu-ring-outer" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="96" fill="none" stroke="var(--rd-sangue-line)" strokeWidth="0.5" strokeDasharray="1 3" />
+                <circle cx="100" cy="100" r="90" fill="none" stroke="var(--rd-sangue-deep)" strokeWidth="0.4" />
+                <path d="M100 2v6M100 192v6M2 100h6M192 100h6" stroke="var(--rd-sangue)" strokeWidth="0.8" />
+                <text
+                  x="100"
+                  y="15"
+                  textAnchor="middle"
+                  fill="var(--rd-sangue)"
+                  fontFamily="var(--rd-font-mono)"
+                  fontSize="4"
+                  letterSpacing="1.5"
+                >
+                  ESTE LADO · O OUTRO LADO
+                </text>
+              </svg>
+              <svg className="rd-menu-ring rd-menu-ring-inner" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="98" fill="none" stroke="var(--rd-sangue-deep)" strokeWidth="0.6" strokeDasharray="14 6 2 6" />
+              </svg>
+              <img className="rd-menu-sigil-img" src="/sigils/sigilo-original.svg" alt="" />
+            </div>
+            <span className="rd-menu-signal">● SINAL DETECTADO</span>
+          </div>
+        </div>
+
+        <footer className="rd-menu-footer">
+          <span className="rd-menu-footer-note">Mesa de fã para jogar com os amigos · sem fins comerciais</span>
+          <div className="rd-menu-net-card" style={{ '--rd-net-dot': netMode.dot } as CSSProperties}>
+            <span className="rd-menu-net-dot" />
+            <div className="rd-menu-net-text">
+              <span className="rd-menu-net-title">{netMode.title}</span>
+              <span className="rd-menu-net-sub">{netMode.sub}</span>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -835,6 +978,77 @@ function PlayerIcon() {
         strokeWidth="1.4"
         opacity="0.75"
       />
+    </svg>
+  );
+}
+
+/* ---------- ícones em traço do menu principal (redesign Passo 2) ----------
+   Substituem os emojis dos itens de navegação e dos botões do topo. */
+
+function GearIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" />
+    </svg>
+  );
+}
+
+function ProfileIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="8.2" r="3.4" />
+      <path d="M5 20c0-4.4 3.1-6.8 7-6.8s7 2.4 7 6.8" />
+    </svg>
+  );
+}
+
+function FichasIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden>
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <path d="M7.5 9h4M7.5 12.5h9M7.5 16h6" />
+    </svg>
+  );
+}
+
+function EnterIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 3h6v18h-6" />
+      <path d="M12 12H3m4-4-4 4 4 4" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 7a8 8 0 1 1-1.3 6" />
+      <path d="M2 4v4h4" />
+      <path d="M12 8v5l3.3 2" />
+    </svg>
+  );
+}
+
+function ExtrasIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <circle cx="8.6" cy="8.6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15.4" cy="8.6" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+      <circle cx="8.6" cy="15.4" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15.4" cy="15.4" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function GmAreaIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3.5 17 2.2 8l4.8 4L12 5l5 7 4.8-4-1.3 9z" />
+      <path d="M3.5 17h17" />
     </svg>
   );
 }
