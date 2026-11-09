@@ -25,6 +25,9 @@ export function FloatingButton({
   onActivate,
   topFrac,
   rightFrac,
+  dock,
+  shortcutKey,
+  badge,
 }: {
   containerRef: RefObject<HTMLDivElement | null>;
   label: string;
@@ -33,6 +36,20 @@ export function FloatingButton({
   onActivate: () => void;
   topFrac: number;
   rightFrac: number;
+  // ---- REDESIGN Passo 4 (Mesa do mestre) ----
+  // `dock`: troca a casca pro visual "dock de vidro" (vermelho, tooltip com
+  // nome+atalho só no hover, barrinha lateral quando ativo, badge
+  // pulsando) — SEM mudar o mecanismo de arraste acima. Default (sem a
+  // prop) mantém o visual azulado antigo intocado, porque Prototype2D.tsx/
+  // Prototype3D.tsx (Área do mestre, ainda não redesenhada) usam o MESMO
+  // componente e não devem herdar essa aparência nova.
+  dock?: boolean;
+  // Atalho de teclado mostrado no tooltip (ex.: "F") — só exibição; quem
+  // de fato registra o `keydown` é a tela (BattleMap.tsx/Battle3D.tsx).
+  shortcutKey?: string;
+  // Contagem de "novidade" (ex.: rolagens novas desde a última vez que a
+  // janela abriu) — `undefined`/0 não mostra nada.
+  badge?: number;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -103,6 +120,32 @@ export function FloatingButton({
   };
 
   if (!pos) return null;
+
+  if (dock) {
+    return (
+      <div ref={rootRef} className="floating-btn dock" style={{ left: pos.left, top: pos.top }}>
+        <button
+          type="button"
+          className={'floating-btn-circle dock' + (active ? ' active' : '')}
+          aria-label={label}
+          aria-pressed={active}
+          onPointerDown={onPointerDown}
+        >
+          {icon}
+          {active && <span className="floating-btn-bar" aria-hidden="true" />}
+          {!!badge && (
+            <span className="floating-btn-badge" aria-hidden="true">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+        </button>
+        <span className="floating-btn-tip" aria-hidden="true">
+          {label}
+          {shortcutKey && <span className="floating-btn-tip-key">{shortcutKey}</span>}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div ref={rootRef} className="floating-btn" style={{ left: pos.left, top: pos.top }}>

@@ -40,10 +40,18 @@ import {
   CameraFloatIcon,
   DadosFloatIcon,
   FichaFloatIcon,
+  FlyModeIcon,
   HistoricoFloatIcon,
   MestreFloatIcon,
   MusicasFloatIcon,
+  OrbitModeIcon,
   PerfisFloatIcon,
+  ResetFrameIcon,
+  SceneDecalToolIcon,
+  SceneGroundToolIcon,
+  SceneLightToolIcon,
+  SceneModelToolIcon,
+  SceneObjectToolIcon,
   TokensFloatIcon,
 } from './icons';
 import { hasLan } from '../lib/lan';
@@ -344,6 +352,52 @@ export function Battle3D() {
     return () => window.removeEventListener('keydown', onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Atalhos de teclado da dock (REDESIGN Passo 4 — sugestão do pedido
+  // original, F/M/T/C/D/H/S/P): só abrem/fecham a janela correspondente.
+  // D e S ficam DESLIGADOS enquanto a câmera está em voo livre — são
+  // exatamente as teclas de strafe/andar-pra-trás do WASD (ver FlyCamera,
+  // lib/scene3d.tsx), então deixá-las ativas ali abriria/fecharia Dados ou
+  // Músicas a cada passo do voo. A tecla 1 (toggle órbita/voo) continua
+  // tratada só no efeito acima, intocada.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      switch (e.code) {
+        case 'KeyF':
+          setFichaOpen((o) => !o);
+          break;
+        case 'KeyM':
+          if (isGM) setMestreOpen((o) => !o);
+          break;
+        case 'KeyT':
+          if (isGM) setTokensOpen((o) => !o);
+          break;
+        case 'KeyC':
+          if (isGM) setCameraOpen((o) => !o);
+          break;
+        case 'KeyD':
+          if (cameraMode !== 'fly') setDadosOpen((o) => !o);
+          break;
+        case 'KeyH':
+          setHistoricoOpen((o) => !o);
+          break;
+        case 'KeyS':
+          if (hasLan && cameraMode !== 'fly') setMusicasOpen((o) => !o);
+          break;
+        case 'KeyP':
+          if (isGM) setPerfisOpen((o) => !o);
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isGM, cameraMode]);
   const lastObjSent = useRef(0);
   const lastTokenSent = useRef(0);
   const objectInputRef = useRef<HTMLInputElement>(null);
@@ -776,6 +830,8 @@ export function Battle3D() {
         <div className="battle-floating-layer" ref={floatingLayerRef}>
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="F"
             label="Ficha"
             icon={<FichaFloatIcon />}
             active={fichaOpen}
@@ -785,6 +841,8 @@ export function Battle3D() {
           />
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="D"
             label="Dados"
             icon={<DadosFloatIcon />}
             active={dadosOpen}
@@ -794,6 +852,8 @@ export function Battle3D() {
           />
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="H"
             label="Histórico"
             icon={<HistoricoFloatIcon />}
             active={historicoOpen}
@@ -804,6 +864,8 @@ export function Battle3D() {
           {hasLan && (
             <FloatingButton
               containerRef={floatingLayerRef}
+              dock
+              shortcutKey="S"
               label="Músicas"
               icon={<MusicasFloatIcon />}
               active={musicasOpen}
@@ -815,6 +877,8 @@ export function Battle3D() {
 
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<FichaFloatIcon />}
             title="Ficha"
             open={fichaOpen}
             onClose={() => setFichaOpen(false)}
@@ -828,6 +892,8 @@ export function Battle3D() {
 
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<DadosFloatIcon />}
             title="Dados"
             open={dadosOpen}
             onClose={() => setDadosOpen(false)}
@@ -841,6 +907,8 @@ export function Battle3D() {
 
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<HistoricoFloatIcon />}
             title="Histórico"
             open={historicoOpen}
             onClose={() => setHistoricoOpen(false)}
@@ -855,6 +923,8 @@ export function Battle3D() {
           {hasLan && (
             <FloatingWindow
               containerRef={floatingLayerRef}
+              dock
+              icon={<MusicasFloatIcon />}
               title="Músicas"
               open={musicasOpen}
               onClose={() => setMusicasOpen(false)}
@@ -881,6 +951,8 @@ export function Battle3D() {
       <div className="battle-floating-layer" ref={floatingLayerRef}>
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="F"
           label="Ficha"
           icon={<FichaFloatIcon />}
           active={fichaOpen}
@@ -890,6 +962,8 @@ export function Battle3D() {
         />
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="M"
           label="Mestre"
           icon={<MestreFloatIcon />}
           active={mestreOpen}
@@ -899,6 +973,8 @@ export function Battle3D() {
         />
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="T"
           label="Tokens"
           icon={<TokensFloatIcon />}
           active={tokensOpen}
@@ -908,6 +984,8 @@ export function Battle3D() {
         />
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="C"
           label="Câmera"
           icon={<CameraFloatIcon />}
           active={cameraOpen}
@@ -920,6 +998,8 @@ export function Battle3D() {
             o painel lateral antigo (Room.tsx) removido a pedido do usuário. */}
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="D"
           label="Dados"
           icon={<DadosFloatIcon />}
           active={dadosOpen}
@@ -929,6 +1009,8 @@ export function Battle3D() {
         />
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="H"
           label="Histórico"
           icon={<HistoricoFloatIcon />}
           active={historicoOpen}
@@ -939,6 +1021,8 @@ export function Battle3D() {
         {hasLan && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="S"
             label="Músicas"
             icon={<MusicasFloatIcon />}
             active={musicasOpen}
@@ -949,6 +1033,8 @@ export function Battle3D() {
         )}
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="P"
           label="Perfis"
           icon={<PerfisFloatIcon />}
           active={perfisOpen}
@@ -959,6 +1045,8 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<FichaFloatIcon />}
           title="Ficha"
           open={fichaOpen}
           onClose={() => setFichaOpen(false)}
@@ -989,6 +1077,8 @@ export function Battle3D() {
             <FloatingWindow
               key={id}
               containerRef={floatingLayerRef}
+              dock
+              icon={<FichaFloatIcon />}
               title={c.name}
               open
               onClose={() => closeGmFichaTab(id)}
@@ -1004,6 +1094,8 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<MestreFloatIcon />}
           title="Mestre"
           open={mestreOpen}
           onClose={() => setMestreOpen(false)}
@@ -1096,13 +1188,19 @@ export function Battle3D() {
                 )}
               </>
             )}
-            <div className="field" style={{ marginTop: 8 }}>
-              <label>Tamanho do chão (m)</label>
+            {/* Tamanho do chão em slider (REDESIGN Passo 4 — era um
+                <input type=number>, igual à referência Mesa-Mestre.dc.html
+                só troca a casca do controle, `setGroundSize` não mudou). */}
+            <div className="rd-mm-slider-row" style={{ marginTop: 8 }}>
+              <span className="rd-mm-slider-head">
+                Tamanho <b>{scene.groundSize ?? 40} m</b>
+              </span>
               <input
-                type="number"
+                type="range"
                 min={10}
-                step={10}
-                value={scene.groundSize ?? 40}
+                max={100}
+                step={5}
+                value={Math.min(100, scene.groundSize ?? 40)}
                 onChange={(e) => setGroundSize(Number(e.target.value))}
               />
             </div>
@@ -1119,9 +1217,16 @@ export function Battle3D() {
                 <option value="nublado">☁️ Nublado</option>
               </select>
             </div>
-            <label className="row" style={{ marginTop: 8, gap: 6, alignItems: 'center', cursor: 'pointer' }}>
-              <input type="checkbox" checked={!!scene.terrain} onChange={(e) => toggleTerrain(e.target.checked)} />
-              🏔️ Relevo (colinas no chão)
+            {/* Relevo como interruptor (REDESIGN Passo 4 — era um checkbox
+                cru + emoji; `toggleTerrain` não mudou). */}
+            <label className="rd-toggle-row" style={{ marginTop: 8 }}>
+              <span>Relevo (colinas no chão)</span>
+              <span className="rd-toggle">
+                <input type="checkbox" checked={!!scene.terrain} onChange={(e) => toggleTerrain(e.target.checked)} />
+                <span className="rd-toggle-track">
+                  <span className="rd-toggle-thumb" />
+                </span>
+              </span>
             </label>
             {scene.terrain && (
               <>
@@ -1147,25 +1252,31 @@ export function Battle3D() {
                 </div>
               </>
             )}
-            <div className="floating-row wrap" style={{ marginTop: 8 }}>
-              <button className="small" onClick={() => groundInputRef.current?.click()}>
-                🛣️ Chão
+            <div className="floating-row-label" style={{ marginTop: 10 }}>
+              Adicionar na cena
+            </div>
+            {/* 5 botões com ícone (REDESIGN Passo 4 — eram botões de texto
+                com emoji cru; cada handler (groundInputRef.current?.click()
+                etc.) já existia, não mudou). */}
+            <div className="rd-scene-tools">
+              <button className="rd-scene-tool-btn" onClick={() => groundInputRef.current?.click()}>
+                <SceneGroundToolIcon /> Chão
               </button>
-              <button className="small" onClick={() => objectInputRef.current?.click()}>
-                🌳 Objeto
+              <button className="rd-scene-tool-btn" onClick={() => objectInputRef.current?.click()}>
+                <SceneObjectToolIcon /> Objeto
               </button>
-              <button className="small" onClick={() => patchInputRef.current?.click()}>
-                🟫 Decalque
+              <button className="rd-scene-tool-btn" onClick={() => patchInputRef.current?.click()}>
+                <SceneDecalToolIcon /> Decalque
               </button>
               <button
-                className="small"
+                className="rd-scene-tool-btn"
                 title="Aceita .glb (recomendado), .fbx ou .stl (sem cor)"
                 onClick={() => modelInputRef.current?.click()}
               >
-                🧊 Modelo
+                <SceneModelToolIcon /> Modelo
               </button>
-              <button className="small" title="Planta uma luz no centro da visão atual" onClick={addLight}>
-                💡 Luz
+              <button className="rd-scene-tool-btn" title="Planta uma luz no centro da visão atual" onClick={addLight}>
+                <SceneLightToolIcon /> Luz
               </button>
             </div>
             {ground && (
@@ -1178,6 +1289,8 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<TokensFloatIcon />}
           title="Tokens"
           open={tokensOpen}
           onClose={() => setTokensOpen(false)}
@@ -1221,30 +1334,46 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<CameraFloatIcon />}
           title="Câmera"
           open={cameraOpen}
           onClose={() => setCameraOpen(false)}
           leftFrac={0.34}
           topFrac={0.1}
-          defaultWidth={260}
-          defaultHeight={200}
+          defaultWidth={280}
+          defaultHeight={260}
         >
-          <div className="floating-row">
-            <span className="floating-row-label">Enquadramento</span>
-            <button className="small" title="Volta a câmera pro enquadramento padrão" onClick={resetCamera}>
-              🎥 Resetar
-            </button>
-          </div>
-          <div className="floating-row" style={{ marginTop: 8 }}>
-            <span className="floating-row-label">Modo</span>
+          {/* Órbita/Voo livre como dois botões grandes (REDESIGN Passo 4 —
+              era um único botão de texto alternando; `toggleCameraMode`/
+              `cameraMode` não mudaram, a tecla 1 continua intocada). */}
+          <div className="floating-row-label">Modo</div>
+          <div className="rd-cam-modes">
             <button
-              className={'small' + (cameraMode === 'fly' ? ' primary' : '')}
-              title="Alterna entre câmera de órbita e voo livre (WASD + Space/Shift + mouse travado, estilo modo criativo) — atalho: tecla 1"
-              onClick={toggleCameraMode}
+              className={'rd-cam-mode-btn' + (cameraMode === 'orbit' ? ' active' : '')}
+              onClick={() => cameraMode !== 'orbit' && toggleCameraMode()}
             >
-              {cameraMode === 'fly' ? '🕊️ Voo (1)' : '🎥 Órbita (1)'}
+              <OrbitModeIcon />
+              <strong>Órbita</strong>
+              <span>gira em volta da mesa</span>
+            </button>
+            <button
+              className={'rd-cam-mode-btn' + (cameraMode === 'fly' ? ' active' : '')}
+              onClick={() => cameraMode !== 'fly' && toggleCameraMode()}
+            >
+              <FlyModeIcon />
+              <strong>Voo livre</strong>
+              <span>WASD + mouse</span>
             </button>
           </div>
+          <button
+            className="small"
+            style={{ marginTop: 8, width: '100%' }}
+            title="Volta a câmera pro enquadramento padrão"
+            onClick={resetCamera}
+          >
+            <ResetFrameIcon /> Resetar enquadramento
+          </button>
           <p className="faint" style={{ fontSize: 11, margin: '10px 0 0' }}>
             A tecla <b>1</b> alterna entre órbita e voo livre a qualquer momento, mesmo com essa
             janela fechada.
@@ -1253,6 +1382,8 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<DadosFloatIcon />}
           title="Dados"
           open={dadosOpen}
           onClose={() => setDadosOpen(false)}
@@ -1266,6 +1397,8 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<HistoricoFloatIcon />}
           title="Histórico"
           open={historicoOpen}
           onClose={() => setHistoricoOpen(false)}
@@ -1280,6 +1413,8 @@ export function Battle3D() {
         {hasLan && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<MusicasFloatIcon />}
             title="Músicas"
             open={musicasOpen}
             onClose={() => setMusicasOpen(false)}
@@ -1294,6 +1429,8 @@ export function Battle3D() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<PerfisFloatIcon />}
           title="Perfis"
           open={perfisOpen}
           onClose={() => setPerfisOpen(false)}

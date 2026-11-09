@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
+import { CloseFloatIcon } from './icons';
 
 const MIN_W = 220;
 const MIN_H = 160;
@@ -28,6 +29,8 @@ export function FloatingWindow({
   defaultWidth,
   defaultHeight,
   children,
+  dock,
+  icon,
 }: {
   containerRef: RefObject<HTMLDivElement | null>;
   title: string;
@@ -38,6 +41,16 @@ export function FloatingWindow({
   defaultWidth: number;
   defaultHeight: number;
   children: ReactNode;
+  // ---- REDESIGN Passo 4 (Mesa do mestre) ----
+  // Mesmo espírito do `dock` de FloatingButton.tsx: só troca a casca
+  // (cabeçalho com chip de ícone + título maior, fechar em SVG, corpo com
+  // o respiro novo) quando a tela que chama passa a prop — Prototype2D.tsx/
+  // Prototype3D.tsx continuam sem ela e mantêm o visual antigo. Arrastar/
+  // fechar/redimensionar não mudam.
+  dock?: boolean;
+  // Ícone mostrado no chip do cabeçalho (modo dock) — normalmente o MESMO
+  // ícone do FloatingButton que abre essa janela.
+  icon?: ReactNode;
 }) {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -132,11 +145,14 @@ export function FloatingWindow({
 
   return (
     <div
-      className="floating-window"
+      className={'floating-window' + (dock ? ' dock' : '')}
       style={{ left: pos.left, top: pos.top, width: size.width, height: size.height, zIndex: z }}
       onPointerDownCapture={bringToFront}
     >
-      <div className="floating-window-titlebar" onPointerDown={onTitlePointerDown}>
+      <div
+        className={'floating-window-titlebar' + (dock ? ' dock' : '')}
+        onPointerDown={onTitlePointerDown}
+      >
         <div className="floating-window-titlewrap">
           <span className="floating-window-grip" aria-hidden="true">
             <span />
@@ -146,13 +162,19 @@ export function FloatingWindow({
             <span />
             <span />
           </span>
-          <span className="floating-window-title">{title}</span>
+          {dock && icon && <span className="floating-window-icon-chip">{icon}</span>}
+          <span className={'floating-window-title' + (dock ? ' dock' : '')}>{title}</span>
         </div>
-        <button type="button" className="floating-window-close" aria-label="Fechar janela" onClick={onClose}>
-          ✕
+        <button
+          type="button"
+          className={'floating-window-close' + (dock ? ' dock' : '')}
+          aria-label="Fechar janela"
+          onClick={onClose}
+        >
+          {dock ? <CloseFloatIcon /> : '✕'}
         </button>
       </div>
-      <div className="floating-window-body">{children}</div>
+      <div className={'floating-window-body' + (dock ? ' dock' : '')}>{children}</div>
       <div
         className="floating-window-resize"
         aria-hidden="true"

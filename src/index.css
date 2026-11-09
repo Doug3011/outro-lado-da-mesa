@@ -6439,3 +6439,506 @@ label {
     grid-template-columns: 1fr;
   }
 }
+
+/* =====================================================================
+   REDESIGN — Passo 4: Mesa do mestre (dock + janelas flutuantes)
+   BattleMap.tsx (mapa 2D) e Battle3D.tsx (mapa 3D) já tinham um sistema de
+   botões/janelas flutuantes (FloatingButton.tsx/FloatingWindow.tsx,
+   arraste livre + abrir/fechar/redimensionar, portado do protótipo Godot)
+   — essa etapa troca só a CASCA visual dos dois pra "dock de vidro"
+   vermelho (Mesa-Mestre.dc.html), reaproveitando a fundação do Passo 1
+   (.rd-dock/.rd-dock-btn/.rd-panel/.rd-panel-header/.rd-panel-body,
+   keyframes rd-panel-in/rd-pulse-ring/rd-shimmer) em vez de recriar nada.
+
+   IMPORTANTE: os dois componentes também são usados por Prototype2D.tsx/
+   Prototype3D.tsx (Área do mestre, ainda não redesenhada — fora do escopo
+   deste passo). Por isso o visual novo é opt-in via prop `dock` (ver
+   FloatingButton.tsx/FloatingWindow.tsx) — sem a prop, as classes
+   `.floating-btn`/`.floating-window` renderizam exatamente como antes
+   (azulado), então as telas do editor não mudam de aparência aqui.
+   ===================================================================== */
+
+/* ---------- FloatingButton (dock) — vira botão de dock vertical ---------- */
+.floating-btn.dock {
+  gap: 0;
+}
+.floating-btn-circle.dock {
+  width: 56px;
+  height: 56px;
+  min-width: var(--rd-tap-min);
+  min-height: var(--rd-tap-min);
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+  color: #b9aeb3;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.floating-btn-circle.dock:hover {
+  background: rgba(224, 22, 30, 0.14);
+  border-color: var(--rd-sangue-line);
+  color: #fff;
+}
+.floating-btn-circle.dock.active {
+  border-color: var(--rd-sangue);
+  background: rgba(224, 22, 30, 0.2);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(224, 22, 30, 0.35);
+}
+.floating-btn-circle.dock:active {
+  cursor: grabbing;
+}
+.floating-btn-bar {
+  position: absolute;
+  right: -9px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--rd-sangue);
+}
+.floating-btn-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  box-sizing: border-box;
+  background: var(--rd-sangue);
+  color: #fff;
+  font-family: var(--rd-font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --rd-pulse-rgb: 224, 22, 30;
+  animation: rd-pulse-ring 2s ease-in-out infinite;
+}
+/* Tooltip (nome + atalho) — só aparece no hover, deslizando a partir do
+   botão; posicionado assumindo dock encostado na borda direita (mesmo
+   padrão da referência), mas funciona em qualquer posição que o usuário
+   arraste o botão pra (só pode ficar cortado perto da borda esquerda). */
+.floating-btn-tip {
+  position: absolute;
+  right: 66px;
+  top: 50%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #1a1216;
+  border: 1px solid var(--rd-sangue-line);
+  color: #f4eef0;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(-50%) translateX(8px);
+  transition: opacity 0.15s, transform 0.15s;
+  pointer-events: none;
+}
+.floating-btn.dock:hover .floating-btn-tip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+.floating-btn-tip-key {
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+  color: #8e8088;
+  border: 1px solid var(--rd-sangue-line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ---------- FloatingWindow (dock) — vira janela de vidro vermelha ---------- */
+.floating-window.dock {
+  background: rgba(16, 11, 14, 0.96);
+  border-color: var(--rd-sangue-line);
+  border-radius: var(--rd-radius);
+  box-shadow: var(--rd-shadow-panel), 0 0 0 1px rgba(224, 22, 30, 0.06);
+  animation: rd-panel-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.floating-window-titlebar.dock {
+  height: 52px;
+  padding: 0 10px 0 14px;
+  background: transparent;
+  border-bottom-color: var(--rd-sangue-line);
+}
+.floating-window-icon-chip {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 9px;
+  background: rgba(224, 22, 30, 0.14);
+  border: 1px solid #5a1a20;
+  color: #ff4a50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.floating-window-icon-chip svg {
+  width: 16px;
+  height: 16px;
+}
+.floating-window-title.dock {
+  font-size: 15px;
+  letter-spacing: 0.09em;
+  color: var(--text);
+}
+.floating-window-close.dock {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9e9298;
+}
+.floating-window-close.dock:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+.floating-window-body.dock {
+  padding: 14px;
+  gap: 12px;
+}
+
+/* ---------- janela "Dados" (DiceRoller.tsx) ---------- */
+.rd-mm-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #0e0a0d;
+  border: 1px solid var(--rd-sangue-line);
+}
+.rd-mm-tab {
+  height: 38px;
+  border-radius: 9px;
+  border: 0;
+  background: transparent;
+  color: #b9aeb3;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.rd-mm-tab.active {
+  background: var(--rd-sangue);
+  color: #fff;
+}
+.rd-mm-formula {
+  font-family: var(--rd-font-mono);
+  font-size: 11.5px;
+  color: #9e9298;
+}
+.rd-dice-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.rd-dice-btn {
+  height: 64px;
+  border-radius: 12px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  color: #f4eef0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s, border-color 0.12s;
+}
+.rd-dice-btn svg {
+  color: #ff6a70;
+}
+.rd-dice-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--rd-sangue);
+  background: #1e1216;
+}
+.rd-dice-btn:active {
+  transform: scale(0.94);
+}
+.rd-dice-btn-label {
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- janela "Histórico" (RollLog.tsx) ----------
+   Reaproveita .log-entry/.log-total/.die/.dice-pills (já existiam, e
+   também servem pro Desafio Diário — por isso os ajustes abaixo ficam
+   escopados dentro de `.floating-window-body.dock`, mesmo padrão já usado
+   pra `.sidebar-panel .section-title` etc., em vez de mudar a classe
+   base). Só deixa o total mais grande e o dado escolhido mais vermelho,
+   crítico já era dourado (var(--gold)) — pedido já atendido antes. */
+.floating-window-body.dock .log-total {
+  font-size: 32px;
+}
+.floating-window-body.dock .die.kept {
+  background: var(--rd-sangue);
+  border-color: var(--rd-sangue);
+  color: #fff;
+}
+.floating-window-body.dock .die.kept.max {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #241a04;
+}
+
+/* ---------- janela "Mestre" (cenário 3D, Battle3D.tsx) ---------- */
+.rd-scene-tools {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.rd-scene-tool-btn {
+  height: 60px;
+  border-radius: 12px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  color: #e6dce0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: transform 0.12s, background 0.12s, border-color 0.12s;
+}
+.rd-scene-tool-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--rd-sangue);
+  background: #1e1216;
+}
+.rd-scene-tool-btn:active {
+  transform: scale(0.94);
+}
+.rd-mm-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-mm-slider-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #b9aeb3;
+}
+.rd-mm-slider-head b {
+  font-family: var(--rd-font-mono);
+  color: var(--text);
+  font-weight: 600;
+}
+.rd-mm-slider-row input[type='range'] {
+  accent-color: var(--rd-sangue);
+}
+/* interruptor (checkbox escondido + trilho/bolinha desenhados) */
+.rd-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+.rd-toggle {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.rd-toggle input {
+  position: absolute;
+  inset: 0;
+  width: 46px;
+  height: 26px;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.rd-toggle-track {
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  padding: 3px;
+  box-sizing: border-box;
+  display: flex;
+  background: #3a2a30;
+  justify-content: flex-start;
+  transition: background 0.15s;
+}
+.rd-toggle input:checked + .rd-toggle-track {
+  background: var(--rd-sangue);
+  justify-content: flex-end;
+}
+.rd-toggle-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* ---------- janela "Câmera" (Battle3D.tsx) ---------- */
+.rd-cam-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.rd-cam-mode-btn {
+  min-height: 92px;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  color: #d9cfd3;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.rd-cam-mode-btn.active {
+  border: 1.5px solid var(--rd-sangue);
+  background: rgba(224, 22, 30, 0.14);
+  color: #fff;
+}
+.rd-cam-mode-btn strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rd-cam-mode-btn span {
+  font-size: 11px;
+  color: #9e9298;
+}
+
+/* ---------- barra superior (TopBar.tsx) ---------- */
+.rd-mm-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  height: 56px;
+  background: rgba(10, 8, 11, 0.92);
+  border-bottom: 1px solid var(--rd-sangue-line);
+  box-shadow: 0 1px 0 rgba(224, 22, 30, 0.35);
+  flex: none;
+}
+.rd-mm-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--rd-sangue);
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rd-mm-topbar-chip {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--rd-sangue-line);
+  background: transparent;
+  color: #d9cfd3;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.rd-mm-topbar-chip:hover {
+  border-color: var(--rd-sangue);
+  color: #fff;
+}
+.rd-mm-topbar-role {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: var(--rd-sangue);
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.rd-mm-topbar-role.player {
+  background: transparent;
+  border: 1px solid var(--rd-sangue-line);
+  color: #d9cfd3;
+}
+.rd-mm-topbar-net {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid #1f4a32;
+  background: rgba(61, 220, 132, 0.06);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #9fe8bf;
+  white-space: nowrap;
+}
+.rd-mm-topbar-net-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3ddc84;
+  --rd-breath-rgb: 61, 220, 132;
+  animation: rd-pulse-glow 2s ease-in-out infinite;
+}
+.rd-mm-topbar-presence {
+  display: flex;
+  align-items: center;
+}
+.rd-mm-topbar-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #0a080b;
+  margin-left: -8px;
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rd-mm-topbar-avatar:first-child {
+  margin-left: 0;
+}
+.rd-mm-topbar-conndot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  margin-right: 2px;
+}
+.rd-mm-topbar-conndot.off {
+  background: var(--text-faint);
+  box-shadow: none;
+}

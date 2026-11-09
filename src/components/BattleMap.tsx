@@ -25,6 +25,8 @@ import {
   DadosFloatIcon,
   FichaFloatIcon,
   HistoricoFloatIcon,
+  ImportImageIcon,
+  LanternIcon,
   MapasFloatIcon,
   MestreFloatIcon,
   MusicasFloatIcon,
@@ -178,6 +180,52 @@ export function BattleMap() {
       return next;
     });
   };
+
+  // Atalhos de teclado da dock (REDESIGN Passo 4 — sugestão do pedido
+  // original, F/M/T/C/D/H/S/P): só abrem/fecham a janela correspondente,
+  // sem tocar em nenhum atalho que já existia (setas/R/L/Enter, ver
+  // keybinds.ts, só reagem com um TOKEN selecionado; aqui não tem câmera
+  // de voo livre nenhuma, essa é exclusiva da mesa 3D — ver Battle3D.tsx —
+  // então nenhuma das 8 letras colide com nada no mapa 2D).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      switch (e.code) {
+        case 'KeyF':
+          setFichaOpen((o) => !o);
+          break;
+        case 'KeyM':
+          if (me.isGM) setMestreOpen((o) => !o);
+          break;
+        case 'KeyT':
+          if (me.isGM) setTokensOpen((o) => !o);
+          break;
+        case 'KeyC':
+          if (me.isGM) setMapasOpen((o) => !o);
+          else setViewOpen((o) => !o);
+          break;
+        case 'KeyD':
+          setDadosOpen((o) => !o);
+          break;
+        case 'KeyH':
+          setHistoricoOpen((o) => !o);
+          break;
+        case 'KeyS':
+          if (hasLan) setMusicasOpen((o) => !o);
+          break;
+        case 'KeyP':
+          if (me.isGM) setPerfisOpen((o) => !o);
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [me.isGM]);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const mapScrollRef = useRef<HTMLDivElement>(null);
@@ -1163,6 +1211,8 @@ export function BattleMap() {
       <div className="battle-floating-layer" ref={floatingLayerRef}>
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="F"
           label="Ficha"
           icon={<FichaFloatIcon />}
           active={fichaOpen}
@@ -1173,6 +1223,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="M"
             label="Mestre"
             icon={<MestreFloatIcon />}
             active={mestreOpen}
@@ -1184,6 +1236,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="T"
             label="Tokens"
             icon={<TokensFloatIcon />}
             active={tokensOpen}
@@ -1195,6 +1249,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="C"
             label="Mapas"
             icon={<MapasFloatIcon />}
             active={mapasOpen}
@@ -1206,6 +1262,8 @@ export function BattleMap() {
         {!me.isGM && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="C"
             label="Mapa"
             icon={<ViewFloatIcon />}
             active={viewOpen}
@@ -1220,6 +1278,8 @@ export function BattleMap() {
             equivalentes no painel lateral antigo (Room.tsx). */}
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="D"
           label="Dados"
           icon={<DadosFloatIcon />}
           active={dadosOpen}
@@ -1229,6 +1289,8 @@ export function BattleMap() {
         />
         <FloatingButton
           containerRef={floatingLayerRef}
+          dock
+          shortcutKey="H"
           label="Histórico"
           icon={<HistoricoFloatIcon />}
           active={historicoOpen}
@@ -1239,6 +1301,8 @@ export function BattleMap() {
         {hasLan && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="S"
             label="Músicas"
             icon={<MusicasFloatIcon />}
             active={musicasOpen}
@@ -1250,6 +1314,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingButton
             containerRef={floatingLayerRef}
+            dock
+            shortcutKey="P"
             label="Perfis"
             icon={<PerfisFloatIcon />}
             active={perfisOpen}
@@ -1261,6 +1327,8 @@ export function BattleMap() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<FichaFloatIcon />}
           title="Ficha"
           open={fichaOpen}
           onClose={() => setFichaOpen(false)}
@@ -1299,6 +1367,8 @@ export function BattleMap() {
               <FloatingWindow
                 key={id}
                 containerRef={floatingLayerRef}
+                dock
+                icon={<FichaFloatIcon />}
                 title={c.name}
                 open
                 onClose={() => closeGmFichaTab(id)}
@@ -1315,6 +1385,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<MestreFloatIcon />}
             title="Mestre"
             open={mestreOpen}
             onClose={() => setMestreOpen(false)}
@@ -1442,7 +1514,7 @@ export function BattleMap() {
                         className={'small ' + (t.lanternOn ? 'primary' : 'ghost')}
                         onClick={() => upsertToken({ ...t, lanternOn: !t.lanternOn })}
                       >
-                        {t.lanternOn ? '💡' : '·'} {t.label}
+                        {t.lanternOn ? <LanternIcon /> : '·'} {t.label}
                       </button>
                     ))}
                   </div>
@@ -1456,7 +1528,7 @@ export function BattleMap() {
               <span className="floating-row-label">Fundo</span>
               <div className="floating-row" style={{ gap: 4 }}>
                 <button className="small" onClick={() => bgInputRef.current?.click()}>
-                  🖼 Importar
+                  <ImportImageIcon /> Importar
                 </button>
                 {map.background && (
                   <button className="small ghost" onClick={() => updateMap({ background: undefined })}>
@@ -1510,6 +1582,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<TokensFloatIcon />}
             title="Tokens"
             open={tokensOpen}
             onClose={() => setTokensOpen(false)}
@@ -1555,6 +1629,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<MapasFloatIcon />}
             title="Mapas"
             open={mapasOpen}
             onClose={() => setMapasOpen(false)}
@@ -1616,6 +1692,8 @@ export function BattleMap() {
         {!me.isGM && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<ViewFloatIcon />}
             title="Mapa"
             open={viewOpen}
             onClose={() => setViewOpen(false)}
@@ -1678,6 +1756,8 @@ export function BattleMap() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<DadosFloatIcon />}
           title="Dados"
           open={dadosOpen}
           onClose={() => setDadosOpen(false)}
@@ -1691,6 +1771,8 @@ export function BattleMap() {
 
         <FloatingWindow
           containerRef={floatingLayerRef}
+          dock
+          icon={<HistoricoFloatIcon />}
           title="Histórico"
           open={historicoOpen}
           onClose={() => setHistoricoOpen(false)}
@@ -1705,6 +1787,8 @@ export function BattleMap() {
         {hasLan && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<MusicasFloatIcon />}
             title="Músicas"
             open={musicasOpen}
             onClose={() => setMusicasOpen(false)}
@@ -1720,6 +1804,8 @@ export function BattleMap() {
         {me.isGM && (
           <FloatingWindow
             containerRef={floatingLayerRef}
+            dock
+            icon={<PerfisFloatIcon />}
             title="Perfis"
             open={perfisOpen}
             onClose={() => setPerfisOpen(false)}

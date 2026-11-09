@@ -8,13 +8,15 @@ import {
   type AttrKey,
   type Training,
 } from '../data/ordem';
+import { DiceShapeIcon } from './icons';
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
 
-// Botão/janela flutuante "Dados" — só teste de perícia + rolagem livre. O
-// histórico ("Últimas rolagens") saiu daqui e virou o botão flutuante
-// "Histórico" (RollLog.tsx, mesmo componente, log completo), separado de
-// propósito — pedido do usuário.
+// Botão/janela flutuante "Dados" — abas "Teste de perícia"/"Rolagem livre"
+// (REDESIGN Passo 4, igual à referência Mesa-Mestre.dc.html: `diceTab`/
+// `isTest`/`isFree`). O histórico ("Últimas rolagens") saiu daqui e virou o
+// botão flutuante "Histórico" (RollLog.tsx, mesmo componente, log
+// completo), separado de propósito — pedido do usuário.
 export function DiceRoller() {
   const rollOrdem = useTableStore((s) => s.rollOrdem);
   const rollFree = useTableStore((s) => s.rollFree);
@@ -22,6 +24,7 @@ export function DiceRoller() {
   const activeId = useTableStore((s) => s.activeCharacterId);
   const activeChar = activeId ? characters[activeId] : null;
 
+  const [tab, setTab] = useState<'test' | 'free'>('test');
   const [skillKey, setSkillKey] = useState<string>('percepcao');
   const [manualAttr, setManualAttr] = useState<AttrKey>('PRE');
   const [attrValue, setAttrValue] = useState(1);
@@ -63,8 +66,29 @@ export function DiceRoller() {
 
   return (
     <div>
-      <div className="section-title">Teste de perícia</div>
+      <div className="rd-mm-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'test'}
+          className={'rd-mm-tab' + (tab === 'test' ? ' active' : '')}
+          onClick={() => setTab('test')}
+        >
+          Teste de perícia
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'free'}
+          className={'rd-mm-tab' + (tab === 'free' ? ' active' : '')}
+          onClick={() => setTab('free')}
+        >
+          Rolagem livre
+        </button>
+      </div>
 
+      {tab === 'test' && (
+        <>
       {Object.keys(characters).length > 0 && (
         <div className="field">
           <label>Ficha usada</label>
@@ -149,24 +173,31 @@ export function DiceRoller() {
         </div>
       </div>
 
-      <p className="faint" style={{ fontSize: 12, marginBottom: 8 }}>
+      <p className="rd-mm-formula">
         {attrValue <= 0
           ? 'Atributo 0 → rola 2d20 e fica com o MENOR.'
           : `Rola ${attrValue}d20, pega o maior e soma +${Number(training) + Number(bonus)}.`}
       </p>
 
-      <button className="primary" style={{ width: '100%' }} onClick={doOrdem}>
+      <button className="rd-btn-primary" style={{ width: '100%' }} onClick={doOrdem}>
         Rolar teste
       </button>
+        </>
+      )}
 
-      <div className="section-title">Rolagem livre</div>
-      <div className="quick-dice">
+      {tab === 'free' && (
+        <>
+      <div className="rd-dice-grid">
         {QUICK.map((d) => (
-          <button key={d} onClick={() => rollFree(`d${d}`, `1d${d}`)}>
-            d{d}
+          <button key={d} className="rd-dice-btn" onClick={() => rollFree(`d${d}`, `1d${d}`)}>
+            <DiceShapeIcon sides={d} />
+            <span className="rd-dice-btn-label">d{d}</span>
           </button>
         ))}
-        <button onClick={() => rollFree('Iniciativa rápida', '1d20')}>1d20</button>
+        <button className="rd-dice-btn" onClick={() => rollFree('Iniciativa rápida', '1d20')}>
+          <DiceShapeIcon sides={20} />
+          <span className="rd-dice-btn-label">1d20</span>
+        </button>
       </div>
 
       <div className="field" style={{ marginTop: 10 }}>
@@ -177,12 +208,13 @@ export function DiceRoller() {
             onChange={(e) => setFreeExpr(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && rollFree(freeExpr, freeExpr)}
           />
-          <button style={{ flex: 'none' }} onClick={() => rollFree(freeExpr, freeExpr)}>
+          <button className="primary" style={{ flex: 'none' }} onClick={() => rollFree(freeExpr, freeExpr)}>
             Rolar
           </button>
         </div>
       </div>
-
+        </>
+      )}
     </div>
   );
 }
