@@ -71,6 +71,9 @@ export function Home() {
 
   // ---- ficha que o jogador leva pra mesa ----
   const [myChars, setMyChars] = useState<Character[]>(loadMyCharacters);
+  // Se o botão "Nova ficha" do Meu Perfil mandou pra Minhas Fichas, essa
+  // entrada já abre direto no wizard (ver goToLibraryNew).
+  const [libraryStartWizard, setLibraryStartWizard] = useState(false);
   const [chosenCharId, setChosenCharId] = useState<string | null>(
     codeFromLink ? getLinkedCharacterId(codeFromLink) : null,
   );
@@ -186,8 +189,16 @@ export function Home() {
     setView('library');
   };
 
+  // "Nova ficha" do Meu Perfil (redesign Passo 7) pula a grade de fichas e
+  // entra direto no wizard de criação.
+  const goToLibraryNew = () => {
+    setMyChars(loadMyCharacters());
+    setLibraryStartWizard(true);
+    setView('library');
+  };
+
   if (view === 'profile') {
-    return <ProfileEditor onBack={() => setView('hub')} />;
+    return <ProfileEditor onBack={() => setView('hub')} onNewCharacter={goToLibraryNew} />;
   }
 
   if (view === 'library') {
@@ -195,8 +206,10 @@ export function Home() {
       <CharacterLibrary
         ownerId={me.id}
         defaultPlayer={me.name}
+        startWizard={libraryStartWizard}
         onBack={() => {
           setMyChars(loadMyCharacters());
+          setLibraryStartWizard(false);
           setView('hub');
         }}
       />

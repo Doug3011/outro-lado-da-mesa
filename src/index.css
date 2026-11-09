@@ -3746,59 +3746,160 @@ label {
   }
 }
 
-/* Perfil do jogador — mural estilo scrapbook, tema dourado ----------------- */
+/* Perfil do jogador — mural estilo "dossiê", tema Conhecimento (dourado).
+   Redesign Passo 7: porta Perfil-Mesa.dc.html — anéis de glifos girando,
+   poeira dourada subindo, polaroides balançando, brilho no CTA de elemento,
+   perguntas numeradas com barra "N DE 6 RESPONDIDAS". Usa --rd-conhecimento*
+   (não --gold — o dourado real da referência é #E8B730, ligeiramente
+   diferente do --gold antigo #e8b21e) e reaproveita keyframes do Passo 1
+   (rd-spin/rd-spin-back/rd-sway/rd-shimmer/rd-ember-rise) em vez de duplicar. */
 .profile-page {
   position: fixed;
   inset: 0;
   z-index: 5;
   overflow-y: auto;
-  background: radial-gradient(1400px 800px at 15% 100%, #221806 0%, var(--bg) 55%);
+  background: radial-gradient(1400px 800px at 15% 100%, var(--rd-conhecimento-bg) 0%, var(--bg) 55%);
   display: flex;
   flex-direction: column;
 }
-.profile-sigil-corner {
-  position: fixed;
-  right: -60px;
-  bottom: -60px;
-  width: 380px;
-  opacity: 0.22;
+.profile-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
   pointer-events: none;
-  z-index: 1;
-  filter: drop-shadow(0 0 24px rgba(232, 178, 30, 0.25));
+  z-index: 0;
+}
+.profile-glow {
+  position: absolute;
+  border-radius: 50%;
+  animation: rd-pulse-glow 9s ease-in-out infinite;
+}
+.profile-glow-a {
+  left: -15%;
+  bottom: -25%;
+  width: 60%;
+  height: 70%;
+  background: radial-gradient(closest-side, rgba(232, 183, 48, 0.16), transparent 70%);
+}
+.profile-glow-b {
+  right: -10%;
+  top: -20%;
+  width: 50%;
+  height: 60%;
+  background: radial-gradient(closest-side, rgba(232, 183, 48, 0.08), transparent 70%);
+  animation: none;
+}
+.profile-ring {
+  position: absolute;
+  opacity: 0.32;
+}
+.profile-ring-outer {
+  right: -120px;
+  bottom: -140px;
+  width: 620px;
+  height: 620px;
+  animation: rd-spin 120s linear infinite;
+}
+.profile-ring-inner {
+  right: -40px;
+  bottom: -60px;
+  width: 460px;
+  height: 460px;
+  opacity: 0.28;
+  animation: rd-spin-back 90s linear infinite;
+}
+.profile-dust {
+  position: absolute;
+  inset: 0;
+}
+.profile-dust-mote {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--rd-conhecimento-bright);
+  box-shadow: 0 0 6px var(--rd-conhecimento);
+  animation-name: rd-ember-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.profile-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(0, 0, 0, 0.7) 100%);
+}
+.profile-page .daily-topbar svg {
+  color: var(--rd-conhecimento);
 }
 .profile-page .daily-sigil-small {
-  color: var(--gold);
+  color: var(--rd-conhecimento);
 }
 .profile-page .daily-sigil-line {
-  background: #6b4f0f;
+  background: var(--rd-conhecimento-deep);
 }
 .profile-board {
   position: relative;
   z-index: 2;
-  max-width: 900px;
+  max-width: 1040px;
   width: calc(100% - 44px);
   margin: 18px auto 40px;
-  background: linear-gradient(160deg, #1a1712 0%, var(--bg-1) 60%);
-  border: 1px solid #4a3b14;
-  border-radius: var(--radius);
-  padding: 28px;
-  box-shadow: var(--shadow);
+  background: linear-gradient(180deg, rgba(24, 21, 15, 0.94), rgba(16, 14, 10, 0.94));
+  border: 1px solid var(--rd-conhecimento-line);
+  border-radius: var(--rd-radius);
+  padding: 26px 32px 34px;
+  box-shadow: var(--rd-shadow-panel);
+}
+.profile-board-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.profile-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-conhecimento-line);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+.profile-back:hover {
+  background: rgba(232, 183, 48, 0.08);
+  border-color: var(--rd-conhecimento-deep);
+}
+.profile-privacy-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.profile-privacy-note svg {
+  color: var(--rd-conhecimento);
+  flex: none;
 }
 .profile-layout {
   display: flex;
-  gap: 28px;
+  gap: 40px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
 .profile-main {
-  flex: 1 1 420px;
+  flex: 999 1 420px;
   min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 .profile-top {
   display: flex;
-  gap: 20px;
+  gap: 32px;
   align-items: flex-start;
-  margin-bottom: 26px;
   flex-wrap: wrap;
 }
 .profile-polaroid {
@@ -3806,32 +3907,42 @@ label {
   background: #f2ecdd;
   padding: 10px 10px 14px;
   border-radius: 3px;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
   position: relative;
+  transform: rotate(var(--rd-rot, 0deg));
+  transform-origin: 50% 0;
+  animation: rd-sway 7s ease-in-out infinite;
 }
 .profile-photo {
-  width: 150px;
+  width: 160px;
   cursor: pointer;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), 0 0 0 3px var(--el-accent, transparent);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5), 0 0 0 3px var(--el-accent, transparent);
 }
 .profile-photo:hover .profile-polaroid-pic {
   opacity: 0.85;
+}
+.profile-photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--rd-conhecimento);
+  font-size: 12px;
 }
 .profile-element-row {
   display: flex;
   align-items: center;
   gap: 14px;
   margin-top: 4px;
-  margin-bottom: 16px;
 }
 .profile-element-badge {
   display: inline-flex;
   align-items: center;
   padding: 5px 14px;
   border-radius: 999px;
-  border: 1.5px solid var(--el-accent, var(--gold));
-  color: var(--el-accent, var(--gold));
-  font-family: var(--font-disp);
+  border: 1.5px solid var(--el-accent, var(--rd-conhecimento));
+  color: var(--el-accent, var(--rd-conhecimento));
+  font-family: var(--rd-font-disp);
   text-transform: uppercase;
   font-size: 12px;
   letter-spacing: 0.06em;
@@ -3840,20 +3951,33 @@ label {
   padding-bottom: 0;
 }
 .profile-element-cta {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 11px 22px;
-  background: linear-gradient(100deg, #8a6212 0%, var(--gold) 55%, #f4d35e 100%);
+  gap: 10px;
+  min-height: var(--rd-tap-min);
+  padding: 0 24px;
+  background: linear-gradient(90deg, var(--rd-conhecimento-deep), var(--rd-conhecimento-bright));
   border: none;
   border-radius: 999px;
-  color: #241a04;
-  font-family: var(--font-disp);
+  color: #1a1406;
+  font-family: var(--rd-font-disp);
   text-transform: uppercase;
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 600;
+  font-size: 14px;
   letter-spacing: 0.04em;
-  box-shadow: 0 8px 22px rgba(232, 178, 30, 0.35);
+  box-shadow: 0 10px 30px rgba(232, 183, 48, 0.3);
+}
+.profile-element-cta::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: rd-shimmer 4.5s ease-in-out infinite;
 }
 .profile-element-cta:hover {
   filter: brightness(1.06);
@@ -3865,117 +3989,197 @@ label {
   transform: translateX(-50%) rotate(-3deg);
   width: 58px;
   height: 20px;
-  background: rgba(232, 178, 30, 0.65);
+  background: rgba(232, 183, 48, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 .profile-polaroid-pic {
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: #1c1a16 center/cover no-repeat;
+  background: #1e1b15 center/cover no-repeat;
   display: grid;
   place-items: center;
-  color: #8a8272;
+  color: #a69c86;
   font-size: 11px;
   text-align: center;
   padding: 8px;
 }
 .profile-polaroid-pic.small {
-  font-family: var(--font-disp);
+  font-family: var(--rd-font-disp);
   font-size: 16px;
   font-weight: 700;
 }
 .profile-heading {
-  flex: 1;
-  min-width: 220px;
-  padding-top: 6px;
+  flex: 1 1 280px;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.profile-file-label {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--rd-conhecimento-deep);
 }
 .profile-name-input {
-  font-family: var(--font-disp);
-  font-size: 30px;
+  font-family: var(--rd-font-disp);
+  font-size: 40px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   background: transparent;
   border: none;
-  border-bottom: 2px solid var(--line);
+  border-bottom: 2px solid var(--rd-conhecimento-line);
   border-radius: 0;
   padding: 2px 0;
   width: 100%;
-  margin-bottom: 16px;
+  margin-top: -4px;
 }
 .profile-name-input:focus {
-  border-color: var(--gold);
+  border-color: var(--rd-conhecimento);
+}
+.profile-heading-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  max-width: 46ch;
 }
 .profile-meta-row {
   display: flex;
   gap: 28px;
 }
-.profile-meta-field label {
-  display: block;
-  font-family: var(--font-disp);
+.profile-meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.profile-meta-field span {
+  font-family: var(--rd-font-disp);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   font-size: 11px;
-  color: var(--gold);
-  margin-bottom: 4px;
+  color: var(--rd-conhecimento);
 }
 .profile-meta-field input {
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rd-conhecimento-line);
   border-radius: 0;
-  padding: 2px 0;
+  padding: 4px 2px;
   font-size: 15px;
-  width: 90px;
+  width: 110px;
 }
 .profile-meta-field input:focus {
-  border-color: var(--gold);
+  border-color: var(--rd-conhecimento);
+}
+.profile-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.profile-progress-label {
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: var(--rd-conhecimento-deep);
+  white-space: nowrap;
+}
+.profile-progress-track {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--rd-conhecimento-line);
+  overflow: hidden;
+}
+.profile-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--rd-conhecimento-deep), var(--rd-conhecimento-bright));
+  transition: width 0.3s ease;
 }
 .profile-qa-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 18px;
+}
+.profile-qa {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 4px 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rd-conhecimento-line);
+}
+.profile-qa:last-child {
+  border-bottom: none;
+}
+.profile-qa-num {
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  padding-top: 3px;
+  color: var(--text-faint);
+  transition: color 0.15s;
+}
+.profile-qa-num.done {
+  color: var(--rd-conhecimento);
+}
+.profile-qa-body {
+  min-width: 0;
 }
 .profile-qa label {
   display: block;
-  font-family: var(--font-disp);
+  font-family: var(--rd-font-disp);
   font-weight: 600;
-  font-size: 14px;
-  color: var(--gold);
-  margin-bottom: 4px;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--rd-conhecimento);
+  margin-bottom: 2px;
+}
+.profile-qa:focus-within label {
+  color: var(--rd-conhecimento-bright);
 }
 .profile-qa textarea {
+  display: block;
+  width: 100%;
   background: transparent;
   border: none;
-  border-bottom: 1px dashed #5a4a1e;
   border-radius: 0;
-  padding: 2px 0 6px;
+  padding: 4px 0;
   color: var(--text-dim);
-  resize: none;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 44px;
 }
 .profile-qa textarea:focus {
-  border-color: var(--gold);
   color: var(--text);
 }
+.profile-qa-line {
+  display: block;
+  height: 1px;
+  background: var(--rd-conhecimento-line);
+  margin-top: 2px;
+  transition: background 0.15s;
+}
+.profile-qa:focus-within .profile-qa-line {
+  background: var(--rd-conhecimento);
+}
 .profile-chars-rail {
-  flex: none;
-  width: 180px;
+  flex: 1 1 200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 26px;
-  padding-top: 4px;
+  padding-top: 8px;
 }
 .profile-chars-title {
-  font-family: var(--font-disp);
+  font-family: var(--rd-font-disp);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
+  letter-spacing: 0.1em;
+  font-size: 13px;
   color: var(--text-dim);
 }
 .profile-char-polaroid {
-  width: 130px;
+  width: 148px;
+  animation-name: rd-sway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-duration: 7s;
 }
 .profile-polaroid-caption {
   text-align: center;
@@ -3984,15 +4188,43 @@ label {
   color: #2a241a;
   margin-top: 6px;
 }
+.profile-polaroid-caption-hand {
+  font-family: var(--rd-font-hand);
+  font-size: 19px;
+  font-weight: 700;
+}
+.profile-new-card {
+  width: 148px;
+  min-height: 112px;
+  border-radius: var(--rd-radius-sm);
+  border: 1.5px dashed #5a4d30;
+  background: transparent;
+  color: var(--rd-conhecimento-deep);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--rd-font-disp);
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.profile-new-card:hover {
+  border-color: var(--rd-conhecimento);
+  color: var(--rd-conhecimento-bright);
+  background: rgba(232, 183, 48, 0.06);
+}
 .profile-save-ribbon {
   width: 100%;
-  margin-top: 10px;
+  min-height: var(--rd-tap-min);
   padding: 14px 40px;
-  background: linear-gradient(100deg, #8a6212 0%, var(--gold) 55%, #f4d35e 100%);
+  background: linear-gradient(90deg, var(--rd-conhecimento-deep), var(--rd-conhecimento-bright));
   border: none;
   clip-path: polygon(0% 50%, 4% 0%, 96% 0%, 100% 50%, 96% 100%, 4% 100%);
-  color: #241a04;
-  font-family: var(--font-disp);
+  color: #1a1406;
+  font-family: var(--rd-font-disp);
   text-transform: uppercase;
   font-weight: 700;
   font-size: 15px;
@@ -4001,7 +4233,7 @@ label {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 10px 26px rgba(232, 178, 30, 0.3);
+  box-shadow: 0 10px 26px rgba(232, 183, 48, 0.3);
 }
 .profile-save-ribbon:hover {
   filter: brightness(1.05);
@@ -4019,6 +4251,14 @@ label {
     flex-wrap: wrap;
     width: 100%;
     justify-content: center;
+  }
+  .profile-name-input {
+    font-size: 30px;
+  }
+  .profile-ring-outer,
+  .profile-ring-inner {
+    width: 420px;
+    height: 420px;
   }
 }
 

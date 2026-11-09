@@ -41,15 +41,20 @@ function formatDate(ts: number): string {
 export function CharacterLibrary({
   ownerId,
   defaultPlayer,
+  startWizard,
   onBack,
 }: {
   ownerId: string;
   defaultPlayer: string;
+  // Entra direto no fluxo de criação — usado pelo botão "Nova ficha" do Meu
+  // Perfil (redesign Passo 7), que já quer abrir no wizard em vez de cair na
+  // grade de fichas primeiro.
+  startWizard?: boolean;
   onBack: () => void;
 }) {
   const [list, setList] = useState<Character[]>(loadMyCharacters);
   const [selId, setSelId] = useState<string | null>(null);
-  const [wizard, setWizard] = useState(false);
+  const [wizard, setWizard] = useState(startWizard ?? false);
   const [importing, setImporting] = useState(false);
   // Logo depois de criar uma ficha nova, oferece (sem obrigar) vincular um
   // token já na mesa a ela — ver TokenLinkDialog.tsx. `null` = fechado.
