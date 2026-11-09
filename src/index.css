@@ -1,4 +1,104 @@
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ---------- fontes locais do redesign (Passo 1) ----------
+   Oswald, Inter Tight, IBM Plex Mono e Caveat vêm embutidas no projeto
+   (src/assets/fonts/*.woff2, subset latin — cobre acentuação PT-BR) em vez
+   de @import do Google Fonts, porque o app roda em rede local sem internet.
+   Pesos/itálicos abaixo são exatamente os usados nas 17 referências do
+   redesign (nenhuma usa itálico). "Inter" (sem Tight), acima, continua
+   vindo do Google por enquanto — é a fonte das telas atuais, ainda não
+   portadas nesta etapa. */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/oswald-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/oswald-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/oswald-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/oswald-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/intertight-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/intertight-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/intertight-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/intertight-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/plexmono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/plexmono-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/plexmono-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./assets/fonts/caveat-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/caveat-700.woff2') format('woff2');
+}
 
 :root {
   --bg: #0b0b0d;
@@ -25,6 +125,72 @@
   --font-disp: 'Oswald', 'Barlow Condensed', 'Segoe UI', system-ui, sans-serif;
   --font-mono: ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
   font-family: var(--font-body);
+}
+
+/* ---------- redesign (Passo 1): tokens por elemento ----------
+   Prefixo "--rd-" pra não colidir com as variáveis genéricas acima
+   (--blood/--gold/--blue/--purple/--green), que continuam valendo nas
+   telas ainda não portadas. Valores tirados direto dos .dc.html de
+   referência (cada elemento pode ter um fundo levemente diferente por
+   tela — aqui fica o tom representativo de cada grupo). */
+:root {
+  /* Sangue (vermelho) — Menu, Minhas fichas, Entrar numa mesa, Ficha, Mesa, Combate */
+  --rd-sangue: #e0161e;
+  --rd-sangue-bright: #ff4a50;
+  --rd-sangue-soft: #ff6a70;
+  --rd-sangue-deep: #b80f16;
+  --rd-sangue-line: #3a2228;
+  --rd-sangue-bg: #09070a;
+  --rd-sangue-panel: rgba(18, 13, 17, 0.9);
+
+  /* Conhecimento (dourado) — Meu perfil */
+  --rd-conhecimento: #e8b730;
+  --rd-conhecimento-bright: #f5d46b;
+  --rd-conhecimento-deep: #c99418;
+  --rd-conhecimento-line: #3a3220;
+  --rd-conhecimento-bg: #0b0a08;
+  --rd-conhecimento-panel: rgba(18, 15, 10, 0.94);
+
+  /* Energia (roxo/ciano/rosa) — Área do mestre, Desafio Diário */
+  --rd-energia-purple: #9b5cff;
+  --rd-energia-purple-soft: #b57cff;
+  --rd-energia-cyan: #00e5ff;
+  --rd-energia-pink: #ff2bd6;
+  --rd-energia-text: #d6a8ff;
+  --rd-energia-line: #3a2d57;
+  --rd-energia-bg: #07050d;
+  --rd-energia-panel: rgba(20, 14, 36, 0.85);
+
+  /* Medo (branco-azulado) — Extras */
+  --rd-medo: #e6f0ff;
+  --rd-medo-soft: #cfe6ff;
+  --rd-medo-muted: #9fc3ee;
+  --rd-medo-bg: #05070b;
+  --rd-medo-panel: rgba(10, 13, 20, 0.9);
+
+  /* Recursos da ficha (gradiente a → b usado no preenchimento da barra) */
+  --rd-res-vida-a: #c8141c;
+  --rd-res-vida-b: #ff4a50;
+  --rd-res-sanidade-a: #6a2bd6;
+  --rd-res-sanidade-b: #a974ff;
+  --rd-res-esforco-a: #e06a0e;
+  --rd-res-esforco-b: #ffa040;
+
+  /* Tipografia nova (fontes locais do redesign) */
+  --rd-font-disp: 'Oswald', 'Barlow Condensed', sans-serif;
+  --rd-font-body: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --rd-font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --rd-font-hand: 'Caveat', cursive;
+
+  /* Acessibilidade: área mínima de clique pra botão de ícone (dock, chips
+     de ícone etc.) — aplicar nas telas quando forem portadas. */
+  --rd-tap-min: 44px;
+
+  --rd-radius: 16px;
+  --rd-radius-sm: 10px;
+  --rd-radius-pill: 999px;
+  --rd-shadow-float: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --rd-shadow-panel: 0 30px 70px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -4929,4 +5095,404 @@ label {
   font-family: var(--font-mono);
   font-size: 10.5px;
   word-break: break-all;
+}
+
+/* =====================================================================
+   REDESIGN — Passo 1: base de estilos (fundação pra Menu, Entrar numa
+   mesa, Mesa do mestre, Ficha, Minhas fichas, Perfil, Área do mestre,
+   Extras e mini-jogos). Nada abaixo é usado pelas telas atuais ainda —
+   isso só fica disponível pros próximos passos. Animações SEMPRE ativas
+   (sem bloco de prefers-reduced-motion — pedido explícito do usuário,
+   diferente do que os .dc.html de referência trazem no <helmet>).
+   ===================================================================== */
+
+/* ---------- rd-keyframes reutilizáveis ---------- */
+@keyframes rd-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes rd-spin-back {
+  to { transform: rotate(-360deg); }
+}
+@keyframes rd-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes rd-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes rd-pulse-glow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.06); }
+}
+@keyframes rd-pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--rd-pulse-rgb, 224, 22, 30), 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(var(--rd-pulse-rgb, 224, 22, 30), 0); }
+}
+@keyframes rd-blink {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.25; }
+}
+@keyframes rd-shimmer {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  60%, 100% { transform: translateX(320%) skewX(-20deg); }
+}
+@keyframes rd-die-drop {
+  0% { transform: rotate(-200deg) scale(0.4); opacity: 0; }
+  60% { transform: rotate(12deg) scale(1.1); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes rd-toast-in {
+  0% { opacity: 0; transform: translate(-50%, 16px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes rd-eq {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+@keyframes rd-grain {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-3%, 2%); }
+  50% { transform: translate(2%, -3%); }
+  75% { transform: translate(-2%, -1%); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes rd-grid-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 64px; }
+}
+@keyframes rd-mist {
+  0% { transform: translateX(-10%); }
+  100% { transform: translateX(10%); }
+}
+@keyframes rd-ember-rise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translateY(-700px) translateX(var(--rd-drift-x, 30px)); opacity: 0; }
+}
+@keyframes rd-ash-fall {
+  0% { transform: translate(0, -20px) rotate(0); opacity: 0; }
+  10% { opacity: 0.9; }
+  100% { transform: translate(var(--rd-drift-x, 0), 980px) rotate(220deg); opacity: 0; }
+}
+@keyframes rd-sway {
+  0%, 100% { transform: rotate(var(--rd-rot, 0deg)); }
+  50% { transform: rotate(calc(var(--rd-rot, 0deg) + 1.6deg)); }
+}
+@keyframes rd-draw {
+  from { stroke-dashoffset: var(--rd-draw-len, 600); }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes rd-panel-in {
+  from { opacity: 0; transform: translateX(18px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rd-flash {
+  0%, 86%, 100% { opacity: 0; }
+  87% { opacity: 1; }
+  88% { opacity: 0.2; }
+  89% { opacity: 0.9; }
+  92% { opacity: 0; }
+}
+@keyframes rd-flicker {
+  0%, 93%, 100% { opacity: 1; }
+  94% { opacity: 0.35; }
+  95% { opacity: 1; }
+  97% { opacity: 0.6; }
+}
+@keyframes rd-glitch-text {
+  0%, 90%, 100% { text-shadow: none; transform: none; }
+  91% { text-shadow: -3px 0 var(--rd-energia-cyan), 3px 0 var(--rd-energia-pink); transform: translateX(2px); }
+  93% { text-shadow: 3px 0 var(--rd-energia-cyan), -3px 0 var(--rd-energia-pink); transform: translateX(-2px) skewX(-4deg); }
+  95% { text-shadow: none; transform: none; }
+}
+@keyframes rd-tumble {
+  0% { transform: rotate(0) translateY(0); }
+  20% { transform: rotate(-12deg) translateY(-14px); }
+  40% { transform: rotate(90deg) translateY(0); }
+  55% { transform: rotate(84deg) translateY(-4px); }
+  70%, 100% { transform: rotate(90deg) translateY(0); }
+}
+@keyframes rd-beat {
+  0%, 100% { opacity: 0.55; }
+  8% { opacity: 0.85; }
+  14% { opacity: 0.6; }
+  20% { opacity: 0.8; }
+  30% { opacity: 0.55; }
+}
+@keyframes rd-breath {
+  0%, 100% { box-shadow: 0 0 0 rgba(var(--rd-breath-rgb, 207, 230, 255), 0); }
+  50% { box-shadow: 0 0 34px rgba(var(--rd-breath-rgb, 207, 230, 255), 0.18); }
+}
+@keyframes rd-glow-drop {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(var(--rd-glow-rgb, 224, 22, 30), 0)); }
+  50% { filter: drop-shadow(0 0 10px rgba(var(--rd-glow-rgb, 224, 22, 30), 0.55)); }
+}
+
+/* ---------- rd-componentes compartilhados ----------
+   Classes prontas pra quando cada tela for portada (próximos passos).
+   Nenhuma é usada ainda por nenhuma página — só a fundação. */
+
+/* botão primário (preenchido, com brilho passando) */
+.rd-btn-primary {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--rd-tap-min);
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--rd-radius-pill);
+  background: linear-gradient(180deg, var(--rd-sangue-bright), var(--rd-sangue-deep));
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(224, 22, 30, 0.4);
+}
+.rd-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: rd-shimmer 4s ease-in-out infinite;
+}
+
+/* botão fantasma (contornado, preenche no hover) */
+.rd-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--rd-tap-min);
+  padding: 0 18px;
+  border: 1px solid var(--rd-sangue);
+  border-radius: var(--rd-radius-sm);
+  background: transparent;
+  color: var(--rd-sangue-soft);
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rd-btn-ghost:hover {
+  background: var(--rd-sangue);
+  color: #fff;
+}
+
+/* cartão (painel translúcido, base de quase tudo nas referências) */
+.rd-card {
+  border-radius: var(--rd-radius);
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+  backdrop-filter: blur(10px);
+}
+
+/* chip (pílula pequena, filtros/tags) */
+.rd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-sangue-line);
+  background: transparent;
+  color: #d9cfd3;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.rd-chip:hover {
+  border-color: var(--rd-sangue);
+  color: #fff;
+}
+
+/* abas (sublinhado colorido, usadas em Ficha/Mesa) */
+.rd-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--rd-sangue-line);
+}
+.rd-tab {
+  position: relative;
+  height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: #9e9298;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rd-tab:hover {
+  color: #fff;
+}
+.rd-tab.active {
+  color: #fff;
+  border-bottom-color: var(--rd-sangue);
+}
+
+/* barra de recurso (Vida/Sanidade/Esforço) — usar junto com
+   .rd-resource-vida/.rd-resource-sanidade/.rd-resource-esforco pra
+   escolher o par de cores do gradiente de preenchimento. */
+.rd-resource-bar {
+  position: relative;
+  height: 44px;
+  border-radius: var(--rd-radius-sm);
+  background: #1a1216;
+  border: 1px solid var(--rd-resource-a, var(--rd-res-vida-a));
+  overflow: hidden;
+}
+.rd-resource-bar-fill {
+  position: relative;
+  height: 100%;
+  background: linear-gradient(90deg, var(--rd-resource-a, var(--rd-res-vida-a)), var(--rd-resource-b, var(--rd-res-vida-b)));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--rd-resource-b, var(--rd-res-vida-b)) 55%, transparent);
+  transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: hidden;
+}
+.rd-resource-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: rd-shimmer 3.5s ease-in-out infinite;
+}
+.rd-resource-vida {
+  --rd-resource-a: var(--rd-res-vida-a);
+  --rd-resource-b: var(--rd-res-vida-b);
+}
+.rd-resource-sanidade {
+  --rd-resource-a: var(--rd-res-sanidade-a);
+  --rd-resource-b: var(--rd-res-sanidade-b);
+}
+.rd-resource-esforco {
+  --rd-resource-a: var(--rd-res-esforco-a);
+  --rd-resource-b: var(--rd-res-esforco-b);
+}
+
+/* toast de rolagem (resultado de dado, canto/centro flutuante) */
+.rd-roll-toast {
+  position: absolute;
+  border-radius: var(--rd-radius);
+  border: 1px solid var(--rd-sangue);
+  background: rgba(20, 10, 14, 0.96);
+  box-shadow: var(--rd-shadow-panel);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: rd-rise 0.35s ease-out both;
+}
+
+/* dock vertical de vidro (preparo pra FloatingWindow/FloatingButton
+   ganharem essa cara — mecanismo de arrastar/fechar não muda, só visual) */
+.rd-dock {
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid var(--rd-sangue-line);
+  background: rgba(14, 10, 13, 0.85);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--rd-shadow-float);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-dock-btn {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  min-width: var(--rd-tap-min);
+  min-height: var(--rd-tap-min);
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #b9aeb3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+}
+.rd-dock-btn:hover {
+  background: rgba(224, 22, 30, 0.14);
+  border-color: var(--rd-sangue-line);
+  color: #fff;
+  transform: translateX(-2px);
+}
+.rd-dock-btn.active {
+  border-color: var(--rd-sangue);
+  background: rgba(224, 22, 30, 0.2);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(224, 22, 30, 0.35);
+}
+
+/* janela/painel de vidro (conteúdo que abre ao lado do dock) */
+.rd-panel {
+  border-radius: 18px;
+  border: 1px solid var(--rd-sangue-line);
+  background: rgba(16, 11, 14, 0.96);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--rd-shadow-panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: rd-panel-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.rd-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--rd-sangue-line);
+  flex: 0 0 auto;
+}
+.rd-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* utilitários estáticos de fundo (vinheta / scanlines) — reaproveitáveis
+   por qualquer tela animada do redesign */
+.rd-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(0, 0, 0, 0.7) 100%);
+}
+.rd-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px);
 }
