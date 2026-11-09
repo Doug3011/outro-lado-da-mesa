@@ -425,3 +425,35 @@ export function GearIcon() {
     </svg>
   );
 }
+
+// ---------- REDESIGN Passo 6 (Minhas fichas) ----------
+// Ícones novos pros botões/cartões da biblioteca de fichas (CharacterLibrary.tsx)
+// — mesma família de traço fino dos ícones acima, substituindo os emoji
+// cru (📥) e os glifos de texto ("+", "→") que a tela usava antes.
+
+// "Criar ficha" / cartão tracejado "Novo agente" — cruz simples.
+export function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Seta do botão "Acessar" nos cartões de ficha.
+export function ArrowRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// "Importar da Cris" — seta descendo numa bandeja (substitui o 📥 cru).
+export function ImportCrisIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 3v12M7 10l5 5 5-5M4 19h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

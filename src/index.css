@@ -3636,9 +3636,13 @@ label {
   color: var(--blood-bright);
 }
 
-/* Minhas Fichas — mesma página cheia estilo cartaz, cards de ficha com borda
-   vermelha e "pílula" de acesso; só dentro de `.library-page` — não mexe no
-   `.char-card` usado nas abas de ficha do mestre dentro da mesa. ---------- */
+/* Minhas Fichas (ANTIGO — substituído no redesign Passo 6, ver seção
+   "REDESIGN — Passo 6" mais abaixo: CharacterLibrary.tsx não renderiza mais
+   `.library-page`/`.library-content-wide`, então os seletores abaixo ficam
+   sem efeito). Deixados aqui, sem remover, pelo mesmo motivo que o Passo 2
+   deixou mesa-bg.mp4/SigilFlicker no projeto sem uso — não mexe no
+   `.char-card` usado nas abas de ficha do mestre dentro da mesa, que
+   continua intocado. ---------- */
 .library-page .daily-content {
   justify-content: flex-start;
   padding-top: 30px;
@@ -7782,6 +7786,411 @@ label {
 
 @media (max-width: 760px) {
   .rd-sheet-identity {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =====================================================================
+   REDESIGN — Passo 6: Minhas fichas (CharacterLibrary.tsx, fora de
+   qualquer mesa). Fiel à referência (Fichas-Mesa.dc.html): sigilo girando
+   + brasas subindo no canto (reaproveita sigilo-original.svg do Passo 2
+   e o keyframe rd-ember-rise criado — mas não usado ainda — no Passo 1),
+   grade de cartões (retrato/código/nome/classe/barra de NEX animada/
+   botão ACESSAR) e cartão tracejado "Novo agente" no fim. Só o estado de
+   LISTA (sem wizard aberto, sem ficha selecionada) é novo de verdade — o
+   wizard (CharacterWizard.tsx, `.hud`) e a ficha aberta (CharacterSheet.tsx,
+   `.rd-sheet` do Passo 5) continuam exatamente como estão, só caem dentro
+   do novo `.rd-library-main` (framework-only: a largura máxima disponível
+   pra eles cresce de 960px pra 1040px porque o container agora é 1240px
+   de base em vez de 640px — não precisava mais do modificador "largo" de
+   antes, então ficou um modificador "compacto" pro wizard/ficha, inverso
+   do nome antigo). Nada de NEX variar a cor da barra por elemento aqui —
+   a referência usa vermelho fixo; a cor de afinidade elemental (quando a
+   ficha já tem uma, NEX 50%+) só pinta a borda/código do cartão, mesmo
+   dado que o `.char-card` antigo (CharacterCard.tsx, ainda usado pela
+   Mesa do Mestre/painel do jogador — NÃO tocado aqui) já usava. ---------- */
+
+.rd-library {
+  position: relative;
+  min-height: 100%;
+  background: var(--rd-sangue-bg);
+  color: #ece6e0;
+  font-family: var(--rd-font-body);
+}
+
+.rd-library-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.rd-library-glow {
+  position: absolute;
+  right: -12%;
+  bottom: -20%;
+  width: 70%;
+  height: 90%;
+  background: radial-gradient(closest-side, rgba(140, 8, 16, 0.38), rgba(140, 8, 16, 0.1) 60%, transparent 75%);
+}
+.rd-library-sigil-spin {
+  position: absolute;
+  right: -180px;
+  bottom: -200px;
+  width: 760px;
+  height: 760px;
+  animation: rd-spin 160s linear infinite;
+}
+.rd-library-sigil-img {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 24px rgba(224, 22, 30, 0.6));
+  animation: rd-pulse-glow 8s ease-in-out infinite;
+}
+.rd-library-embers {
+  position: absolute;
+  inset: 0;
+}
+.rd-library-ember {
+  position: absolute;
+  bottom: -10px;
+  border-radius: 50%;
+  background: var(--rd-sangue-bright);
+  box-shadow: 0 0 8px var(--rd-sangue);
+  animation-name: rd-ember-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.rd-library-top,
+.rd-library-main {
+  position: relative;
+  z-index: 2;
+}
+.rd-library-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 56px 0;
+}
+.rd-library-top svg {
+  color: var(--rd-sangue);
+}
+.rd-library-top-text {
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.rd-library-main {
+  max-width: 1240px;
+  padding: 28px 56px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+.rd-library-main-compact {
+  max-width: 1040px;
+}
+
+.rd-library-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--rd-tap-min);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rd-sangue-soft);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.rd-library-back:hover {
+  color: #fff;
+}
+
+.rd-library-head {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: rd-rise 0.5s ease-out both;
+}
+.rd-library-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 20px;
+}
+.rd-library-title {
+  margin: 0;
+  font-family: var(--rd-font-disp);
+  font-size: clamp(38px, 6vw, 64px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #f2ede8;
+}
+.rd-library-title span {
+  color: var(--rd-sangue);
+}
+.rd-library-crumb {
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  color: #b05a5e;
+  padding-bottom: 8px;
+}
+.rd-library-rule {
+  display: block;
+  height: 3px;
+  width: 90px;
+  border-radius: 2px;
+  background: var(--rd-sangue);
+}
+.rd-library-sub {
+  margin: 0;
+  max-width: 560px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #b8afa8;
+}
+.rd-library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+/* "Importar da Cris" usa o mesmo .rd-btn-ghost da fundação (Passo 1), só
+   com ícone no lugar do texto cru — sem classe nova precisando existir. */
+
+.rd-library-empty {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #a89ea3;
+  border-left: 2px solid var(--rd-sangue-line);
+  padding: 2px 0 2px 16px;
+}
+
+.rd-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+.rd-library-card {
+  --el-accent: var(--rd-sangue);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--rd-radius);
+  border: 1px solid var(--rd-sangue-line);
+  background: linear-gradient(180deg, rgba(26, 12, 15, 0.95), rgba(14, 9, 11, 0.95));
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  animation: rd-rise 0.5s ease-out both;
+}
+.rd-library-card:hover,
+.rd-library-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: var(--el-accent);
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--el-accent) 35%, transparent);
+}
+.rd-library-card-portrait {
+  position: relative;
+  height: 180px;
+  flex: none;
+  background: #160c0f center/cover no-repeat;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rd-library-card-portrait-initial {
+  font-family: var(--rd-font-disp);
+  font-size: 60px;
+  font-weight: 700;
+  color: #4a2328;
+  filter: grayscale(0.6);
+  transition: filter 0.2s;
+}
+.rd-library-card:hover .rd-library-card-portrait-initial {
+  filter: grayscale(0) contrast(1.05);
+}
+.rd-library-card-code {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(8, 6, 8, 0.8);
+  border: 1px solid var(--el-accent);
+  color: var(--el-accent);
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+}
+.rd-library-card-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rd-library-card-name {
+  margin: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: #f2ede8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rd-library-card-class {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d9b35a;
+}
+.rd-library-card-nex {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-library-card-nex-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+}
+.rd-library-card-nex-row span:first-child {
+  color: #a39890;
+}
+.rd-library-card-nex-row span:last-child {
+  color: var(--rd-sangue-soft);
+  font-weight: 500;
+}
+.rd-library-card-nex-bar {
+  height: 6px;
+  border-radius: 6px;
+  background: #241417;
+  overflow: hidden;
+}
+.rd-library-card-nex-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--rd-sangue-deep), var(--rd-sangue-bright));
+  box-shadow: 0 0 10px rgba(255, 59, 66, 0.6);
+  transform-origin: left;
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rd-library-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.rd-library-card-date {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #8a7f78;
+}
+.rd-library-card-cta {
+  flex: none;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--rd-sangue);
+  background: transparent;
+  color: var(--rd-sangue-soft);
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.rd-library-card:hover .rd-library-card-cta {
+  background: var(--rd-sangue);
+  color: #fff;
+}
+
+.rd-library-new-card {
+  min-height: 300px;
+  border-radius: var(--rd-radius);
+  border: 1.5px dashed #4a2228;
+  background: rgba(16, 10, 12, 0.5);
+  color: #c9474d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  min-height: var(--rd-tap-min);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  animation: rd-rise 0.6s 0.2s ease-out both;
+}
+.rd-library-new-card:hover,
+.rd-library-new-card:focus-visible {
+  border-color: var(--rd-sangue);
+  color: #fff;
+  background: rgba(224, 22, 30, 0.08);
+}
+.rd-library-new-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid #6a2228;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rd-library-new-title {
+  font-family: var(--rd-font-disp);
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.rd-library-new-sub {
+  font-size: 13px;
+  color: #8a7f78;
+}
+
+/* ficha aberta (CharacterSheet) / ações de topo (voltar, duplicar, excluir)
+   — reaproveita .row da fundação antiga pro layout e .rd-btn-ghost do
+   Passo 1 pros botões (já tem gap pro ícone do link "voltar à lista"). */
+
+@media (max-width: 760px) {
+  .rd-library-top,
+  .rd-library-main {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .rd-library-sigil-spin {
+    width: 420px;
+    height: 420px;
+    right: -120px;
+    bottom: -140px;
+  }
+  .rd-library-grid {
     grid-template-columns: 1fr;
   }
 }
