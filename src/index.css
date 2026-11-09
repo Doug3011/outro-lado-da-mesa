@@ -9431,3 +9431,459 @@ label {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
 }
+
+/* =====================================================================
+   REDESIGN — Passo 9: Extras (Home.tsx, view === 'extras')
+   Tema Medo (branco-azulado, tokens --rd-medo-* do Passo 1). Tela de
+   ENTRADA dos mini-jogos (Desafio Diário e Combate/protótipo) — a lógica
+   de cada jogo em si (DailyChallengePanel.tsx, MinigameTest.tsx) não foi
+   tocada, só os dois cards que levam até eles e o "Em breve". As classes
+   antigas que essa tela usava (.daily-page/.gm-area-page/.asset-grid/
+   .minigame-card...) continuam no arquivo porque DailyChallengePanel,
+   MinigameTest e os pickers de asset (MapPickerDialog etc.) ainda dependem
+   delas — só a Extras em si passou a usar o vocabulário novo (.rd-ex-*).
+   Praticamente todo keyframe já existia do Passo 1 com os MESMOS parâmetros
+   da referência (Extras-Mesa.dc.html): rd-beat=md-beat, rd-mist=md-mist,
+   rd-tumble=md-tumble, rd-flicker=md-flicker, rd-float=md-float,
+   rd-rise=md-rise, rd-breath=md-breath (rgb default já é 207,230,255,
+   a cor exata do tema Medo — não precisou de override), rd-spin=md-spin.
+   rd-ash-fall (criado no Passo 1, não usado até agora) já cai de cima pra
+   baixo igual ao md-ash da referência, reaproveitado direto sem inverter. */
+
+.rd-ex {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--rd-medo-bg);
+  color: #eef3fa;
+  font-family: var(--rd-font-body);
+  --rd-ex-line: #2a3446;
+  --rd-ex-sub: #a9b6ca;
+  --rd-ex-sub2: #8fa6c6;
+  --rd-ex-faint: #7d8aa0;
+  --rd-ex-card-bg1: rgba(18, 24, 34, 0.92);
+  --rd-ex-card-bg2: rgba(10, 13, 20, 0.92);
+}
+
+/* ---------- fundo animado ---------- */
+.rd-ex-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.rd-ex-glow {
+  position: absolute;
+  right: -10%;
+  top: -10%;
+  width: 70%;
+  height: 90%;
+  background: radial-gradient(closest-side, rgba(190, 220, 255, 0.16), rgba(190, 220, 255, 0.04) 60%, transparent 75%);
+  animation: rd-beat 2.6s ease-in-out infinite;
+}
+.rd-ex-ring {
+  position: absolute;
+  right: -140px;
+  bottom: -180px;
+  width: 700px;
+  height: 700px;
+  opacity: 0.35;
+  animation: rd-spin 200s linear infinite;
+}
+.rd-ex-mist {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  filter: blur(18px);
+}
+.rd-ex-mist-a {
+  bottom: -10%;
+  height: 55%;
+  background: radial-gradient(ellipse at 30% 70%, rgba(200, 225, 255, 0.14), transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(200, 225, 255, 0.1), transparent 50%);
+  animation: rd-mist 22s ease-in-out infinite alternate;
+}
+.rd-ex-mist-b {
+  top: 35%;
+  height: 30%;
+  filter: blur(24px);
+  background: radial-gradient(ellipse at 60% 50%, rgba(200, 225, 255, 0.07), transparent 60%);
+  animation: rd-mist 30s ease-in-out infinite alternate-reverse;
+}
+.rd-ex-ash {
+  position: absolute;
+  inset: 0;
+}
+.rd-ex-ash-flake {
+  position: absolute;
+  top: 0;
+  border-radius: 1px;
+  background: #e6f0ff;
+  opacity: 0.8;
+  box-shadow: 0 0 4px rgba(207, 230, 255, 0.7);
+  animation-name: rd-ash-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.rd-ex-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 40% 40%, transparent 35%, rgba(0, 0, 0, 0.85) 100%);
+  animation: rd-beat 2.6s ease-in-out infinite;
+}
+
+/* ---------- topo / cabeçalho ---------- */
+.rd-ex-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 56px 0;
+  color: var(--rd-medo-soft);
+}
+.rd-ex-top-text {
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #eef3fa;
+}
+.rd-ex-main {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  padding: 24px 56px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+}
+.rd-ex-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--rd-tap-min);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rd-medo-soft);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.rd-ex-back:hover {
+  color: #fff;
+}
+.rd-ex-head {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: rd-rise 0.6s ease-out both;
+}
+.rd-ex-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 20px;
+}
+.rd-ex-title {
+  margin: 0;
+  font-family: var(--rd-font-disp);
+  font-size: clamp(34px, 7vw, 80px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #f4f8ff;
+  text-shadow: 0 0 30px rgba(207, 230, 255, 0.35);
+  animation: rd-flicker 7s infinite;
+}
+.rd-ex-crumb {
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  color: var(--rd-ex-sub2);
+  padding-bottom: 12px;
+}
+.rd-ex-rule {
+  display: block;
+  height: 2px;
+  width: 140px;
+  background: linear-gradient(90deg, #ffffff, rgba(207, 230, 255, 0));
+}
+
+/* ---------- abas ---------- */
+.rd-ex-tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  animation: rd-rise 0.6s 0.1s ease-out both;
+}
+.rd-ex-tab {
+  height: 44px;
+  min-height: var(--rd-tap-min);
+  padding: 0 18px;
+  border-radius: 11px;
+  border: 1px solid var(--rd-ex-line);
+  background: transparent;
+  color: var(--rd-ex-sub);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.rd-ex-tab:hover {
+  color: #fff;
+  border-color: var(--rd-medo-soft);
+}
+.rd-ex-tab.active {
+  border-color: var(--rd-medo-soft);
+  background: rgba(207, 230, 255, 0.12);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(207, 230, 255, 0.18);
+}
+.rd-ex-sub {
+  margin: 0;
+  font-size: 15px;
+  color: var(--rd-ex-sub);
+  animation: rd-rise 0.6s 0.15s ease-out both;
+}
+
+/* ---------- grade de cards ---------- */
+.rd-ex-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+}
+.rd-ex-card {
+  border-radius: 20px;
+  border: 1px solid var(--rd-ex-line);
+  background: linear-gradient(180deg, var(--rd-ex-card-bg1), var(--rd-ex-card-bg2));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s, border-color 0.25s;
+  animation: rd-rise 0.6s 0.2s ease-out both;
+}
+.rd-ex-card-combat {
+  animation: rd-rise 0.6s 0.32s ease-out both;
+}
+.rd-ex-card-breathe {
+  animation: rd-rise 0.6s 0.2s ease-out both, rd-breath 5s 1s ease-in-out infinite;
+}
+.rd-ex-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--rd-medo-soft);
+}
+.rd-ex-card-media {
+  position: relative;
+  height: 230px;
+  background: radial-gradient(circle at 50% 60%, rgba(207, 230, 255, 0.16), transparent 60%), #0b0f17;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.rd-ex-media-combat {
+  background: radial-gradient(circle at 50% 70%, rgba(179, 18, 26, 0.18), transparent 60%), #0b0f17;
+}
+.rd-ex-die-shadow {
+  position: absolute;
+  bottom: 34px;
+  width: 120px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  filter: blur(6px);
+}
+.rd-ex-die {
+  animation: rd-tumble 4.5s cubic-bezier(0.3, 0.7, 0.3, 1) infinite;
+  filter: drop-shadow(0 0 16px rgba(207, 230, 255, 0.45));
+}
+.rd-ex-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: rgba(5, 7, 11, 0.75);
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.rd-ex-badge-ok {
+  border: 1px solid var(--rd-ex-line);
+  color: var(--rd-medo-soft);
+}
+.rd-ex-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #7fe0b0;
+}
+.rd-ex-badge-proto {
+  border: 1px solid #5a3a2a;
+  color: #ffc9a0;
+}
+
+/* ---------- cartas em leque (Combate) ---------- */
+.rd-ex-fan {
+  position: relative;
+  width: 96px;
+  height: 136px;
+  animation: rd-float 5s ease-in-out infinite;
+}
+.rd-ex-fan-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rd-ex-fan-c1,
+.rd-ex-fan-c3 {
+  background: #dce8f8;
+  border: 2px solid #9fc3ee;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+.rd-ex-fan-c1 {
+  transform: translate(-40px, 8px) rotate(-12deg);
+}
+.rd-ex-fan-c3 {
+  transform: translate(40px, 8px) rotate(12deg);
+}
+.rd-ex-fan-c2 {
+  background: #f4f8ff;
+  border: 2px solid #cfe6ff;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 0 22px rgba(207, 230, 255, 0.3);
+}
+.rd-ex-card:hover .rd-ex-fan-c1 {
+  transform: translate(-56px, 6px) rotate(-18deg);
+}
+.rd-ex-card:hover .rd-ex-fan-c3 {
+  transform: translate(56px, 6px) rotate(18deg);
+}
+.rd-ex-card:hover .rd-ex-fan-c2 {
+  transform: translateY(-10px);
+}
+
+/* ---------- corpo do card ---------- */
+.rd-ex-card-body {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+.rd-ex-card-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-ex-card-heading h2 {
+  margin: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.05;
+  text-transform: none;
+}
+.rd-ex-card-heading p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--rd-ex-sub);
+}
+.rd-ex-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: var(--rd-ex-sub2);
+}
+.rd-ex-spacer {
+  flex: 1;
+}
+.rd-ex-play {
+  align-self: flex-start;
+  height: 50px;
+  min-height: var(--rd-tap-min);
+  padding: 0 22px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--rd-medo);
+  color: #0a1220;
+  font-family: var(--rd-font-disp);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.rd-ex-play-glow {
+  box-shadow: 0 0 24px rgba(207, 230, 255, 0.3);
+}
+.rd-ex-play:hover {
+  background: #ffffff;
+  transform: translateX(3px);
+}
+
+/* ---------- "em breve" ---------- */
+.rd-ex-soon {
+  min-height: 420px;
+  border-radius: 20px;
+  border: 1.5px dashed var(--rd-ex-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--rd-ex-faint);
+  text-align: center;
+  padding: 24px;
+  animation: rd-rise 0.6s 0.44s ease-out both;
+}
+.rd-ex-soon svg {
+  animation: rd-flicker 4s infinite;
+}
+.rd-ex-soon-title {
+  font-family: var(--rd-font-disp);
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  color: var(--rd-ex-sub);
+}
+.rd-ex-soon-sub {
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .rd-ex-top,
+  .rd-ex-main {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .rd-ex-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -77,6 +77,26 @@ const GM_SPARKS: CSSProperties[] = Array.from({ length: 16 }, (_, i) => {
   } as unknown as CSSProperties;
 });
 
+// Cinzas caindo no fundo de Extras (redesign Passo 9, tema Medo) — mesma
+// fórmula determinística da referência (Extras-Mesa.dc.html, `renderVals().ash`).
+// Reaproveita o keyframe rd-ash-fall (Passo 1) direto, sem inverter nada: ele
+// já cai de cima pra baixo, igual ao `md-ash` da referência.
+const EX_ASH: CSSProperties[] = Array.from({ length: 26 }, (_, i) => {
+  const left = (i * 37 + 11) % 100;
+  const size = 2 + (i % 4);
+  const dur = 10 + (i % 6) * 2.5;
+  const delay = -((i * 2.3) % dur);
+  const dx = ((i % 7) - 3) * 24;
+  return {
+    left: `${left}%`,
+    width: `${size}px`,
+    height: `${(size * 0.7).toFixed(1)}px`,
+    animationDuration: `${dur}s`,
+    animationDelay: `${delay.toFixed(1)}s`,
+    '--rd-drift-x': `${dx}px`,
+  } as unknown as CSSProperties;
+});
+
 export function Home() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -266,60 +286,162 @@ export function Home() {
 
   if (view === 'extras') {
     return (
-      <div className="daily-page gm-area-page">
-        <img className="daily-sigil-corner" src="/sigils/sigil-ornate.png" alt="" aria-hidden />
-
-        <div className="daily-topbar">
-          <Sigil />
-          <span>O Outro Lado da Mesa</span>
+      <div className="rd-ex">
+        <div className="rd-ex-bg" aria-hidden="true">
+          <div className="rd-ex-glow" />
+          <svg className="rd-ex-ring" viewBox="0 0 400 400">
+            <circle cx="200" cy="200" r="190" fill="none" stroke="#9FC3EE" strokeWidth="0.6" />
+            <circle cx="200" cy="200" r="176" fill="none" stroke="#9FC3EE" strokeWidth="0.4" strokeDasharray="1 5" />
+            <circle cx="200" cy="200" r="120" fill="none" stroke="#CFE6FF" strokeWidth="0.8" />
+            <path d="M200 10V390M10 200H390M66 66l268 268M334 66 66 334" stroke="#9FC3EE" strokeWidth="0.35" />
+            <path d="M200 80 304 260H96z" fill="none" stroke="#E6F2FF" strokeWidth="1" />
+            <path d="M200 320 96 140H304z" fill="none" stroke="#9FC3EE" strokeWidth="0.6" />
+            <circle cx="200" cy="200" r="22" fill="none" stroke="#E6F2FF" strokeWidth="1.2" />
+            <circle cx="200" cy="200" r="5" fill="#E6F2FF" />
+          </svg>
+          <div className="rd-ex-mist rd-ex-mist-a" />
+          <div className="rd-ex-mist rd-ex-mist-b" />
+          <div className="rd-ex-ash">
+            {EX_ASH.map((style, i) => (
+              <span key={i} className="rd-ex-ash-flake" style={style} />
+            ))}
+          </div>
+          <div className="rd-ex-vignette" />
         </div>
 
-        <div className="daily-content gm-area-content">
-          <button className="daily-back" onClick={() => setView('hub')}>
-            ← Voltar
+        <div className="rd-ex-top">
+          <BrandEyeIcon />
+          <span className="rd-ex-top-text">O Outro Lado da Mesa</span>
+        </div>
+
+        <div className="rd-ex-main">
+          <button className="rd-ex-back" onClick={() => setView('hub')}>
+            <BackChevronIcon /> VOLTAR
           </button>
 
-          <h1 className="daily-title">Extras</h1>
-          <div className="daily-title-rule" />
-
-          <div className="chip-row gm-area-tabs">
-            <span
-              className={`chip ${extrasTab === 'minigames' ? 'on' : ''}`}
-              onClick={() => setExtrasTab('minigames')}
-            >
-              🎲 Mini-jogos
-            </span>
+          <div className="rd-ex-head">
+            <div className="rd-ex-head-row">
+              <h1 className="rd-ex-title">EXTRAS</h1>
+              <span className="rd-ex-crumb">// FORA DA MESA</span>
+            </div>
+            <span className="rd-ex-rule" />
           </div>
 
-          {extrasTab === 'minigames' && (
-            <>
-              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-                Joguinhos à parte, sem relação com a mesa em si.
-              </p>
-              <div className="asset-grid">
-                <button className="asset-card minigame-card" onClick={() => setView('daily')}>
-                  <div className="asset-thumb minigame-thumb">🎲</div>
-                  <span className="asset-name">Desafio Diário</span>
-                  <span className="faint" style={{ fontSize: 11 }}>
-                    Teste sua sorte de 3 em 3h e desbloqueie músicas do menu.
-                  </span>
-                </button>
-                <button className="asset-card minigame-card" onClick={() => navigate('/teste-minigame')}>
-                  <div className="asset-thumb minigame-thumb">🧟</div>
-                  <span className="asset-name">Combate (protótipo)</span>
-                  <span className="faint" style={{ fontSize: 11 }}>
-                    Deckbuilder por turnos em construção — crie um personagem e enfrente o Zumbi
-                    de Sangue Emergente.
-                  </span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+          <nav className="rd-ex-tabs" role="tablist" aria-label="Categorias">
+            <button
+              role="tab"
+              aria-selected={extrasTab === 'minigames'}
+              className={`rd-ex-tab ${extrasTab === 'minigames' ? 'active' : ''}`}
+              onClick={() => setExtrasTab('minigames')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="3" y="7" width="18" height="12" rx="4" />
+                <path d="M8 11v4M6 13h4M15.5 12h.01M18 14h.01" />
+              </svg>
+              MINI-JOGOS
+            </button>
+          </nav>
+          <p className="rd-ex-sub">Joguinhos à parte, sem relação com a mesa em si.</p>
 
-        <div className="daily-sigil-small">
-          <Sigil />
-          <span className="daily-sigil-line" />
+          {extrasTab === 'minigames' && (
+            <div className="rd-ex-grid">
+              <article className="rd-ex-card rd-ex-card-breathe">
+                <div className="rd-ex-card-media">
+                  <span className="rd-ex-die-shadow" />
+                  <svg className="rd-ex-die" width="100" height="100" viewBox="0 0 100 100" aria-hidden>
+                    <rect x="10" y="10" width="80" height="80" rx="16" fill="#EEF4FF" />
+                    <rect x="10" y="10" width="80" height="80" rx="16" fill="none" stroke="#9FC3EE" strokeWidth="2" />
+                    <circle cx="30" cy="30" r="7" fill="#0A1220" />
+                    <circle cx="50" cy="50" r="7" fill="#B3121A" />
+                    <circle cx="70" cy="70" r="7" fill="#0A1220" />
+                  </svg>
+                  <span className="rd-ex-badge rd-ex-badge-ok">
+                    <span className="rd-ex-badge-dot" /> DISPONÍVEL
+                  </span>
+                </div>
+                <div className="rd-ex-card-body">
+                  <div className="rd-ex-card-heading">
+                    <h2>Desafio Diário</h2>
+                    <p>Teste sua sorte a cada 3 horas e desbloqueie músicas do menu.</p>
+                  </div>
+                  <div className="rd-ex-meta">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <path d="M9 18V5l12-2v13" />
+                      <circle cx="6" cy="18" r="3" />
+                      <circle cx="18" cy="16" r="3" />
+                    </svg>
+                    Prêmio: músicas bloqueadas do menu
+                  </div>
+                  <span className="rd-ex-spacer" />
+                  <button className="rd-ex-play rd-ex-play-glow" onClick={() => setView('daily')}>
+                    JOGAR
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
+              <article className="rd-ex-card rd-ex-card-combat">
+                <div className="rd-ex-card-media rd-ex-media-combat">
+                  <div className="rd-ex-fan">
+                    <div className="rd-ex-fan-card rd-ex-fan-c1">
+                      <svg width="100%" height="100%" viewBox="0 0 96 136" aria-hidden>
+                        <rect x="10" y="10" width="76" height="116" rx="6" fill="none" stroke="#7F9CC4" strokeWidth="1.5" />
+                        <path d="M48 46 60 68 48 90 36 68z" fill="#7F9CC4" />
+                      </svg>
+                    </div>
+                    <div className="rd-ex-fan-card rd-ex-fan-c3">
+                      <svg width="100%" height="100%" viewBox="0 0 96 136" aria-hidden>
+                        <rect x="10" y="10" width="76" height="116" rx="6" fill="none" stroke="#7F9CC4" strokeWidth="1.5" />
+                        <circle cx="48" cy="68" r="14" fill="none" stroke="#7F9CC4" strokeWidth="3" />
+                      </svg>
+                    </div>
+                    <div className="rd-ex-fan-card rd-ex-fan-c2">
+                      <svg width="100%" height="100%" viewBox="0 0 96 136" aria-hidden>
+                        <rect x="10" y="10" width="76" height="116" rx="6" fill="none" stroke="#B3121A" strokeWidth="1.5" />
+                        <path d="M48 36c10 14 18 22 18 34a18 18 0 0 1-36 0c0-12 8-20 18-34z" fill="#B3121A" />
+                        <path d="M30 104h36" stroke="#0A1220" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                  </div>
+                  <span className="rd-ex-badge rd-ex-badge-proto">PROTÓTIPO</span>
+                </div>
+                <div className="rd-ex-card-body">
+                  <div className="rd-ex-card-heading">
+                    <h2>Combate</h2>
+                    <p>
+                      Deckbuilder por turnos, ainda em construção. Crie um personagem e enfrente o
+                      Zumbi de Sangue Emergente.
+                    </p>
+                  </div>
+                  <div className="rd-ex-meta">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="4" y="3" width="11" height="16" rx="2" />
+                      <path d="M9 21h9a2 2 0 0 0 2-2V8" />
+                    </svg>
+                    Pode ter bugs: é uma versão de teste
+                  </div>
+                  <span className="rd-ex-spacer" />
+                  <button className="rd-ex-play" onClick={() => navigate('/teste-minigame')}>
+                    JOGAR
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M5 12h14M13 6l6 6-6 6" />
+                    </svg>
+                  </button>
+                </div>
+              </article>
+
+              <div className="rd-ex-soon">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#9FC3EE" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+                <span className="rd-ex-soon-title">EM BREVE</span>
+                <span className="rd-ex-soon-sub">Mais joguinhos chegando.</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
