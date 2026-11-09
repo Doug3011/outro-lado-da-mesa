@@ -7,7 +7,9 @@ import { hasLan, LAN_INFO, LanControl, type LanTable } from '../lib/lan';
 import { loadMyCharacters } from '../lib/characterLibrary';
 import { getLinkedCharacterId, setLinkedCharacterId } from '../lib/roomLinks';
 import { recordMatch } from '../lib/matchHistory';
+import { loadSavedTables, recordSavedTable, deleteSavedTable, type SavedTable } from '../lib/savedTables';
 import type { Character } from '../domain/character';
+import { CLASS_BY_KEY } from '../data/ordem';
 import { ProfileEditor } from '../components/ProfileEditor';
 import { CharacterLibrary } from '../components/CharacterLibrary';
 import { MatchHistoryPanel } from '../components/MatchHistoryPanel';
@@ -18,8 +20,6 @@ import { TokenLibraryManager } from '../components/TokenLibraryManager';
 import { SceneryLibraryManager } from '../components/SceneryLibraryManager';
 import { MapLibraryManager } from '../components/MapLibraryManager';
 import { PlaceLibraryManager } from '../components/PlaceLibraryManager';
-import { PlacePickerDialog } from '../components/PlacePickerDialog';
-import type { Place } from '../lib/placeLibrary';
 import { Map2DLibraryManager } from '../components/Map2DLibraryManager';
 import type { Map2D } from '../lib/map2dLibrary';
 // SigilFlicker (sigilos aleatórios piscando sobre o vídeo de fundo antigo)
@@ -36,6 +36,10 @@ type GmAreaTab = 'music' | 'ambient' | 'tokens' | 'scenery' | 'maps' | 'places';
 type ExtrasTab = 'minigames';
 
 const PALETTE = ['#e01e2b', '#7b2cbf', '#2fae66', '#e8b21e', '#3f7fd6', '#ff8fab', '#d4a373'];
+// 5 cores pra tela "Entrar numa mesa" (redesign Passo 3, pedido explícito de
+// "cor, 5 opções") — reaproveita as 5 primeiras da paleta acima em vez de
+// criar uma paleta nova só pra essa tela.
+const ROLE_COLORS = PALETTE.slice(0, 5);
 
 export function Home() {
   const navigate = useNavigate();
@@ -78,18 +82,23 @@ export function Home() {
   const [manualAddr, setManualAddr] = useState('');
   const lanRef = useRef<LanControl | null>(null);
   // o callback onHosting é criado só quando o efeito roda (dep [role]) — usar um
-  // ref garante que ele sempre lê o nome mais recente digitado, não um valor preso.
+  // ref garante que ele sempre lê o nome/cor mais recentes, não um valor preso.
   const tableNameRef = useRef(tableName);
   tableNameRef.current = tableName;
-  // Guarda a place escolhida (ou `null` = cenário 3D em branco) entre o
-  // clique em "Hospedar mesa (3D)" e o `onHosting` disparar de fato — undefined
-  // = hospedando uma mesa 2D normal, sem tocar em nada 3D.
-  const pending3dRef = useRef<{ place: Place | null } | undefined>(undefined);
-  const [showPlacePicker, setShowPlacePicker] = useState(false);
-  // Mesma ideia do pending3dRef acima, lado 2D: guarda o mapa escolhido (ou
-  // `null` = mapa em branco) entre o clique em "Hospedar mesa (2D)" e o
-  // `onHosting` disparar de fato.
+  const meRef = useRef(me);
+  meRef.current = me;
+  // Guarda o mapa escolhido (sempre `null` = em branco agora — redesign Passo 3
+  // removeu a escolha de cenário 3D nesta tela, 2D/3D passou a se escolher só
+  // DENTRO da mesa) entre o clique em "Hospedar mesa" e o `onHosting` disparar.
   const pending2dRef = useRef<{ map2d: Map2D | null } | undefined>(undefined);
+
+  // ---- mesas salvas (redesign Passo 3: feature nova) ----
+  // Toda mesa hospedada com sucesso entra aqui (ver savedTables.ts) pra
+  // reaparecer em "Jogar numa mesa já criada" da próxima vez.
+  const [savedTables, setSavedTables] = useState<SavedTable[]>(loadSavedTables);
+  const [masterTab, setMasterTab] = useState<'saved' | 'new'>(
+    savedTables.length > 0 ? 'saved' : 'new',
+  );
 
   useEffect(() => {
     if (!hasLan || role === null) return;
@@ -100,19 +109,18 @@ export function Home() {
         setHosting(v);
         if (v && LAN_INFO) {
           const addr = `${LAN_INFO.localIp}:${LAN_INFO.port}`;
-          recordMatch(addr, 'gm', tableNameRef.current.trim() || 'Mesa');
-          const pending3d = pending3dRef.current;
-          pending3dRef.current = undefined;
+          const name = tableNameRef.current.trim() || 'Mesa';
+          recordMatch(addr, 'gm', name);
+          setSavedTables(
+            recordSavedTable({
+              name,
+              masterName: meRef.current.name,
+              masterColor: meRef.current.color,
+            }),
+          );
           const pending2d = pending2dRef.current;
           pending2dRef.current = undefined;
-          navigate(
-            `/sala/${addr}`,
-            pending3d
-              ? { state: { place3d: pending3d.place } }
-              : pending2d
-                ? { state: { map2d: pending2d.map2d } }
-                : undefined,
-          );
+          navigate(`/sala/${addr}`, pending2d ? { state: { map2d: pending2d.map2d } } : undefined);
         }
       },
       onTables: (t) => setTables(t),
@@ -138,11 +146,31 @@ export function Home() {
     setRole(r);
     setError('');
     update({ isGM: r === 'gm' });
+    if (r === 'gm') {
+      const list = loadSavedTables();
+      setSavedTables(list);
+      setMasterTab(list.length > 0 ? 'saved' : 'new');
+    }
   };
 
   const hostLan = () => {
     if (!me.name.trim()) return setError('Escolha um nome.');
     lanRef.current?.hostStart(tableName.trim() || 'Mesa');
+  };
+
+  // Re-hospeda uma mesa salva com os mesmos dados (nome/cor do mestre, nome
+  // da mesa) sem passar pela validação/estado de hostLan — a mesa salva já
+  // tem tudo preenchido, então vai direto pro LanControl.
+  const hostSavedTable = (t: SavedTable) => {
+    if (hosting) return;
+    update({ name: t.masterName, color: t.masterColor });
+    setTableName(t.name);
+    pending2dRef.current = { map2d: null };
+    lanRef.current?.hostStart(t.name);
+  };
+
+  const removeSavedTable = (id: string) => {
+    setSavedTables(deleteSavedTable(id));
   };
 
   const joinLan = (addr: string, name?: string) => {
@@ -633,306 +661,500 @@ export function Home() {
     );
   }
 
-  return (
-    <div className="daily-page connect-page">
-      <img className="daily-sigil-corner" src="/sigils/sigil-crimson.png" alt="" aria-hidden />
+  const crumb =
+    role === null
+      ? '// ESCOLHA COMO ENTRAR'
+      : role === 'gm'
+        ? masterTab === 'saved'
+          ? '// MESTRE · SUAS MESAS'
+          : '// MESTRE · NOVA MESA'
+        : hasLan
+          ? '// JOGADOR · PROCURAR MESAS'
+          : '// JOGADOR · CÓDIGO DA MESA';
 
-      <div className="daily-topbar">
-        <Sigil />
-        <span>O Outro Lado da Mesa</span>
+  const fmtDate = (ts: number) => new Date(ts).toLocaleDateString('pt-BR');
+
+  return (
+    <div className="rd-connect">
+      <div className="rd-connect-bg" aria-hidden="true">
+        <div className="rd-menu-fog rd-menu-fog-a" />
+        <div className="rd-menu-fog rd-menu-fog-b" />
+        <div className="rd-scanlines" />
+        <div className="rd-vignette" />
       </div>
 
-      <div className="daily-content">
-        <button className="daily-back" onClick={() => setView('hub')}>
-          ← Voltar
-        </button>
+      <div className="rd-connect-top">
+        <Sigil />
+        <span
+          style={{
+            fontFamily: 'var(--rd-font-disp)',
+            fontSize: 14,
+            fontWeight: 500,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+          }}
+        >
+          O Outro Lado da Mesa
+        </span>
+      </div>
 
-        <h1 className="daily-title">Entrar numa Mesa</h1>
-        <div className="daily-title-rule" />
-
-        <p className="daily-rule-box">
-          Tabletop virtual de <b>Ordem Paranormal</b>
-          {hasLan
-            ? ' — hospede a mesa na sua rede (Radmin/LAN) e todos entram sem servidor nenhum.'
-            : ' — o mestre transmite a mesa, os jogadores entram pelo código.'}
-        </p>
+      <div className="rd-connect-main">
+        <div className="rd-connect-head">
+          <button
+            className="rd-connect-back"
+            onClick={() => (role === null ? setView('hub') : setRole(null))}
+          >
+            <BackArrowIcon />
+            {role === null ? 'VOLTAR' : 'TROCAR PAPEL'}
+          </button>
+          <div className="rd-connect-head-row">
+            <h1 className="rd-connect-title">
+              ENTRAR NUMA <span>MESA</span>
+            </h1>
+            <span className="rd-connect-crumb">{crumb}</span>
+          </div>
+          <p className="rd-connect-sub">
+            Tabletop virtual de <b>Ordem Paranormal</b>.{' '}
+            {hasLan
+              ? 'A mesa roda no computador do mestre, na sua rede (Radmin ou LAN), e todo mundo entra sem servidor nenhum.'
+              : 'O mestre transmite a mesa pela internet e os jogadores entram só com o código.'}
+          </p>
+        </div>
 
         {role === null && (
-          <>
-            <p className="role-kicker">O outro lado te espera</p>
-            <div className="role-title">Como você vai entrar?</div>
-            <div className="role-cards">
-              <button className="role-card role-card-gm" onClick={() => pickRole('gm')}>
-                <div className="role-card-art">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <p className="rd-connect-kicker">O outro lado te espera</p>
+              <div className="rd-connect-label">Como você vai entrar?</div>
+            </div>
+            <div className="rd-role-grid">
+              <button className="rd-role-card rd-role-card-gm" onClick={() => pickRole('gm')}>
+                <span className="rd-role-icon-chip">
                   <GmIcon />
-                </div>
-                <div className="role-card-body">
-                  <span className="role-eyebrow">Mestre</span>
-                  <strong>Hospedar mesa</strong>
+                </span>
+                <div className="rd-role-body">
+                  <span className="rd-role-eyebrow">Mestre</span>
+                  <strong>Conduzir a mesa</strong>
                   <p>
                     {hasLan
-                      ? 'Hospedo a mesa nesta máquina e controlo o mapa.'
-                      : 'Crio a mesa, controlo o mapa e transmito pros jogadores.'}
+                      ? 'Abra uma mesa que você já preparou ou crie uma nova. Ela roda nesta máquina e você controla o mapa.'
+                      : 'Crie a mesa, controle o mapa e transmita pros jogadores pelo código.'}
                   </p>
-                  <span className="role-cta">
-                    Iniciar como mestre <span className="role-cta-arrow">→</span>
-                  </span>
                 </div>
+                <span className="rd-role-cta">
+                  Entrar como mestre <ArrowIcon />
+                </span>
               </button>
-              <button className="role-card role-card-player" onClick={() => pickRole('player')}>
-                <div className="role-card-art">
+              <button className="rd-role-card rd-role-card-player" onClick={() => pickRole('player')}>
+                <span className="rd-role-icon-chip">
                   <PlayerIcon />
-                </div>
-                <div className="role-card-body">
-                  <span className="role-eyebrow">Jogador</span>
+                </span>
+                <div className="rd-role-body">
+                  <span className="rd-role-eyebrow">Jogador</span>
                   <strong>Entrar na mesa</strong>
                   <p>
                     {hasLan
-                      ? 'Vejo as mesas encontradas na rede e entro com um clique.'
-                      : 'Entro na mesa do mestre com o código do convite.'}
+                      ? 'Veja as mesas abertas na rede e entre com um clique, levando uma das suas fichas.'
+                      : 'Entre na mesa do mestre com o código do convite, levando uma das suas fichas.'}
                   </p>
-                  <span className="role-cta">
-                    {hasLan ? 'Procurar mesas' : 'Entrar com código'} <span className="role-cta-arrow">→</span>
-                  </span>
                 </div>
+                <span className="rd-role-cta">
+                  {hasLan ? 'Procurar mesas' : 'Entrar com código'} <ArrowIcon />
+                </span>
               </button>
             </div>
-          </>
+          </div>
         )}
 
-        {role !== null && (
-          <>
-            <button className="link-back" onClick={() => setRole(null)}>
-              ← trocar
-            </button>
+        {role === 'gm' && hasLan && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 860 }}>
+            <div className="rd-opt-tabs" role="tablist" aria-label="Opções do mestre">
+              <button
+                role="tab"
+                aria-selected={masterTab === 'saved'}
+                className={`rd-opt-tab${masterTab === 'saved' ? ' active' : ''}`}
+                onClick={() => setMasterTab('saved')}
+              >
+                <span className="rd-opt-tab-icon">
+                  <SavedTableIcon />
+                </span>
+                <span className="rd-opt-tab-text">
+                  <span className="rd-opt-tab-title">Jogar numa mesa já criada</span>
+                  <span className="rd-opt-tab-desc">
+                    Continue de onde parou — nome e cor do mestre já preenchidos.
+                  </span>
+                </span>
+              </button>
+              <button
+                role="tab"
+                aria-selected={masterTab === 'new'}
+                className={`rd-opt-tab${masterTab === 'new' ? ' active' : ''}`}
+                onClick={() => setMasterTab('new')}
+              >
+                <span className="rd-opt-tab-icon">
+                  <NewTableIcon />
+                </span>
+                <span className="rd-opt-tab-text">
+                  <span className="rd-opt-tab-title">Criar nova mesa</span>
+                  <span className="rd-opt-tab-desc">Comece uma campanha do zero.</span>
+                </span>
+              </button>
+            </div>
 
-            <div className="field">
-              <label>Seu nome{role === 'gm' ? ' (mestre)' : ''}</label>
-              <div className="row">
+            {masterTab === 'saved' && (
+              <div className="rd-connect-panel">
+                <div className="rd-connect-panel-head">
+                  <span className="rd-connect-panel-title">Suas mesas · {savedTables.length}</span>
+                  <span className="rd-connect-panel-note">salvas neste computador</span>
+                </div>
+                {savedTables.length === 0 ? (
+                  <p className="rd-connect-empty">
+                    Nenhuma mesa salva ainda — hospede uma em "Criar nova mesa" e ela aparece aqui
+                    pra abrir de novo depois, com seu nome e cor já preenchidos.
+                  </p>
+                ) : (
+                  <div className="rd-table-list">
+                    {savedTables.map((t) => {
+                      const isOpening = hosting && tableName === t.name;
+                      return (
+                        <div
+                          key={t.id}
+                          className="rd-table-row"
+                          style={{ '--rd-row-color': t.masterColor } as CSSProperties}
+                        >
+                          <span className="rd-table-row-thumb">
+                            <MesaIcon />
+                          </span>
+                          <span className="rd-table-row-info">
+                            <span className="rd-table-row-name">{t.name}</span>
+                            <span className="rd-table-row-meta">
+                              Mestre {t.masterName} · {t.timesHosted} sessão
+                              {t.timesHosted === 1 ? '' : 'ões'} · última vez {fmtDate(t.lastHostedAt)}
+                            </span>
+                          </span>
+                          <button
+                            className="rd-table-row-play"
+                            disabled={hosting}
+                            onClick={() => hostSavedTable(t)}
+                          >
+                            {isOpening ? 'ABRINDO…' : 'JOGAR'}
+                          </button>
+                          <button
+                            className="rd-table-row-del"
+                            aria-label={`Excluir "${t.name}" da lista`}
+                            disabled={hosting}
+                            onClick={() => removeSavedTable(t.id)}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {masterTab === 'new' && (
+              <div className="rd-connect-panel">
+                <div className="rd-form-grid">
+                  <label className="rd-field">
+                    <span className="rd-field-label">Seu nome (mestre)</span>
+                    <input
+                      autoFocus
+                      className="rd-input"
+                      value={me.name}
+                      placeholder="Ex.: Mestre Kléber"
+                      onChange={(e) => {
+                        update({ name: e.target.value });
+                        setError('');
+                      }}
+                    />
+                  </label>
+                  <div className="rd-field">
+                    <span className="rd-field-label">Cor</span>
+                    <div className="rd-color-row">
+                      {ROLE_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          aria-label={`Usar a cor ${c}`}
+                          aria-pressed={me.color === c}
+                          className={`rd-color-swatch${me.color === c ? ' selected' : ''}`}
+                          style={{ background: c, boxShadow: me.color === c ? `0 0 14px ${c}` : 'none' }}
+                          onClick={() => update({ color: c })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <label className="rd-field">
+                  <span className="rd-field-label">Nome da mesa</span>
+                  <input
+                    className="rd-input"
+                    value={tableName}
+                    onChange={(e) => setTableName(e.target.value)}
+                    placeholder="Mesa de sexta"
+                  />
+                </label>
+                <button
+                  className="rd-connect-host-btn"
+                  disabled={hosting}
+                  onClick={() => {
+                    if (!me.name.trim()) return setError('Escolha um nome.');
+                    // Antes essa decisão incluía escolher cenário 3D antes de
+                    // entrar — pedido do usuário no redesign: removido, 2D/3D
+                    // se escolhe DENTRO da mesa (janela flutuante "Mestre"/
+                    // "Mapas", ver BattleMap.tsx), não mais aqui. Sempre entra
+                    // com um mapa 2D em branco.
+                    pending2dRef.current = { map2d: null };
+                    hostLan();
+                  }}
+                >
+                  <HostIcon />
+                  {hosting ? 'MESA NO AR · ESPERANDO JOGADORES' : 'HOSPEDAR MESA'}
+                </button>
+                <div className="rd-connect-info">
+                  <span className="rd-connect-info-dot" />
+                  <p>
+                    A mesa aparece sozinha pra quem estiver na mesma rede (Radmin VPN ou Wi-Fi). O
+                    modo 2D ou 3D você escolhe lá dentro. Endereço:{' '}
+                    <b>
+                      {LAN_INFO?.localIp}:{LAN_INFO?.port}
+                    </b>
+                  </p>
+                </div>
+                {error && <p className="rd-connect-error">{error}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {role === 'gm' && !hasLan && (
+          <div className="rd-connect-panel" style={{ maxWidth: 860 }}>
+            <div className="rd-form-grid">
+              <label className="rd-field">
+                <span className="rd-field-label">Seu nome (mestre)</span>
                 <input
                   autoFocus
+                  className="rd-input"
                   value={me.name}
-                  placeholder={role === 'gm' ? 'Ex.: Mestre Kléber' : 'Ex.: Turma do Kléber'}
+                  placeholder="Ex.: Mestre Kléber"
                   onChange={(e) => {
                     update({ name: e.target.value });
                     setError('');
                   }}
                 />
-                <button
-                  className="swatch"
-                  style={{ background: me.color }}
-                  title="Trocar cor"
-                  onClick={() =>
-                    update({ color: PALETTE[Math.floor(Math.random() * PALETTE.length)] })
-                  }
-                />
+              </label>
+              <div className="rd-field">
+                <span className="rd-field-label">Cor</span>
+                <div className="rd-color-row">
+                  {ROLE_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      aria-label={`Usar a cor ${c}`}
+                      aria-pressed={me.color === c}
+                      className={`rd-color-swatch${me.color === c ? ' selected' : ''}`}
+                      style={{ background: c, boxShadow: me.color === c ? `0 0 14px ${c}` : 'none' }}
+                      onClick={() => update({ color: c })}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-
-            {role === 'player' && (
-              <div className="field">
-                <label>Ficha que você vai usar nesta mesa</label>
-                {myChars.length === 0 ? (
-                  <p className="faint" style={{ fontSize: 12 }}>
-                    Você ainda não tem nenhuma ficha —{' '}
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        goToLibrary();
-                      }}
-                    >
-                      criar uma agora
-                    </a>
-                    . Também dá pra entrar sem ficha, só pra observar/rolar dados soltos.
-                  </p>
-                ) : (
-                  <select
-                    value={chosenCharId ?? ''}
-                    onChange={(e) => setChosenCharId(e.target.value || null)}
-                  >
-                    <option value="">— nenhuma (só observar) —</option>
-                    {myChars.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
+            <button className="rd-connect-host-btn" onClick={() => enter(newRoomCode())}>
+              <HostIcon />
+              Criar mesa
+            </button>
+            <div className="rd-divider" />
+            <label className="rd-field">
+              <span className="rd-field-label">…ou reabrir uma mesa existente</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="rd-input rd-input-mono"
+                  value={code}
+                  placeholder="CÓDIGO"
+                  maxLength={6}
+                  style={{ textTransform: 'uppercase', letterSpacing: 3 }}
+                  onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
+                />
+                <button className="rd-btn-ghost" disabled={code.length < 4} onClick={() => enter(code)}>
+                  Abrir
+                </button>
               </div>
-            )}
+            </label>
+            {error && <p className="rd-connect-error">{error}</p>}
+          </div>
+        )}
 
-            {hasLan ? (
-              role === 'gm' ? (
-                <>
-                  <div className="field">
-                    <label>Nome da mesa</label>
+        {role === 'player' && (
+          <div className={hasLan ? 'rd-player-grid' : undefined} style={!hasLan ? { maxWidth: 480 } : undefined}>
+            <div className={hasLan ? 'rd-player-col' : undefined}>
+              <div className="rd-connect-panel">
+                <div className="rd-form-grid">
+                  <label className="rd-field">
+                    <span className="rd-field-label">Seu nome</span>
                     <input
-                      value={tableName}
-                      onChange={(e) => setTableName(e.target.value)}
-                      placeholder="Mesa de sexta"
+                      autoFocus
+                      className="rd-input"
+                      value={me.name}
+                      placeholder="Ex.: Turma do Kléber"
+                      onChange={(e) => {
+                        update({ name: e.target.value });
+                        setError('');
+                      }}
                     />
+                  </label>
+                  <div className="rd-field">
+                    <span className="rd-field-label">Cor</span>
+                    <div className="rd-color-row">
+                      {ROLE_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          aria-label={`Usar a cor ${c}`}
+                          aria-pressed={me.color === c}
+                          className={`rd-color-swatch${me.color === c ? ' selected' : ''}`}
+                          style={{ background: c, boxShadow: me.color === c ? `0 0 14px ${c}` : 'none' }}
+                          onClick={() => update({ color: c })}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <button
-                    className="primary"
-                    style={{ width: '100%' }}
-                    disabled={hosting}
-                    onClick={() => {
-                      if (!me.name.trim()) return setError('Escolha um nome.');
-                      // Antes abria um diálogo pra escolher/criar um cenário
-                      // 2D antes de entrar — pedido do usuário: removido por
-                      // ser "inútil, só deixa mais confuso". Vai direto pra
-                      // mesa com um mapa em branco; escolher/trocar cenário
-                      // (inclusive carregar um mapa montado na Área do
-                      // Mestre) agora é feito de dentro da mesa, na janela
-                      // flutuante "Mestre"/"Mapas" (ver BattleMap.tsx).
-                      pending2dRef.current = { map2d: null };
-                      hostLan();
-                    }}
-                  >
-                    {hosting ? 'Hospedando…' : 'Hospedar mesa (2D)'}
-                  </button>
-                  <button
-                    className="ghost"
-                    style={{ width: '100%', marginTop: 8 }}
-                    disabled={hosting}
-                    onClick={() => {
-                      if (!me.name.trim()) return setError('Escolha um nome.');
-                      setShowPlacePicker(true);
-                    }}
-                  >
-                    🧊 Hospedar mesa (3D)
-                  </button>
-                  <p className="faint" style={{ fontSize: 12, marginTop: 8 }}>
-                    Sua mesa vai aparecer sozinha pros jogadores que estiverem na mesma rede
-                    (Radmin VPN ou Wi-Fi). Endereço: <b>{LAN_INFO?.localIp}:{LAN_INFO?.port}</b>
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="section-title">Mesas encontradas na rede</div>
-                  {tables.length === 0 && (
-                    <p className="empty">
-                      Procurando… confira se você e o mestre estão conectados na mesma rede do
-                      Radmin VPN.
-                    </p>
-                  )}
-                  <div className="chip-row" style={{ flexDirection: 'column', gap: 8 }}>
-                    {tables.map((t) => (
-                      <button
-                        key={t.host + ':' + t.port}
-                        className="lan-table-card"
-                        onClick={() => joinLan(`${t.host}:${t.port}`, t.name)}
+                </div>
+
+                <label className="rd-field">
+                  <span className="rd-field-label">Ficha que você vai usar</span>
+                  {myChars.length === 0 ? (
+                    <p className="rd-field-no-chars">
+                      Você ainda não tem nenhuma ficha —{' '}
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          goToLibrary();
+                        }}
                       >
-                        <span className="live-dot" />
-                        <span style={{ flex: 1, textAlign: 'left' }}>
-                          <strong>{t.name}</strong>
-                          <br />
-                          <small className="faint">
-                            {t.host}:{t.port} · {t.players} conectado(s)
-                          </small>
-                        </span>
-                        <span>Entrar ▸</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="home-divider" />
-                  <div className="field">
-                    <label>…ou digite o endereço manualmente</label>
-                    <div className="row">
+                        criar uma agora
+                      </a>
+                      . Também dá pra entrar sem ficha, só pra observar/rolar dados soltos.
+                    </p>
+                  ) : (
+                    <select
+                      className="rd-input"
+                      value={chosenCharId ?? ''}
+                      onChange={(e) => setChosenCharId(e.target.value || null)}
+                    >
+                      <option value="">Nenhuma (só observar)</option>
+                      {myChars.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} · {CLASS_BY_KEY[c.classe].name} · NEX {c.nex}%
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </label>
+
+                {hasLan ? (
+                  <>
+                    <div className="rd-divider" />
+                    <label className="rd-field">
+                      <span className="rd-field-label">Ou digite o endereço</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          className="rd-input rd-input-mono"
+                          value={manualAddr}
+                          placeholder="25.10.20.30:47300"
+                          onChange={(e) => setManualAddr(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && joinLan(manualAddr)}
+                        />
+                        <button className="rd-btn-ghost" onClick={() => joinLan(manualAddr)}>
+                          Entrar
+                        </button>
+                      </div>
+                    </label>
+                  </>
+                ) : (
+                  <label className="rd-field">
+                    <span className="rd-field-label">Código da mesa</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <input
-                        value={manualAddr}
-                        placeholder="25.10.20.30:47300"
-                        onChange={(e) => setManualAddr(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && joinLan(manualAddr)}
+                        className="rd-input rd-input-mono"
+                        value={code}
+                        placeholder="ABC123"
+                        maxLength={6}
+                        style={{ textTransform: 'uppercase', letterSpacing: 3 }}
+                        onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
+                        onKeyDown={(e) => e.key === 'Enter' && enter(code)}
                       />
-                      <button style={{ flex: 'none' }} onClick={() => joinLan(manualAddr)}>
+                      <button className="rd-btn-primary" disabled={code.length < 4} onClick={() => enter(code)}>
                         Entrar
                       </button>
                     </div>
+                  </label>
+                )}
+
+                {error && <p className="rd-connect-error">{error}</p>}
+              </div>
+            </div>
+
+            {hasLan && (
+              <div className="rd-player-col">
+                <div className="rd-connect-panel">
+                  <div className="rd-connect-panel-head">
+                    <span className="rd-connect-panel-title">Mesas na rede</span>
                   </div>
-                </>
-              )
-            ) : role === 'gm' ? (
-              <>
-                <button
-                  className="primary"
-                  style={{ width: '100%' }}
-                  onClick={() => enter(newRoomCode())}
-                >
-                  Criar mesa
-                </button>
-                <div className="home-divider" />
-                <div className="field">
-                  <label>…ou reabrir uma mesa existente</label>
-                  <div className="row">
-                    <input
-                      value={code}
-                      placeholder="CÓDIGO"
-                      maxLength={6}
-                      style={{ textTransform: 'uppercase', letterSpacing: 3 }}
-                      onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
-                    />
-                    <button disabled={code.length < 4} style={{ flex: 'none' }} onClick={() => enter(code)}>
-                      Abrir
-                    </button>
+                  <div className="rd-radar-row">
+                    <div className="rd-radar" aria-hidden="true">
+                      <span className="rd-radar-ring rd-radar-ring-a" />
+                      <span className="rd-radar-ring rd-radar-ring-b" />
+                      <span className="rd-radar-sweep" />
+                      <span className="rd-radar-ping" />
+                      {tables.length > 0 && (
+                        <>
+                          <span className="rd-radar-blip" style={{ left: 78, top: 34 }} />
+                          <span className="rd-radar-blip" style={{ left: 30, top: 74, animationDelay: '0.4s' }} />
+                        </>
+                      )}
+                    </div>
+                    {tables.length === 0 ? (
+                      <div className="rd-radar-status">
+                        <span className="rd-radar-status-title">Procurando…</span>
+                        <span className="rd-radar-status-sub">
+                          Confira se você e o mestre estão na mesma rede do Radmin VPN.
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="rd-radar-found">
+                        {tables.length} mesa{tables.length === 1 ? '' : 's'} encontrada
+                        {tables.length === 1 ? '' : 's'}.
+                      </span>
+                    )}
                   </div>
-                </div>
-              </>
-            ) : (
-              <div className="field">
-                <label>Código da mesa</label>
-                <div className="row">
-                  <input
-                    value={code}
-                    placeholder="ABC123"
-                    maxLength={6}
-                    style={{ textTransform: 'uppercase', letterSpacing: 3 }}
-                    onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
-                    onKeyDown={(e) => e.key === 'Enter' && enter(code)}
-                  />
-                  <button
-                    className="primary"
-                    disabled={code.length < 4}
-                    style={{ flex: 'none' }}
-                    onClick={() => enter(code)}
-                  >
-                    Entrar
-                  </button>
+                  {tables.length > 0 && (
+                    <div className="rd-table-list">
+                      {tables.map((t) => (
+                        <div key={t.host + ':' + t.port} className="rd-table-row">
+                          <span className="rd-table-row-thumb" style={{ '--rd-row-color': '#3ddc84' } as CSSProperties}>
+                            <MesaIcon />
+                          </span>
+                          <span className="rd-table-row-info">
+                            <span className="rd-table-row-name">{t.name}</span>
+                            <span className="rd-table-row-meta">
+                              {t.host}:{t.port} · {t.players} conectado(s)
+                            </span>
+                          </span>
+                          <button className="rd-table-row-play" onClick={() => joinLan(`${t.host}:${t.port}`, t.name)}>
+                            Entrar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-
-            {error && (
-              <p className="muted" style={{ color: 'var(--blood-bright)', marginTop: 8 }}>
-                {error}
-              </p>
-            )}
-          </>
+          </div>
         )}
       </div>
-
-      <div className="daily-sigil-small">
-        <Sigil />
-        <span className="daily-sigil-line" />
-      </div>
-
-      {showPlacePicker && (
-        <PlacePickerDialog
-          onClose={() => setShowPlacePicker(false)}
-          onBlank={() => {
-            pending3dRef.current = { place: null };
-            setShowPlacePicker(false);
-            hostLan();
-          }}
-          onPick={(place) => {
-            pending3dRef.current = { place };
-            setShowPlacePicker(false);
-            hostLan();
-          }}
-        />
-      )}
-
     </div>
   );
 }
@@ -978,6 +1200,74 @@ function PlayerIcon() {
         strokeWidth="1.4"
         opacity="0.75"
       />
+    </svg>
+  );
+}
+
+/* ---------- ícones em traço de "Entrar numa mesa" (redesign Passo 3) ----------
+   GmIcon/PlayerIcon acima são reaproveitados dos cartões de papel; os
+   daqui são novos pra essa tela (abas do mestre, mesas salvas/encontradas,
+   excluir, hospedar). Nenhum emoji na tela. */
+
+function BackArrowIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+function SavedTableIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 5h6l2 2h8v12H4z" />
+      <path d="M10 12l3 2-3 2z" />
+    </svg>
+  );
+}
+
+function NewTableIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+
+// Ícone genérico pra uma mesa (salva ou encontrada na rede) — não dá pra
+// saber o tipo real (2D/3D, campanha/one-shot) sem abrir a mesa, então é
+// sempre o mesmo desenho (uma mesa vista de perfil), só a cor muda.
+function MesaIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="5" width="18" height="4" rx="1.2" />
+      <path d="M7 9v10M17 9v10" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+    </svg>
+  );
+}
+
+function HostIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a14 14 0 0 1 20 0" />
+      <circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none" />
     </svg>
   );
 }

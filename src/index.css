@@ -584,144 +584,12 @@ label {
   padding: 0;
   flex: none;
 }
-.role-kicker {
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-size: 11px;
-  color: var(--text-faint);
-  margin-bottom: 4px;
-}
-.role-title {
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-bottom: 10px;
-}
-.role-cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-/* Passo de escolha de papel é mais largo que o resto do fluxo de conectar
-   (dois cards lado a lado) — `:has()` deixa isso só nesse passo, sem
-   precisar de outra classe no wrapper pai. */
-.daily-content:has(.role-cards) {
-  max-width: 780px;
-}
-@media (max-width: 720px) {
-  .role-cards {
-    grid-template-columns: 1fr;
-  }
-}
-.role-card {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg-2);
-  overflow: hidden;
-}
-.role-card:hover {
-  border-color: var(--blood);
-}
-.role-card-player:hover {
-  border-color: var(--blue);
-}
-.role-card-art {
-  height: 130px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  color: var(--blood-bright);
-}
-.role-card-gm .role-card-art {
-  background: radial-gradient(circle at 50% 32%, rgba(224, 30, 43, 0.35), transparent 70%),
-    linear-gradient(180deg, #1a0406 0%, var(--bg-2) 100%);
-}
-.role-card-player .role-card-art {
-  color: var(--blue);
-  background: radial-gradient(circle at 50% 32%, rgba(63, 127, 214, 0.3), transparent 70%),
-    linear-gradient(180deg, #051019 0%, var(--bg-2) 100%);
-}
-.role-card-art svg {
-  filter: drop-shadow(0 0 16px currentColor);
-  opacity: 0.9;
-}
-.role-card-body {
-  padding: 16px 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.role-eyebrow {
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 11px;
-  color: var(--blood-bright);
-}
-.role-card-player .role-eyebrow {
-  color: var(--blue);
-}
-.role-card-body strong {
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  font-size: 20px;
-}
-.role-card-body p {
-  color: var(--text-dim);
-  font-size: 12.5px;
-  line-height: 1.5;
-  margin: 6px 0 16px;
-}
-.role-cta {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 18px;
-  border-radius: 999px;
-  background: var(--blood);
-  color: #fff;
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  transition: filter 0.15s;
-}
-.role-card-player .role-cta {
-  background: var(--bg-3);
-  border: 1px solid var(--line);
-  color: var(--text);
-}
-.role-card:hover .role-cta {
-  filter: brightness(1.15);
-}
-.role-cta-arrow {
-  opacity: 0.8;
-}
-.lan-table-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--bg-2);
-}
-.lan-table-card:hover {
-  border-color: var(--blood);
-  background: var(--blood-tint);
-}
+/* .role-kicker, .role-title, .role-cards, .role-card (e variantes) e
+   .lan-table-card — tela "Entrar numa mesa" antiga, não-redesenhada — foram
+   removidas daqui no redesign Passo 3; a tela agora usa .rd-connect-*,
+   .rd-role-*, .rd-table-row (ver mais abaixo, seção "REDESIGN — Passo 3").
+   .link-back continua, é usado por outras telas (CharacterLibrary,
+   ProfileEditor etc.). */
 .link-back {
   border: none;
   background: none;
@@ -5889,5 +5757,685 @@ label {
   }
   .rd-menu-player-name {
     max-width: 96px;
+  }
+}
+
+/* =====================================================================
+   REDESIGN — Passo 3: Entrar numa mesa (Home.tsx, view === 'connect')
+   Fiel à referência (Entrar-Mesa.dc.html): escolha de papel (Mestre
+   vermelho / Jogador azul) → Mestre escolhe entre reabrir uma mesa salva
+   ou criar uma nova (nome do mestre, cor, nome da mesa, um botão só
+   "HOSPEDAR MESA" — 2D/3D continua se escolhendo DENTRO da mesa, isso não
+   mudou); Jogador define nome/cor/ficha, vê o radar procurando mesas na
+   rede e pode digitar o endereço na mão. Fundo reaproveita o granulado/
+   névoa/vinheta/scanlines já criados pro Menu (Passo 2) — sem decoração
+   nova nesta tela (sem brasas, sem sigilo gigante de fundo). Única peça
+   nova de verdade (função, não só visual): mesas salvas localmente — ver
+   src/lib/savedTables.ts.
+   Único keyframe novo precisado aqui é rd-radar-ping (anel que expande e
+   some, pro "ping" de radar) — o resto (giro do setor do radar, pulso dos
+   blips de mesa encontrada, brilho dos botões) reaproveita rd-spin/
+   rd-pulse-ring/rd-shimmer já existentes.
+   ===================================================================== */
+@keyframes rd-radar-ping {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.rd-connect {
+  position: relative;
+  min-height: 100%;
+  background: var(--rd-sangue-bg);
+  color: #e9e4dc;
+  font-family: var(--rd-font-body);
+}
+.rd-connect-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.rd-connect-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 56px 0;
+}
+.rd-connect-main {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  padding: 28px 56px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.rd-connect-back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--rd-tap-min);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rd-sangue-soft);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.rd-connect-back:hover {
+  color: #fff;
+}
+.rd-connect-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: rd-rise 0.5s ease-out both;
+}
+.rd-connect-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 20px;
+}
+.rd-connect-title {
+  margin: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+.rd-connect-title span {
+  color: var(--rd-sangue);
+}
+.rd-connect-crumb {
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: #a06064;
+  padding-bottom: 8px;
+}
+.rd-connect-sub {
+  margin: 0;
+  max-width: 560px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #b9aeb3;
+}
+.rd-connect-sub b {
+  color: var(--rd-sangue-soft);
+}
+
+/* ---- escolha de papel ---- */
+.rd-connect-kicker {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #8e8088;
+  text-transform: uppercase;
+}
+.rd-connect-label {
+  font-family: var(--rd-font-disp);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.rd-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+  max-width: 860px;
+}
+.rd-role-card {
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  border-radius: var(--rd-radius);
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  cursor: pointer;
+  color: #eee8ec;
+  border: 1px solid var(--rd-sangue-line);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.2s, box-shadow 0.2s;
+  animation: rd-rise 0.5s ease-out both;
+}
+.rd-role-card:hover {
+  transform: translateY(-6px);
+}
+.rd-role-card-gm {
+  background: linear-gradient(160deg, rgba(224, 22, 30, 0.18), rgba(18, 13, 17, 0.95) 50%);
+}
+.rd-role-card-gm:hover {
+  border-color: var(--rd-sangue);
+  box-shadow: 0 20px 50px rgba(224, 22, 30, 0.25);
+}
+.rd-role-card-gm::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: rd-shimmer 5s ease-in-out infinite;
+}
+.rd-role-card-player {
+  background: linear-gradient(160deg, rgba(74, 139, 240, 0.16), rgba(18, 13, 17, 0.95) 50%);
+  border-color: #1d2a3f;
+}
+.rd-role-card-player:hover {
+  border-color: var(--blue);
+  box-shadow: 0 20px 50px rgba(74, 139, 240, 0.25);
+}
+.rd-role-icon-chip {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rd-role-card-gm .rd-role-icon-chip {
+  background: rgba(224, 22, 30, 0.15);
+  border: 1px solid var(--rd-sangue-line);
+  color: var(--rd-sangue-bright);
+  filter: drop-shadow(0 0 12px rgba(224, 22, 30, 0.6));
+}
+.rd-role-card-player .rd-role-icon-chip {
+  background: rgba(74, 139, 240, 0.15);
+  border: 1px solid #23406e;
+  color: #6fa8ff;
+  filter: drop-shadow(0 0 12px rgba(74, 139, 240, 0.6));
+}
+.rd-role-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rd-role-eyebrow {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.rd-role-card-gm .rd-role-eyebrow {
+  color: var(--rd-sangue-soft);
+}
+.rd-role-card-player .rd-role-eyebrow {
+  color: #6fa8ff;
+}
+.rd-role-body strong {
+  font-family: var(--rd-font-disp);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.rd-role-body p {
+  margin: 0;
+  font-size: 14px;
+  color: #b9aeb3;
+  line-height: 1.5;
+}
+.rd-role-cta {
+  align-self: flex-start;
+  height: var(--rd-tap-min);
+  padding: 0 18px;
+  border-radius: var(--rd-radius-pill);
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.rd-role-card-gm .rd-role-cta {
+  background: var(--rd-sangue);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(224, 22, 30, 0.4);
+}
+.rd-role-card-player .rd-role-cta {
+  border: 1px solid var(--blue);
+  color: #cfe0ff;
+}
+
+/* ---- mestre: reabrir/criar ---- */
+.rd-connect-panel {
+  border-radius: var(--rd-radius);
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: rd-rise 0.35s ease-out both;
+}
+.rd-opt-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.rd-opt-tab {
+  min-height: 92px;
+  border-radius: var(--rd-radius-sm);
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  color: #f4eef0;
+  text-align: left;
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.rd-opt-tab:hover {
+  border-color: var(--rd-sangue-deep);
+}
+.rd-opt-tab.active {
+  border: 1.5px solid var(--rd-sangue);
+  background: linear-gradient(160deg, rgba(224, 22, 30, 0.2), #160e12);
+  box-shadow: 0 0 24px rgba(224, 22, 30, 0.22);
+}
+.rd-opt-tab-icon {
+  flex: none;
+  color: #b9aeb3;
+}
+.rd-opt-tab.active .rd-opt-tab-icon {
+  color: var(--rd-sangue-bright);
+}
+.rd-opt-tab-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rd-opt-tab-title {
+  font-family: var(--rd-font-disp);
+  font-size: 17px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.rd-opt-tab-desc {
+  font-size: 12.5px;
+  color: #a89ea3;
+}
+
+.rd-connect-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rd-connect-panel-title {
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rd-sangue-bright);
+}
+.rd-connect-panel-note {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #7e7078;
+}
+
+.rd-connect-empty {
+  font-size: 13px;
+  color: #a89ea3;
+  line-height: 1.6;
+  padding: 10px 2px;
+}
+
+.rd-table-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rd-table-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 68px;
+  padding: 10px 12px;
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.rd-table-row:hover {
+  background: #1e1216;
+  border-color: #5a1a20;
+  transform: translateX(4px);
+}
+.rd-table-row-thumb {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, color-mix(in srgb, var(--rd-row-color, var(--rd-sangue)) 30%, transparent), #0e0a0d 75%);
+  border: 1px solid color-mix(in srgb, var(--rd-row-color, var(--rd-sangue)) 40%, transparent);
+  color: var(--rd-row-color, var(--rd-sangue-bright));
+}
+.rd-table-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rd-table-row-name {
+  font-family: var(--rd-font-disp);
+  font-size: 17px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rd-table-row-meta {
+  font-family: var(--rd-font-mono);
+  font-size: 11.5px;
+  color: #9e9298;
+}
+.rd-table-row-play {
+  flex: none;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: var(--rd-radius-sm);
+  border: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: var(--rd-sangue);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(224, 22, 30, 0.35);
+}
+.rd-table-row-play:disabled {
+  background: #3a1014;
+  color: #ff8a8e;
+  box-shadow: none;
+  cursor: default;
+}
+.rd-table-row-del {
+  flex: none;
+  width: var(--rd-tap-min);
+  height: var(--rd-tap-min);
+  min-width: var(--rd-tap-min);
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-sangue-line);
+  background: transparent;
+  color: #b9aeb3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.rd-table-row-del:hover {
+  border-color: var(--rd-sangue);
+  color: var(--rd-sangue-bright);
+}
+
+.rd-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.rd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-field-label {
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b9aeb3;
+}
+.rd-input {
+  height: 46px;
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-sangue-line);
+  background: #0e0a0d;
+  color: #f4eef0;
+  padding: 0 14px;
+  font-size: 15px;
+  font-family: var(--rd-font-body);
+  width: 100%;
+}
+.rd-input:focus {
+  outline: none;
+  border-color: var(--rd-sangue);
+  box-shadow: 0 0 0 3px rgba(224, 22, 30, 0.15);
+}
+.rd-input-mono {
+  font-family: var(--rd-font-mono);
+}
+.rd-color-row {
+  display: flex;
+  gap: 6px;
+}
+.rd-color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--rd-radius-sm);
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.rd-color-swatch.selected {
+  border-color: #fff;
+}
+
+.rd-divider {
+  height: 1px;
+  background: var(--rd-sangue-line);
+}
+
+.rd-connect-host-btn {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 58px;
+  border-radius: var(--rd-radius-sm);
+  border: 0;
+  background: linear-gradient(180deg, var(--rd-sangue-bright), var(--rd-sangue-deep));
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(224, 22, 30, 0.4);
+}
+.rd-connect-host-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: rd-shimmer 4s ease-in-out infinite;
+}
+.rd-connect-host-btn:disabled {
+  cursor: default;
+}
+
+.rd-connect-info {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--rd-radius-sm);
+  background: rgba(61, 220, 132, 0.06);
+  border: 1px solid rgba(61, 220, 132, 0.25);
+}
+.rd-connect-info-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #3ddc84;
+  flex: 0 0 auto;
+  --rd-pulse-rgb: 61, 220, 132;
+  animation: rd-pulse-ring 2s ease-in-out infinite;
+}
+.rd-connect-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #b9aeb3;
+  line-height: 1.5;
+}
+.rd-connect-info b {
+  color: #eee8ec;
+  font-family: var(--rd-font-mono);
+}
+
+/* ---- jogador ---- */
+.rd-player-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+  max-width: 1060px;
+}
+.rd-player-col {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+.rd-player-col .rd-connect-panel {
+  height: 100%;
+}
+.rd-field-no-chars {
+  font-size: 12px;
+  color: #a89ea3;
+}
+.rd-radar-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.rd-radar {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--rd-sangue-line);
+  background: radial-gradient(circle, rgba(224, 22, 30, 0.08), transparent 70%);
+  overflow: hidden;
+}
+.rd-radar-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--rd-sangue-line);
+}
+.rd-radar-ring-a {
+  inset: 20px;
+}
+.rd-radar-ring-b {
+  inset: 42px;
+}
+.rd-radar-sweep {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60px;
+  height: 60px;
+  transform-origin: 0 0;
+  background: conic-gradient(from 0deg, rgba(224, 22, 30, 0.55), transparent 70deg);
+  border-radius: 0 0 60px 0;
+  animation: rd-spin 2.4s linear infinite;
+}
+.rd-radar-ping {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 1px solid var(--rd-sangue-bright);
+  animation: rd-radar-ping 2.4s ease-out infinite;
+}
+.rd-radar-blip {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3ddc84;
+  --rd-pulse-rgb: 61, 220, 132;
+  animation: rd-pulse-ring 1.2s ease-in-out infinite;
+}
+.rd-radar-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-radar-status-title {
+  font-family: var(--rd-font-disp);
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.rd-radar-status-sub {
+  font-size: 13px;
+  color: #a89ea3;
+  line-height: 1.5;
+}
+.rd-radar-found {
+  font-size: 14px;
+  color: #b9aeb3;
+}
+.rd-role-icon-chip svg {
+  width: 32px;
+  height: auto;
+}
+.rd-connect-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--rd-sangue-bright);
+}
+
+@media (max-width: 760px) {
+  .rd-connect-top,
+  .rd-connect-main {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .rd-connect-title {
+    font-size: 38px;
+  }
+  .rd-role-grid {
+    grid-template-columns: 1fr;
+  }
+  .rd-opt-tabs {
+    grid-template-columns: 1fr;
+  }
+  .rd-form-grid {
+    grid-template-columns: 1fr;
   }
 }
