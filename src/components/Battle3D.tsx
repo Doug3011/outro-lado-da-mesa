@@ -1054,6 +1054,8 @@ export function Battle3D() {
           topFrac={0.06}
           defaultWidth={420}
           defaultHeight={560}
+          minimizable
+          maximizable
         >
           <GmCharacterTabs
             openIds={gmFichaTabs}
@@ -1086,6 +1088,8 @@ export function Battle3D() {
               topFrac={0.1 + (i % 3) * 0.1}
               defaultWidth={380}
               defaultHeight={480}
+              minimizable
+              maximizable
             >
               <CharacterSheet character={c} />
             </FloatingWindow>

@@ -339,6 +339,75 @@ export function GmBadgeIcon() {
   );
 }
 
+// ---------- REDESIGN Passo 5 (Ficha de personagem) ----------
+// Ícones novos usados pelo cabeçalho da ficha (tela cheia e janela na
+// mesa) e pelo chrome extra da FloatingWindow quando `minimizable`/
+// `maximizable` estão ligados (só a ficha usa essas duas por enquanto —
+// ver BattleMap.tsx/Battle3D.tsx).
+
+// "Vincular token" (cabeçalho da ficha) — dois elos de corrente, mesmo
+// traço do botão equivalente em Mesa-Ficha.dc.html (`mf-tool`).
+export function LinkTokenIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// "No celular" (abre o cartão com QR+endereço, reaproveitando FichaQr.tsx)
+// — silhueta de telefone, mesmo traço da referência.
+export function PhoneIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M11 18h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// "Regra PD" (funde PE+Sanidade em Pontos de Determinação) — gota,
+// mesmo traço da referência (`togglePd`).
+export function PdIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 3c4 6 6 9 6 12a6 6 0 0 1-12 0c0-3 2-6 6-12z" />
+    </svg>
+  );
+}
+
+// Minimizar/maximizar/restaurar a FloatingWindow (chrome extra opt-in via
+// `minimizable`/`maximizable`, ver FloatingWindow.tsx) — mesmos traços da
+// referência (Mesa-Ficha.dc.html, botões "Minimizar"/"Maximizar").
+export function MinimizeWinIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+export function MaximizeWinIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="5" y="5" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+export function RestoreWinIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="7" y="7" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M7 4h9a2 2 0 0 1 2 2v9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function GearIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>

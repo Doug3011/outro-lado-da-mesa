@@ -48,25 +48,58 @@ import type { CatalogItem } from '../data/equipmentCatalog';
 import { EquipmentCatalogDialog } from './EquipmentCatalogDialog';
 import { FichaQr } from './FichaQr';
 import { TokenLinkDialog } from './TokenLinkDialog';
+import { GearIcon, LinkTokenIcon, PdIcon, PhoneIcon } from './icons';
 
-type SheetTab =
-  | 'geral'
-  | 'progressao'
-  | 'pericias'
-  | 'combate'
-  | 'inventario'
-  | 'rituais'
-  | 'notas';
+// ---------- REDESIGN Passo 5 (Ficha de personagem) ----------
+// Layout em 3 colunas (pentágono de atributos / tabela de perícias /
+// abas) — ver seção "REDESIGN — Passo 5" em index.css pro porquê do
+// container query em vez de media query (a mesma ficha também abre numa
+// FloatingWindow bem menor que a tela, ver BattleMap.tsx/Battle3D.tsx).
+//
+// A aba "Geral" de antes sumiu: identidade (nome/jogador/origem/classe/
+// trilha/patente/NEX/retrato) virou cabeçalho sempre visível; atributos,
+// barras, defesa, proteção/proficiências e condições viraram a coluna da
+// esquerda (sempre visível); perícias virou a coluna do meio (sempre
+// visível). "Habilidades" ganhou aba própria (antes vivia dentro de
+// "Combate" junto com os ataques). "Notas" virou "Descrição" só no
+// rótulo — o campo continua sendo `draft.notes`, um textarea só (a
+// referência tem 5 campos de descrição separados que não existem no
+// modelo de dados hoje; inventar esses campos seria mudar regra/dados,
+// não visual, então ficou de fora — divergência documentada no
+// relatório do passo).
+
+type SheetTab = 'combate' | 'habilidades' | 'rituais' | 'inventario' | 'progressao' | 'notas';
 
 const SHEET_TABS: { key: SheetTab; label: string }[] = [
-  { key: 'geral', label: 'Geral' },
-  { key: 'progressao', label: 'Progressão' },
-  { key: 'pericias', label: 'Perícias' },
   { key: 'combate', label: 'Combate' },
-  { key: 'inventario', label: 'Inventário' },
+  { key: 'habilidades', label: 'Habilidades' },
   { key: 'rituais', label: 'Rituais' },
-  { key: 'notas', label: 'Notas' },
+  { key: 'inventario', label: 'Inventário' },
+  { key: 'progressao', label: 'Progressão' },
+  { key: 'notas', label: 'Descrição' },
 ];
+
+// Posição (em % da caixa do pentágono) de cada atributo — coordenadas
+// tiradas direto da referência (Ficha-Agente.dc.html, caixa de 300x290),
+// convertidas pro centro de cada círculo em porcentagem pra funcionar em
+// qualquer largura de coluna (a FloatingWindow pode nascer bem menor que
+// a tela cheia).
+const PENTAGON_POS: Record<AttrKey, { left: number; top: number }> = {
+  AGI: { left: 50.3, top: 15.9 },
+  INT: { left: 83.7, top: 41.0 },
+  VIG: { left: 71.0, top: 81.4 },
+  PRE: { left: 29.7, top: 81.4 },
+  FOR: { left: 17.0, top: 41.0 },
+};
+
+// Cor por grau de treino — mesmos limiares da referência (0/5/10/15 =
+// destreinado/treinado/veterano/expert, ver Training em data/ordem.ts).
+function tierColor(training: number): string {
+  if (training >= 15) return '#ffb547';
+  if (training >= 10) return '#6fa8ff';
+  if (training >= 5) return '#5bd48a';
+  return '#d9d2cc';
+}
 
 export function CharacterSheet({
   character,
@@ -93,9 +126,21 @@ export function CharacterSheet({
     const scene = activeScene({ scenes, activeSceneId });
     return Object.values(scene.tokens).find((t) => t.characterId === draft.id) ?? null;
   }, [scenes, activeSceneId, draft.id]);
-  const [tab, setTab] = useState<SheetTab>('geral');
+  const [tab, setTab] = useState<SheetTab>('combate');
   const [ritualFilter, setRitualFilter] = useState('');
   const [showEquipCatalog, setShowEquipCatalog] = useState(false);
+  // Pentágono de atributos: por padrão clique = rolar teste (igual à
+  // referência); esse botão alterna pro modo edição (os mesmos círculos
+  // virando campos numéricos) — os atributos continuam editáveis à mão,
+  // só não ao mesmo tempo que clicar rola.
+  const [editingAttrs, setEditingAttrs] = useState(false);
+  // Card com QR+endereço ("No celular", cabeçalho) — reaproveita
+  // FichaQr.tsx, só troca onde/como ele aparece.
+  const [showQr, setShowQr] = useState(false);
+  // Retrato: clique na miniatura já abre o seletor de arquivo (ação mais
+  // comum); "url / remover" revela as outras duas opções que já existiam.
+  const [showPortraitExtra, setShowPortraitExtra] = useState(false);
+  const [freeRollExpr, setFreeRollExpr] = useState('2d6+3');
   // Habilidades: card por habilidade, descrição recolhida por padrão quando
   // a lista tem muitas (ex. ficha importada da Cris, que pode trazer 10+)
   // — pedido do usuário, aba ficava "muito confusa" com tudo expandido ao
@@ -213,11 +258,12 @@ export function CharacterSheet({
   const pendingTotal = pendingPowerSlots.length + pendingAttrSlots.length + pendingTrainSlots.length;
   const abilityFor = (id: string) => draft.abilities.find((a) => a.id === id);
 
-  // Agrupa as habilidades da aba Combate por origem (campo `source` de cada
-  // uma) pra não jogar tudo numa lista plana só — se todas tiverem a mesma
-  // origem (ex. ficha importada da Cris, onde tudo vem como "Importado da
-  // Cris"), cai num grupo só e o rótulo nem aparece (ver abilityGroups.length
-  // > 1 no JSX), então não força uma divisão artificial que não ajudaria.
+  // Agrupa as habilidades da aba Habilidades por origem (campo `source` de
+  // cada uma) pra não jogar tudo numa lista plana só — se todas tiverem a
+  // mesma origem (ex. ficha importada da Cris, onde tudo vem como
+  // "Importado da Cris"), cai num grupo só e o rótulo nem aparece (ver
+  // abilityGroups.length > 1 no JSX), então não força uma divisão
+  // artificial que não ajudaria.
   const abilityGroups = useMemo(() => {
     const order: string[] = [];
     const map = new Map<string, Character['abilities']>();
@@ -255,295 +301,343 @@ export function CharacterSheet({
   };
 
   return (
-    <div className="sheet" ref={containerRef} onBlurCapture={onBlurCapture}>
-      <div className="row">
-        <div className="field" style={{ flex: 2 }}>
-          <label>Nome do agente</label>
-          <input value={draft.name} onChange={(e) => patch({ name: e.target.value })} />
-        </div>
-        <div className="field">
-          <label>NEX %</label>
+    <div className="rd-sheet" ref={containerRef} onBlurCapture={onBlurCapture}>
+      <header className="rd-sheet-header">
+        <div className="rd-sheet-portrait-col">
+          <button
+            type="button"
+            className="rd-sheet-portrait"
+            style={draft.image ? { backgroundImage: `url(${draft.image})` } : undefined}
+            onClick={() => portraitInputRef.current?.click()}
+            aria-label="Trocar retrato (escolher imagem do computador)"
+            title="Trocar retrato"
+          >
+            {!draft.image && (draft.name.trim().charAt(0).toUpperCase() || '?')}
+          </button>
+          <button
+            type="button"
+            className="rd-sheet-portrait-more"
+            onClick={() => setShowPortraitExtra((v) => !v)}
+          >
+            {showPortraitExtra ? 'ocultar' : 'url / remover'}
+          </button>
           <input
-            type="number"
-            min={0}
-            max={99}
-            step={5}
-            value={draft.nex}
-            onChange={(e) => patch({ nex: Number(e.target.value) })}
+            ref={portraitInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void fileToDownscaledDataURL(f, 512).then((u) => u && patch({ image: u }));
+            }}
           />
         </div>
-      </div>
 
-      <div className="row" style={{ marginTop: -6, marginBottom: 10, alignItems: 'center', gap: 8 }}>
-        <span className="faint" style={{ fontSize: 12, flex: 1 }}>
-          {linkedToken ? (
-            <>
-              Token na mesa: <b>{linkedToken.label}</b>
-            </>
-          ) : (
-            'Sem token vinculado nesta mesa ainda'
+        <div className="rd-sheet-identity">
+          <label className="rd-sheet-field">
+            <span className="rd-sheet-field-label">Personagem</span>
+            <input value={draft.name} onChange={(e) => patch({ name: e.target.value })} />
+          </label>
+          <label className="rd-sheet-field">
+            <span className="rd-sheet-field-label">Jogador</span>
+            <input value={draft.player} onChange={(e) => patch({ player: e.target.value })} />
+          </label>
+          <label className="rd-sheet-field">
+            <span className="rd-sheet-field-label">Origem</span>
+            <input value={draft.origem} onChange={(e) => patch({ origem: e.target.value })} />
+          </label>
+          <label className="rd-sheet-field">
+            <span className="rd-sheet-field-label">Classe</span>
+            <select value={draft.classe} onChange={(e) => patch({ classe: e.target.value as ClassKey })}>
+              {CLASSES.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rd-sheet-field">
+            <span className="rd-sheet-field-label">
+              Trilha{draft.nex < 10 ? ' (NEX 10%+)' : ''}
+            </span>
+            <select
+              value={draft.trilha}
+              disabled={draft.nex < 10}
+              onChange={(e) => patch({ trilha: e.target.value })}
+            >
+              <option value="">— nenhuma —</option>
+              {TRILHAS_BY_CLASS[draft.classe].map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rd-sheet-field">
+            <span className="rd-sheet-field-label">Patente</span>
+            <input value={draft.patente} onChange={(e) => patch({ patente: e.target.value })} />
+          </label>
+        </div>
+
+        <div className="rd-sheet-header-side">
+          <div className="rd-sheet-nexbox">
+            <input
+              type="number"
+              min={0}
+              max={99}
+              step={5}
+              value={draft.nex}
+              onChange={(e) => patch({ nex: Number(e.target.value) })}
+              aria-label="NEX %"
+            />
+            <span>NEX %</span>
+          </div>
+          <button
+            type="button"
+            className={`rd-sheet-icon-btn${showQr ? ' on' : ''}`}
+            aria-label="Ficha no celular"
+            title="Ficha no celular"
+            onClick={() => setShowQr((v) => !v)}
+          >
+            <PhoneIcon />
+          </button>
+          {showQr && (
+            <div className="rd-sheet-qr-pop">
+              <FichaQr characterId={draft.id} />
+            </div>
           )}
-        </span>
-        <button className="small ghost" style={{ flex: 'none' }} onClick={() => setShowTokenLink(true)}>
-          {linkedToken ? 'Trocar token' : 'Vincular token'}
+        </div>
+      </header>
+
+      {showPortraitExtra && (
+        <div className="rd-sheet-portrait-extra">
+          <input
+            value={draft.image ?? ''}
+            placeholder="…ou cole uma URL de imagem"
+            onChange={(e) => patch({ image: e.target.value || undefined })}
+          />
+          {draft.image && (
+            <button className="small ghost" onClick={() => patch({ image: undefined })}>
+              remover retrato
+            </button>
+          )}
+        </div>
+      )}
+
+      {draft.trilha && (
+        <p className="faint rd-sheet-hint">
+          {unlockedTrilhaPowers(draft.classe, draft.trilha, draft.nex)
+            .map((p) => `NEX ${p.nex}% ${p.name}`)
+            .join(' · ')}{' '}
+          — próximos poderes da trilha entram sozinhos conforme o NEX sobe.
+          {draft.trilha === 'Tropa de Choque' && ' PV máximo já inclui o bônus de Casca Grossa.'}
+          {draft.trilha === 'Operações Especiais' && ' Iniciativa já inclui o +5 de Iniciativa Aprimorada.'}
+          {draft.trilha === 'Técnico' && ' Carga já inclui o Intelecto do Inventário Otimizado.'}
+        </p>
+      )}
+
+      {draft.nex >= 50 && (
+        <div className="rd-sheet-field" style={{ maxWidth: 320 }}>
+          <span className="rd-sheet-field-label">Afinidade</span>
+          <select
+            value={draft.affinityElement ?? ''}
+            onChange={(e) =>
+              patch({ affinityElement: (e.target.value || undefined) as Element | undefined })
+            }
+          >
+            <option value="">— nenhum ainda —</option>
+            {ELEMENTS.filter((e) => e.key !== 'medo').map((el) => (
+              <option key={el.key} value={el.key}>
+                {el.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {draft.nex >= 50 && (
+        <p className="faint rd-sheet-hint">
+          Elemento de Afinidade (NEX 50%+): na primeira vez que Transcender depois disso, poderes
+          desse elemento podem ser escolhidos de novo pelo bônus de Afinidade (marque na aba
+          Progressão).
+        </p>
+      )}
+
+      <div className="rd-sheet-toolbar">
+        <div className="rd-sheet-toolbar-toggles">
+          <label className="rd-toggle-row" style={{ cursor: 'pointer' }}>
+            <span className="rd-sheet-toggle-label">
+              <GearIcon /> Cálculo automático
+            </span>
+            <span className="rd-toggle" title="Recalcula PV/PE/Sanidade/Defesa pelas regras quando você muda atributo, NEX ou classe">
+              <input
+                type="checkbox"
+                checked={draft.autoCalc}
+                onChange={() => patch({ autoCalc: !draft.autoCalc })}
+              />
+              <span className="rd-toggle-track">
+                <span className="rd-toggle-thumb" />
+              </span>
+            </span>
+          </label>
+          <label className="rd-toggle-row" style={{ cursor: 'pointer' }}>
+            <span className="rd-sheet-toggle-label">
+              <PdIcon /> Regra PD
+            </span>
+            <span
+              className="rd-toggle"
+              title='Regra opcional: funde PE e Sanidade num só medidor, Pontos de Determinação (PD)'
+            >
+              <input
+                type="checkbox"
+                checked={!!draft.pdMode}
+                onChange={() => patch({ pdMode: !draft.pdMode })}
+              />
+              <span className="rd-toggle-track">
+                <span className="rd-toggle-thumb" />
+              </span>
+            </span>
+          </label>
+        </div>
+        <button type="button" className="rd-btn-ghost" onClick={() => setShowTokenLink(true)}>
+          <LinkTokenIcon /> {linkedToken ? `Trocar token (${linkedToken.label})` : 'Vincular token'}
         </button>
       </div>
 
-      <div className="sheet-tabs">
-            {SHEET_TABS.map((t) => (
-              <span
-                key={t.key}
-                className={`chip ${tab === t.key ? 'on' : ''}`}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-                {t.key === 'progressao' && pendingTotal > 0 && (
-                  <span className="badge-count">{pendingTotal}</span>
-                )}
+      <div className="calc-strip">
+        <span className={attrSpent === (attrZeros > 0 ? 5 : 4) ? 'ok' : 'warn'}>
+          Pontos de atributo: {attrSpent}
+          {attrZeros > 0 ? ' (+1 por zerar um)' : ''} / {attrZeros > 0 ? 5 : 4}
+        </span>
+        <span
+          className={
+            ATTRIBUTES.every((a) => draft.attributes[a.key] <= derived.maxAttribute) ? 'ok' : 'warn'
+          }
+        >
+          Atributo máx (NEX {draft.nex}%): {derived.maxAttribute}
+        </span>
+        <span className={trained <= derived.trainedBudget ? 'ok' : 'warn'}>
+          Perícias treinadas: {trained} / {derived.trainedBudget}
+        </span>
+        <span className={slotsUsed <= derived.loadLimit ? 'ok' : 'warn'}>
+          Carga: {slotsUsed} / {derived.loadLimit}
+        </span>
+        <span className="ok">PE por turno: {derived.pePerTurn}</span>
+      </div>
+
+      <div className="rd-sheet-grid">
+        {/* ========== COLUNA ESQUERDA: atributos / recursos / defesa ========== */}
+        <section className="rd-sheet-col rd-sheet-col-left">
+          <div className="rd-card rd-pentagon-card">
+            <div className="rd-pentagon-head">
+              <span className="rd-sheet-subhead">Atributos</span>
+              <button type="button" className="rd-pentagon-mode-btn" onClick={() => setEditingAttrs((v) => !v)}>
+                {editingAttrs ? 'voltar a rolar' : 'editar valores'}
+              </button>
+            </div>
+            <div className="rd-pentagon">
+              <svg className="rd-pentagon-svg" viewBox="0 0 300 290" aria-hidden>
+                <polygon points="150,45 250,118 212,235 88,235 50,118" />
+                <path d="M150 145 150 45M150 145 250 118M150 145 212 235M150 145 88 235M150 145 50 118" />
+              </svg>
+              <span className="rd-pentagon-ring" aria-hidden />
+              <span className="rd-pentagon-center" aria-hidden>
+                Atributos
               </span>
-            ))}
-          </div>
-
-          {tab === 'geral' && (
-        <>
-          <div
-            className="chip-row"
-            style={{ marginBottom: 10, justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <span
-              className={`chip ${draft.autoCalc ? 'on' : ''}`}
-              onClick={() => patch({ autoCalc: !draft.autoCalc })}
-              title="Recalcula PV/PE/Sanidade/Defesa pelas regras quando você muda atributo, NEX ou classe"
-            >
-              {draft.autoCalc ? '⚙ Cálculo automático: ligado' : '⚙ Cálculo automático: desligado'}
-            </span>
-            <span
-              className={`chip ${draft.pdMode ? 'on' : ''}`}
-              onClick={() => patch({ pdMode: !draft.pdMode })}
-              title='Regra opcional ("Sobrevivendo ao Horror"): funde PE e Sanidade num só medidor, Pontos de Determinação (PD)'
-            >
-              {draft.pdMode ? '🩸 Regra PD: ligada' : '🩸 Regra PD: desligada (padrão)'}
-            </span>
-          </div>
-          {draft.pdMode && (
-            <p className="faint" style={{ fontSize: 12, marginTop: -6, marginBottom: 10 }}>
-              Regra opcional de Pontos de Determinação: a barra de Esforço abaixo virou <b>PD</b>{' '}
-              (some PE + Sanidade). Gaste PD onde a ficha pedia PE; dano mental/perda de Sanidade
-              também saem do PD. A barra de Sanidade fica escondida enquanto isso estiver ligado.
-            </p>
-          )}
-
-          <div className="calc-strip">
-            <span className={attrSpent === (attrZeros > 0 ? 5 : 4) ? 'ok' : 'warn'}>
-              Pontos de atributo: {attrSpent}
-              {attrZeros > 0 ? ' (+1 por zerar um)' : ''} / {attrZeros > 0 ? 5 : 4}
-            </span>
-            <span
-              className={
-                ATTRIBUTES.every((a) => draft.attributes[a.key] <= derived.maxAttribute)
-                  ? 'ok'
-                  : 'warn'
-              }
-            >
-              Atributo máx (NEX {draft.nex}%): {derived.maxAttribute}
-            </span>
-            <span className={trained <= derived.trainedBudget ? 'ok' : 'warn'}>
-              Perícias treinadas: {trained} / {derived.trainedBudget}
-            </span>
-            <span className={slotsUsed <= derived.loadLimit ? 'ok' : 'warn'}>
-              Carga: {slotsUsed} / {derived.loadLimit}
-            </span>
-            <span className="ok">PE por turno: {derived.pePerTurn}</span>
-          </div>
-
-          <div className="row">
-            <div className="field">
-              <label>Jogador</label>
-              <input value={draft.player} onChange={(e) => patch({ player: e.target.value })} />
-            </div>
-            <div className="field">
-              <label>Classe</label>
-              <select
-                value={draft.classe}
-                onChange={(e) => patch({ classe: e.target.value as ClassKey })}
-              >
-                {CLASSES.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="row">
-            <div className="field">
-              <label>Origem</label>
-              <input value={draft.origem} onChange={(e) => patch({ origem: e.target.value })} />
-            </div>
-            <div className="field">
-              <label>Trilha {draft.nex < 10 && <span className="faint">(a partir de NEX 10%)</span>}</label>
-              <select
-                value={draft.trilha}
-                disabled={draft.nex < 10}
-                onChange={(e) => patch({ trilha: e.target.value })}
-              >
-                <option value="">— nenhuma —</option>
-                {TRILHAS_BY_CLASS[draft.classe].map((t) => (
-                  <option key={t.name} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {draft.trilha && (
-            <p className="faint" style={{ fontSize: 12, marginTop: -4, marginBottom: 10 }}>
-              {unlockedTrilhaPowers(draft.classe, draft.trilha, draft.nex)
-                .map((p) => `NEX ${p.nex}% ${p.name}`)
-                .join(' · ')}{' '}
-              — próximos poderes da trilha entram sozinhos conforme o NEX sobe.
-              {draft.trilha === 'Tropa de Choque' && ' PV máximo já inclui o bônus de Casca Grossa.'}
-              {draft.trilha === 'Operações Especiais' && ' Iniciativa já inclui o +5 de Iniciativa Aprimorada.'}
-              {draft.trilha === 'Técnico' && ' Carga já inclui o Intelecto do Inventário Otimizado.'}
-            </p>
-          )}
-
-          {draft.nex >= 50 && (
-            <div className="field" style={{ maxWidth: 260, marginBottom: 10 }}>
-              <label>Elemento de Afinidade (NEX 50%+)</label>
-              <select
-                value={draft.affinityElement ?? ''}
-                onChange={(e) =>
-                  patch({ affinityElement: (e.target.value || undefined) as Element | undefined })
-                }
-              >
-                <option value="">— nenhum ainda —</option>
-                {ELEMENTS.filter((e) => e.key !== 'medo').map((el) => (
-                  <option key={el.key} value={el.key}>
-                    {el.name}
-                  </option>
-                ))}
-              </select>
-              <p className="faint" style={{ fontSize: 12, marginTop: 4 }}>
-                Na primeira vez que Transcender depois de NEX 50%, poderes desse elemento podem
-                ser escolhidos de novo pelo bônus de Afinidade (marque na aba Progressão).
-              </p>
-            </div>
-          )}
-          <div className="field">
-            <label>Patente</label>
-            <input value={draft.patente} onChange={(e) => patch({ patente: e.target.value })} />
-          </div>
-
-          <div className="field">
-            <label>Retrato</label>
-            <div className="portrait-row">
-              <div
-                className="portrait"
-                style={draft.image ? { backgroundImage: `url(${draft.image})` } : undefined}
-              >
-                {!draft.image && '?'}
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <button className="small" onClick={() => portraitInputRef.current?.click()}>
-                  🖼 Do computador
-                </button>
-                <input
-                  value={draft.image ?? ''}
-                  placeholder="…ou cole uma URL"
-                  onChange={(e) => patch({ image: e.target.value || undefined })}
-                />
-                {draft.image && (
+              {ATTRIBUTES.map((a) => {
+                const pos = PENTAGON_POS[a.key];
+                const style = { left: `${pos.left}%`, top: `${pos.top}%` };
+                return editingAttrs ? (
+                  <div key={a.key} className="rd-pentagon-node editing" style={style}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={draft.attributes[a.key]}
+                      onChange={(e) => patchAttr(a.key, Number(e.target.value))}
+                      aria-label={`Editar ${a.name}`}
+                    />
+                    <span className="rd-pentagon-node-short">{a.short}</span>
+                  </div>
+                ) : (
                   <button
-                    className="small ghost"
-                    onClick={() => patch({ image: undefined })}
+                    key={a.key}
+                    type="button"
+                    className="rd-pentagon-node"
+                    style={style}
+                    aria-label={`Rolar ${a.name} (${draft.attributes[a.key]})`}
+                    onClick={() =>
+                      rollOrdem({
+                        label: `${draft.name} · Teste de ${a.name}`,
+                        attributeValue: draft.attributes[a.key],
+                        bonus: 0,
+                        dt: null,
+                      })
+                    }
                   >
-                    remover
+                    <span className="rd-pentagon-node-val">{draft.attributes[a.key]}</span>
+                    <span className="rd-pentagon-node-short">{a.short}</span>
                   </button>
-                )}
-              </div>
-              <input
-                ref={portraitInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.target.value = '';
-                  if (f) void fileToDownscaledDataURL(f, 512).then((u) => u && patch({ image: u }));
-                }}
-              />
+                );
+              })}
             </div>
           </div>
 
-          <div className="section-title">Atributos — clique para testar</div>
-          <div className="attr-grid">
-            {ATTRIBUTES.map((a) => (
-              <div className="attr-box" key={a.key}>
-                <label
-                  onClick={() =>
-                    rollOrdem({
-                      label: `${draft.name} · Teste de ${a.name}`,
-                      attributeValue: draft.attributes[a.key],
-                      bonus: 0,
-                      dt: null,
-                    })
-                  }
-                  style={{ cursor: 'pointer' }}
-                  title={`Rolar ${a.name}`}
-                >
-                  {a.short}
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={draft.attributes[a.key]}
-                  onChange={(e) => patchAttr(a.key, Number(e.target.value))}
-                />
-              </div>
-            ))}
+          <div className="rd-sheet-ministats">
+            <div className="rd-sheet-ministat">
+              <span className="rd-sheet-ministat-val">{draft.nex}%</span>
+              <span className="rd-sheet-ministat-label">NEX</span>
+            </div>
+            <div className="rd-sheet-ministat">
+              <span className="rd-sheet-ministat-val">{derived.pePerTurn}</span>
+              <span className="rd-sheet-ministat-label">PE / turno</span>
+            </div>
+            <div className="rd-sheet-ministat">
+              <input
+                type="number"
+                className="rd-sheet-ministat-val"
+                value={draft.displacement}
+                onChange={(e) => patch({ displacement: Number(e.target.value) })}
+                aria-label="Deslocamento (m)"
+              />
+              <span className="rd-sheet-ministat-label">Desloc. (m)</span>
+            </div>
           </div>
 
-          <div className="stat-bars">
-            <StatBar
-              name="Pontos de Vida"
+          <div className="rd-sheet-bars">
+            <RdBar
+              name="Vida"
+              resourceClass="rd-resource-vida"
               cur={draft.pv.current}
               max={draft.pv.max}
-              color="var(--blood)"
               extra={draft.pv.temp}
+              extraLabel="PV temp"
               lockMax={draft.autoCalc}
               onCur={(v) => patch({ pv: { ...draft.pv, current: v } })}
               onMax={(v) => patch({ pv: { ...draft.pv, max: v } })}
               onExtra={(v) => patch({ pv: { ...draft.pv, temp: v } })}
-              extraLabel="PV temp"
             />
-            <StatBar
-              name={draft.pdMode ? 'Pontos de Determinação (PD)' : 'Pontos de Esforço'}
+            <RdBar
+              name={draft.pdMode ? 'Pontos de Determinação (PD)' : 'Esforço'}
+              resourceClass="rd-resource-esforco"
               cur={draft.pe.current}
               max={draft.pe.max}
-              color="var(--gold)"
               lockMax={draft.autoCalc}
               onCur={(v) => patch({ pe: { ...draft.pe, current: v } })}
               onMax={(v) => patch({ pe: { ...draft.pe, max: v } })}
             />
             {!draft.pdMode && (
-              <StatBar
+              <RdBar
                 name="Sanidade"
+                resourceClass="rd-resource-sanidade"
                 cur={draft.sanity.current}
                 max={draft.sanity.max}
-                color="var(--blue)"
                 lockMax={draft.autoCalc}
                 onCur={(v) => patch({ sanity: { ...draft.sanity, current: v } })}
                 onMax={(v) => patch({ sanity: { ...draft.sanity, max: v } })}
               />
             )}
-            {draft.autoCalc ? (
-              <p className="faint" style={{ fontSize: 11 }}>
-                PV/PE/Sanidade e Defesa são calculados por classe + NEX + atributos. Desligue o
-                cálculo automático para editar à mão.
-              </p>
-            ) : (
+            {!draft.autoCalc && (
               <button
                 className="small ghost"
                 onClick={() => {
@@ -560,648 +654,704 @@ export function CharacterSheet({
             )}
           </div>
 
-          <div className="row">
-            <div className="field">
-              <label>Defesa {draft.autoCalc && <span className="faint">(10 + AGI + bônus)</span>}</label>
-              <input
-                type="number"
-                value={draft.autoCalc ? derived.defense : draft.defense}
-                disabled={draft.autoCalc}
-                onChange={(e) => patch({ defense: Number(e.target.value) })}
-              />
-            </div>
-            {draft.autoCalc && (
-              <div className="field">
-                <label>Bônus de defesa</label>
-                <input
-                  type="number"
-                  value={draft.defenseBonus}
-                  onChange={(e) => patch({ defenseBonus: Number(e.target.value) })}
+          <div className="rd-card rd-sheet-defense">
+            <div className="rd-sheet-shield">
+              <svg viewBox="0 0 72 82" width="58" height="66" aria-hidden>
+                <path
+                  d="M36 3 67 14v24c0 20-13 34-31 41C18 72 5 58 5 38V14z"
+                  fill="#1a0e12"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
                 />
-              </div>
-            )}
-            <div className="field">
-              <label>Deslocamento (m)</label>
-              <input
-                type="number"
-                value={draft.displacement}
-                onChange={(e) => patch({ displacement: Number(e.target.value) })}
-              />
+              </svg>
+              <span className="rd-sheet-shield-val">{draft.autoCalc ? derived.defense : draft.defense}</span>
             </div>
-            <div className="field">
-              <label>Proteção</label>
+            <div className="rd-sheet-defense-body">
+              <span className="rd-sheet-defense-title">Defesa</span>
+              {draft.autoCalc ? (
+                <>
+                  <span className="rd-sheet-defense-formula">
+                    10 + AGI {draft.attributes.AGI} + bônus {draft.defenseBonus}
+                  </span>
+                  <label className="rd-sheet-field" style={{ border: 0, paddingBottom: 0, maxWidth: 160 }}>
+                    <span className="rd-sheet-field-label">Bônus</span>
+                    <input
+                      type="number"
+                      value={draft.defenseBonus}
+                      onChange={(e) => patch({ defenseBonus: Number(e.target.value) })}
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="rd-sheet-field" style={{ border: 0, paddingBottom: 0, maxWidth: 120 }}>
+                  <span className="rd-sheet-field-label">Valor</span>
+                  <input
+                    type="number"
+                    value={draft.defense}
+                    onChange={(e) => patch({ defense: Number(e.target.value) })}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="rd-sheet-traits">
+            <label className="rd-sheet-field">
+              <span className="rd-sheet-field-label">Proteção</span>
               <input
                 type="number"
                 value={draft.protection}
                 onChange={(e) => patch({ protection: Number(e.target.value) })}
               />
+            </label>
+            <label className="rd-sheet-field">
+              <span className="rd-sheet-field-label">Proficiências</span>
+              <input
+                value={draft.proficiencies.join(', ')}
+                placeholder="Armas simples, Armaduras leves..."
+                onChange={(e) =>
+                  patch({
+                    proficiencies: e.target.value
+                      .split(',')
+                      .map((x) => x.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+            </label>
+          </div>
+
+          <div className="rd-sheet-conditions">
+            <span className="rd-sheet-subhead">Condições</span>
+            <div className="chip-row">
+              {CONDITIONS.map((c) => {
+                const on = draft.conditions.includes(c);
+                return (
+                  <span
+                    key={c}
+                    className={`chip ${on ? 'on' : ''}`}
+                    onClick={() =>
+                      patch({
+                        conditions: on
+                          ? draft.conditions.filter((x) => x !== c)
+                          : [...draft.conditions, c],
+                      })
+                    }
+                  >
+                    {c}
+                  </span>
+                );
+              })}
             </div>
           </div>
+        </section>
 
-          <div className="section-title">Condições</div>
-          <div className="chip-row">
-            {CONDITIONS.map((c) => {
-              const on = draft.conditions.includes(c);
-              return (
-                <span
-                  key={c}
-                  className={`chip ${on ? 'on' : ''}`}
-                  onClick={() =>
-                    patch({
-                      conditions: on
-                        ? draft.conditions.filter((x) => x !== c)
-                        : [...draft.conditions, c],
-                    })
-                  }
-                >
-                  {c}
+        {/* ========== COLUNA DO MEIO: perícias ========== */}
+        <section className="rd-sheet-col rd-sheet-col-mid">
+          <div className="rd-card rd-sheet-skills">
+            <div className="rd-sheet-skills-head">
+              <span>Perícias</span>
+              <span className="rd-sheet-skills-legend">
+                <span className="rd-legend-dot" style={{ color: '#5bd48a' }}>
+                  treinado
                 </span>
+                <span className="rd-legend-dot" style={{ color: '#6fa8ff' }}>
+                  veterano
+                </span>
+                <span className="rd-legend-dot" style={{ color: '#ffb547' }}>
+                  expert
+                </span>
+              </span>
+            </div>
+            <div className="rd-sheet-skills-cols">
+              <span>Perícia</span>
+              <span>Dados</span>
+              <span>Bônus</span>
+              <span>Treino</span>
+              <span>Outros</span>
+            </div>
+            {SKILLS.map((s) => {
+              const st = draft.skills[s.key] ?? { training: 0, bonus: 0 };
+              const total = skillBonus(draft, s.key);
+              const grade = tierColor(st.training);
+              return (
+                <div className="rd-sheet-skill-row" key={s.key}>
+                  <button
+                    type="button"
+                    className="rd-sheet-skill-name"
+                    style={{ color: st.training ? grade : '#d9d2cc', fontWeight: st.training ? 600 : 500 }}
+                    onClick={() => rollSkill(s.key, s.name, s.attr)}
+                    aria-label={`Rolar ${s.name}`}
+                    title={`${draft.attributes[s.attr]}d20 + ${total}`}
+                  >
+                    <D20Icon className="rd-sheet-skill-d20" />
+                    <span>
+                      {s.name}
+                      {s.onlyTrained ? '*' : ''}
+                      {s.loadPenalty ? '+' : ''}
+                    </span>
+                  </button>
+                  <span className="rd-sheet-skill-attr" style={{ color: st.training ? grade : '#8e8088' }}>
+                    {s.attr}
+                  </span>
+                  <span className="rd-sheet-skill-bonus" style={{ color: total ? grade : '#6e6670' }}>
+                    {total >= 0 ? '+' : ''}
+                    {total}
+                  </span>
+                  <select
+                    value={st.training}
+                    style={{ borderBottomColor: st.training ? grade : undefined, color: st.training ? grade : undefined }}
+                    onChange={(e) =>
+                      patch({
+                        skills: {
+                          ...draft.skills,
+                          [s.key]: { ...st, training: Number(e.target.value) as Training },
+                        },
+                      })
+                    }
+                  >
+                    {TRAINING_LEVELS.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    title="Outros bônus"
+                    value={st.bonus}
+                    onChange={(e) =>
+                      patch({
+                        skills: {
+                          ...draft.skills,
+                          [s.key]: { ...st, bonus: Number(e.target.value) },
+                        },
+                      })
+                    }
+                  />
+                </div>
               );
             })}
+            <p className="rd-sheet-skills-foot">+ penalidade de carga · * somente treinada</p>
           </div>
-        </>
-      )}
+        </section>
 
-      {tab === 'progressao' && (
-        <div>
-          <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
-            Poder de Classe (NEX 15/30/45/60/75/90), Aumento de Atributo (20/50/80/95) e Grau de
-            Treinamento (35/70) pendentes para o NEX atual. Trilha (10/40/65/99) já entra sozinha —
-            veja o aviso na aba Geral.
-          </p>
-
-          <div className="calc-strip" style={{ marginBottom: 10 }}>
-            {classInnateProgress(draft).map((line, i) => (
-              <span className="ok" key={i}>
-                {line}
-              </span>
+        {/* ========== COLUNA DA DIREITA: abas ========== */}
+        <section className="rd-sheet-col rd-sheet-col-right">
+          <nav className="rd-tabs" role="tablist">
+            {SHEET_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.key}
+                className={`rd-tab ${tab === t.key ? 'active' : ''}`}
+                onClick={() => setTab(t.key)}
+              >
+                {t.label}
+                {t.key === 'progressao' && pendingTotal > 0 && (
+                  <span className="rd-tab-badge">{pendingTotal}</span>
+                )}
+              </button>
             ))}
-          </div>
+          </nav>
 
-          {pendingTotal === 0 && (
-            <p className="faint">Nenhuma escolha de progressão pendente para o NEX atual.</p>
-          )}
+          {tab === 'combate' && (
+            <div className="rd-sheet-tabpanel">
+              <div className="rd-sheet-combat-tools">
+                <div className="rd-sheet-freeroll">
+                  <input
+                    placeholder="Rolar dados (ex.: 2d6+3)"
+                    value={freeRollExpr}
+                    onChange={(e) => setFreeRollExpr(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Rolar"
+                    onClick={() => {
+                      const expr = freeRollExpr.trim();
+                      if (expr) rollFree(`${draft.name} · rolagem livre`, expr);
+                    }}
+                  >
+                    <D20Icon />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="rd-btn-ghost"
+                  onClick={() => patch({ attacks: [...draft.attacks, emptyAttack()] })}
+                >
+                  + Novo ataque
+                </button>
+              </div>
 
-          {pendingPowerSlots.map((nex) => (
-            <ClassPowerPicker
-              key={`power-${nex}`}
-              nex={nex}
-              classe={draft.classe}
-              affinityElement={draft.affinityElement}
-              onConfirm={(input) => patch(addClassPowerPick(draft, input))}
-            />
-          ))}
-          {pendingAttrSlots.map((nex) => (
-            <AttributeBumpPicker
-              key={`attr-${nex}`}
-              nex={nex}
-              onConfirm={(attr) => patch(addAttributeBump(draft, nex, attr))}
-            />
-          ))}
-          {pendingTrainSlots.map((nex) => (
-            <TrainingBumpPicker
-              key={`train-${nex}`}
-              nex={nex}
-              budget={trainingBumpBudget(draft)}
-              trainedSkills={Object.entries(draft.skills)
-                .filter(([, st]) => st.training > 0)
-                .map(([key, st]) => ({
-                  key,
-                  name: SKILL_BY_KEY[key]?.name ?? key,
-                  training: st.training,
-                }))}
-              onConfirm={(skills) => patch(addTrainingBump(draft, nex, skills))}
-            />
-          ))}
-
-          <div className="section-title">Escolhas já feitas</div>
-          {(draft.classPowers || []).length === 0 &&
-            (draft.attributeBumps || []).length === 0 &&
-            (draft.trainingBumps || []).length === 0 && <p className="faint">Nenhuma ainda.</p>}
-          {[...(draft.classPowers || [])]
-            .sort((a, b) => a.nex - b.nex)
-            .map((p) => {
-              const ab = abilityFor(p.abilityId);
-              return (
-                <div className="list-item" key={p.id}>
+              {draft.attacks.map((atk) => (
+                <div className="list-item" key={atk.id}>
                   <div className="li-head">
-                    <span>
-                      NEX {p.nex}% — <strong>{ab?.name ?? p.key}</strong>
-                    </span>
+                    <input
+                      value={atk.name}
+                      placeholder="Ataque / arma"
+                      onChange={(e) => updateAttack(draft, patch, atk.id, { name: e.target.value })}
+                    />
                     <button
                       className="small ghost"
-                      onClick={() => patch(removeClassPowerPick(draft, p.id))}
+                      onClick={() => patch({ attacks: draft.attacks.filter((a) => a.id !== atk.id) })}
                     >
                       ✕
                     </button>
                   </div>
-                  {ab?.description && (
-                    <p className="faint" style={{ fontSize: 12, marginTop: 4 }}>
-                      {ab.description}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          {[...(draft.attributeBumps || [])]
-            .sort((a, b) => a.nex - b.nex)
-            .map((b) => (
-              <div className="list-item" key={b.id}>
-                <div className="li-head">
-                  <span>
-                    NEX {b.nex}% — <strong>+1 {b.attr}</strong>
-                  </span>
-                  <button
-                    className="small ghost"
-                    onClick={() => patch(removeAttributeBump(draft, b.id))}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-          {[...(draft.trainingBumps || [])]
-            .sort((a, b) => a.nex - b.nex)
-            .map((b) => (
-              <div className="list-item" key={b.id}>
-                <span>
-                  NEX {b.nex}% — grau subiu: {b.skills.map((k) => SKILL_BY_KEY[k]?.name ?? k).join(', ')}
-                </span>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {tab === 'pericias' && (
-        <div>
-          <div className="calc-strip" style={{ marginBottom: 8 }}>
-            <span className={trained <= derived.trainedBudget ? 'ok' : 'warn'}>
-              Treinadas: {trained} / {derived.trainedBudget}
-              <span className="faint"> (classe + Intelecto + 2 da origem)</span>
-            </span>
-          </div>
-          {SKILLS.map((s) => {
-            const st = draft.skills[s.key] ?? { training: 0, bonus: 0 };
-            const total = skillBonus(draft, s.key);
-            return (
-              <div className="skill-row" key={s.key}>
-                <span className="sk-name">
-                  {s.name} <small>{s.attr}</small>
-                  <small
-                    className="sk-formula"
-                    title={total !== st.training + st.bonus ? 'inclui bônus de trilha' : undefined}
-                  >
-                    {draft.attributes[s.attr]}d20
-                    {total >= 0 ? ' +' : ' −'}
-                    {Math.abs(total)}
-                    {total !== st.training + st.bonus ? ' *' : ''}
-                  </small>
-                </span>
-                <select
-                  value={st.training}
-                  onChange={(e) =>
-                    patch({
-                      skills: {
-                        ...draft.skills,
-                        [s.key]: { ...st, training: Number(e.target.value) as Training },
-                      },
-                    })
-                  }
-                >
-                  {TRAINING_LEVELS.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  title="Outros bônus"
-                  value={st.bonus}
-                  onChange={(e) =>
-                    patch({
-                      skills: {
-                        ...draft.skills,
-                        [s.key]: { ...st, bonus: Number(e.target.value) },
-                      },
-                    })
-                  }
-                />
-                <button
-                  className="small"
-                  onClick={() => rollSkill(s.key, s.name, s.attr)}
-                  title={`${draft.attributes[s.attr]}d20 + ${total}`}
-                >
-                  🎲
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {tab === 'combate' && (
-        <div>
-          {draft.attacks.map((atk) => (
-            <div className="list-item" key={atk.id}>
-              <div className="li-head">
-                <input
-                  value={atk.name}
-                  placeholder="Ataque / arma"
-                  onChange={(e) => updateAttack(draft, patch, atk.id, { name: e.target.value })}
-                />
-                <button
-                  className="small ghost"
-                  onClick={() =>
-                    patch({ attacks: draft.attacks.filter((a) => a.id !== atk.id) })
-                  }
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <input
-                  value={atk.test}
-                  placeholder="Teste (Luta / Pontaria +5)"
-                  onChange={(e) => updateAttack(draft, patch, atk.id, { test: e.target.value })}
-                />
-                <input
-                  value={atk.damage}
-                  placeholder="Dano (1d12+3)"
-                  onChange={(e) => updateAttack(draft, patch, atk.id, { damage: e.target.value })}
-                />
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <input
-                  value={atk.type}
-                  placeholder="Tipo"
-                  onChange={(e) => updateAttack(draft, patch, atk.id, { type: e.target.value })}
-                />
-                <input
-                  value={atk.crit}
-                  placeholder="Crít (20/x2)"
-                  onChange={(e) => updateAttack(draft, patch, atk.id, { crit: e.target.value })}
-                />
-                <input
-                  value={atk.range}
-                  placeholder="Alcance"
-                  onChange={(e) => updateAttack(draft, patch, atk.id, { range: e.target.value })}
-                />
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <button
-                  className="small"
-                  onClick={() =>
-                    rollFree(`${draft.name} · ${atk.name || 'ataque'} (dano)`, atk.damage || '1d6')
-                  }
-                >
-                  Rolar dano
-                </button>
-              </div>
-            </div>
-          ))}
-          <button
-            className="small"
-            onClick={() => patch({ attacks: [...draft.attacks, emptyAttack()] })}
-          >
-            + Adicionar ataque
-          </button>
-
-          <div className="section-title">Proficiências</div>
-          <input
-            value={draft.proficiencies.join(', ')}
-            placeholder="Armas simples, Armaduras leves..."
-            onChange={(e) =>
-              patch({
-                proficiencies: e.target.value
-                  .split(',')
-                  .map((x) => x.trim())
-                  .filter(Boolean),
-              })
-            }
-          />
-
-          <div className="section-title">
-            Habilidades
-            {abilityManyExpand.manyAbilities && (
-              <span className="section-title-actions">
-                <button className="small ghost" onClick={() => setAbilityOverrides(new Set())}>
-                  Recolher todas
-                </button>
-                <button
-                  className="small ghost"
-                  onClick={() => setAbilityOverrides(new Set(draft.abilities.map((a) => a.id)))}
-                >
-                  Expandir todas
-                </button>
-              </span>
-            )}
-          </div>
-          {abilityGroups.map((group) => (
-            <div className="ability-group" key={group.key}>
-              {abilityGroups.length > 1 && <div className="ability-group-label">{group.label}</div>}
-              {group.items.map((ab) => {
-                const expanded = abilityManyExpand.isExpanded(ab.id);
-                const preview = ab.description.trim();
-                return (
-                  <div className={`ability-card${expanded ? ' expanded' : ''}`} key={ab.id}>
-                    <div
-                      className="ability-card-head"
-                      onClick={() => abilityManyExpand.toggle(ab.id)}
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <input
+                      value={atk.test}
+                      placeholder="Teste (Luta / Pontaria +5)"
+                      onChange={(e) => updateAttack(draft, patch, atk.id, { test: e.target.value })}
+                    />
+                    <input
+                      value={atk.damage}
+                      placeholder="Dano (1d12+3)"
+                      onChange={(e) => updateAttack(draft, patch, atk.id, { damage: e.target.value })}
+                    />
+                  </div>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <input
+                      value={atk.type}
+                      placeholder="Tipo"
+                      onChange={(e) => updateAttack(draft, patch, atk.id, { type: e.target.value })}
+                    />
+                    <input
+                      value={atk.crit}
+                      placeholder="Crít (20/x2)"
+                      onChange={(e) => updateAttack(draft, patch, atk.id, { crit: e.target.value })}
+                    />
+                    <input
+                      value={atk.range}
+                      placeholder="Alcance"
+                      onChange={(e) => updateAttack(draft, patch, atk.id, { range: e.target.value })}
+                    />
+                  </div>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <button
+                      className="small"
+                      onClick={() =>
+                        rollFree(`${draft.name} · ${atk.name || 'ataque'} (dano)`, atk.damage || '1d6')
+                      }
                     >
-                      <span className="ability-chevron">{expanded ? '▾' : '▸'}</span>
-                      <div className="ability-card-title">
-                        <input
-                          className="ability-name-input"
-                          value={ab.name}
-                          placeholder="Nome da habilidade"
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => updateAbility(draft, patch, ab.id, { name: e.target.value })}
-                        />
-                        <input
-                          className="ability-source-input"
-                          value={ab.source}
-                          placeholder="Origem (classe, trilha, paranormal...)"
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => updateAbility(draft, patch, ab.id, { source: e.target.value })}
-                        />
+                      Rolar dano
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === 'habilidades' && (
+            <div className="rd-sheet-tabpanel">
+              <div className="section-title">
+                Habilidades
+                {abilityManyExpand.manyAbilities && (
+                  <span className="section-title-actions">
+                    <button className="small ghost" onClick={() => setAbilityOverrides(new Set())}>
+                      Recolher todas
+                    </button>
+                    <button
+                      className="small ghost"
+                      onClick={() => setAbilityOverrides(new Set(draft.abilities.map((a) => a.id)))}
+                    >
+                      Expandir todas
+                    </button>
+                  </span>
+                )}
+              </div>
+              {abilityGroups.map((group) => (
+                <div className="ability-group" key={group.key}>
+                  {abilityGroups.length > 1 && <div className="ability-group-label">{group.label}</div>}
+                  {group.items.map((ab) => {
+                    const expanded = abilityManyExpand.isExpanded(ab.id);
+                    const preview = ab.description.trim();
+                    return (
+                      <div className={`ability-card${expanded ? ' expanded' : ''}`} key={ab.id}>
+                        <div className="ability-card-head" onClick={() => abilityManyExpand.toggle(ab.id)}>
+                          <span className="ability-chevron">{expanded ? '▾' : '▸'}</span>
+                          <div className="ability-card-title">
+                            <input
+                              className="ability-name-input"
+                              value={ab.name}
+                              placeholder="Nome da habilidade"
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => updateAbility(draft, patch, ab.id, { name: e.target.value })}
+                            />
+                            <input
+                              className="ability-source-input"
+                              value={ab.source}
+                              placeholder="Origem (classe, trilha, paranormal...)"
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => updateAbility(draft, patch, ab.id, { source: e.target.value })}
+                            />
+                          </div>
+                          <button
+                            className="small ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              patch({ abilities: draft.abilities.filter((a) => a.id !== ab.id) });
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {expanded ? (
+                          <textarea
+                            className="ability-description"
+                            value={ab.description}
+                            placeholder="Descrição"
+                            onChange={(e) => updateAbility(draft, patch, ab.id, { description: e.target.value })}
+                          />
+                        ) : preview ? (
+                          <p className="ability-preview" onClick={() => abilityManyExpand.toggle(ab.id)}>
+                            {preview.length > 120 ? `${preview.slice(0, 120)}…` : preview}
+                          </p>
+                        ) : null}
                       </div>
-                      <button
-                        className="small ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          patch({ abilities: draft.abilities.filter((a) => a.id !== ab.id) });
-                        }}
+                    );
+                  })}
+                </div>
+              ))}
+              <button
+                className="small"
+                onClick={() => patch({ abilities: [...draft.abilities, emptyAbility()] })}
+              >
+                + Adicionar habilidade
+              </button>
+            </div>
+          )}
+
+          {tab === 'rituais' && (
+            <div className="rd-sheet-tabpanel">
+              <div className="calc-strip" style={{ marginBottom: 10 }}>
+                <span className={rUsed <= rSlots ? 'ok' : 'warn'}>
+                  Vagas de ritual: {rUsed} / {rSlots} (Intelecto)
+                </span>
+                <span className="faint">
+                  rituais marcados &quot;ganho por classe/trilha&quot; não contam aqui
+                </span>
+              </div>
+              <details className="ritual-picker">
+                <summary>+ Adicionar do compêndio (1º–4º círculo)</summary>
+                <input
+                  placeholder="Filtrar por nome ou elemento…"
+                  value={ritualFilter}
+                  onChange={(e) => setRitualFilter(e.target.value)}
+                  style={{ margin: '8px 0' }}
+                />
+                {[1, 2, 3, 4].map((circle) => {
+                  const list = ritualMatches.filter((r) => r.circle === circle);
+                  if (!list.length) return null;
+                  return (
+                    <div key={circle} style={{ marginBottom: 8 }}>
+                      <div className="section-title" style={{ margin: '6px 0 4px' }}>
+                        {circle}º Círculo
+                      </div>
+                      {list.map((r) => (
+                        <div className="ritual-row" key={r.name}>
+                          <button className="small" title="Adicionar à ficha" onClick={() => addRitualFromDef(r)}>
+                            +
+                          </button>
+                          <span>
+                            <strong>{r.name}</strong>{' '}
+                            <small className="faint">
+                              {r.elements.join('/')}
+                              {r.trilhaOnly ? ' · trilha' : ''}
+                            </small>
+                            <br />
+                            <small className="faint">{r.summary}</small>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </details>
+
+              {draft.rituals.map((rt) => (
+                <div className="list-item" key={rt.id}>
+                  <div className="li-head">
+                    <input
+                      value={rt.name}
+                      placeholder="Ritual"
+                      onChange={(e) => updateRitual(draft, patch, rt.id, { name: e.target.value })}
+                    />
+                    <button
+                      className="small ghost"
+                      onClick={() => patch({ rituals: draft.rituals.filter((x) => x.id !== rt.id) })}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <div>
+                      <label>Círculo</label>
+                      <select
+                        value={rt.circle}
+                        onChange={(e) =>
+                          updateRitual(draft, patch, rt.id, {
+                            circle: Number(e.target.value) as Ritual['circle'],
+                          })
+                        }
                       >
+                        {[1, 2, 3, 4].map((n) => (
+                          <option key={n} value={n}>
+                            {n}º
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>Elemento</label>
+                      <select
+                        value={rt.element}
+                        onChange={(e) =>
+                          updateRitual(draft, patch, rt.id, {
+                            element: e.target.value as Ritual['element'],
+                          })
+                        }
+                      >
+                        {ELEMENTS.map((el) => (
+                          <option key={el.key} value={el.key}>
+                            {el.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label>Custo</label>
+                      <input
+                        value={rt.cost}
+                        placeholder="2 PE"
+                        onChange={(e) => updateRitual(draft, patch, rt.id, { cost: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <textarea
+                    style={{ marginTop: 6 }}
+                    value={rt.description}
+                    placeholder="Execução, alcance, alvo, duração, efeito, resistência..."
+                    onChange={(e) => updateRitual(draft, patch, rt.id, { description: e.target.value })}
+                  />
+                  <label
+                    className="chip-row"
+                    style={{ marginTop: 6, alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                  >
+                    <input
+                      type="checkbox"
+                      style={{ width: 'auto' }}
+                      checked={!!rt.freeSource}
+                      onChange={(e) => updateRitual(draft, patch, rt.id, { freeSource: e.target.checked })}
+                    />
+                    <span className="faint" style={{ fontSize: 12 }}>
+                      ganho por classe/trilha (não conta na vaga)
+                    </span>
+                  </label>
+                </div>
+              ))}
+              <button className="small" onClick={() => patch({ rituals: [...draft.rituals, emptyRitual()] })}>
+                + Adicionar ritual
+              </button>
+            </div>
+          )}
+
+          {tab === 'inventario' && (
+            <div className="rd-sheet-tabpanel">
+              <p className="faint rd-sheet-inv-head">
+                Espaços usados: <strong>{slotsUsed}</strong> · Limite (Força + 5
+                {draft.trilha === 'Técnico' && draft.nex >= 10 ? ' + Intelecto (Inventário Otimizado)' : ''}
+                ): <strong>{derived.loadLimit}</strong>
+              </p>
+              {draft.inventory.map((it) => (
+                <div className="list-item" key={it.id}>
+                  <div className="li-head">
+                    <input
+                      value={it.name}
+                      placeholder="Item"
+                      onChange={(e) => updateItem(draft, patch, it.id, { name: e.target.value })}
+                    />
+                    <button
+                      className="small ghost"
+                      onClick={() => patch({ inventory: draft.inventory.filter((x) => x.id !== it.id) })}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    <div>
+                      <label>Qtd</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={it.qty}
+                        onChange={(e) =>
+                          updateItem(draft, patch, it.id, { qty: Math.max(1, Number(e.target.value)) })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label>Espaços</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={it.slots}
+                        onChange={(e) => updateItem(draft, patch, it.id, { slots: Number(e.target.value) })}
+                      />
+                    </div>
+                    <div>
+                      <label>Categoria</label>
+                      <input
+                        value={it.category}
+                        placeholder="I / II / III"
+                        onChange={(e) => updateItem(draft, patch, it.id, { category: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <input
+                    style={{ marginTop: 6 }}
+                    value={it.notes}
+                    placeholder="Observações"
+                    onChange={(e) => updateItem(draft, patch, it.id, { notes: e.target.value })}
+                  />
+                </div>
+              ))}
+              <div className="row" style={{ marginTop: 4 }}>
+                <button className="small" onClick={() => patch({ inventory: [...draft.inventory, emptyItem()] })}>
+                  + Adicionar item
+                </button>
+                <button className="small" onClick={() => setShowEquipCatalog(true)}>
+                  <BookIcon /> Catálogo do livro
+                </button>
+              </div>
+              {showEquipCatalog && (
+                <EquipmentCatalogDialog
+                  onAdd={(entry) => patch({ inventory: [...draft.inventory, itemFromCatalog(entry)] })}
+                  onClose={() => setShowEquipCatalog(false)}
+                />
+              )}
+            </div>
+          )}
+
+          {tab === 'progressao' && (
+            <div className="rd-sheet-tabpanel">
+              <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
+                Poder de Classe (NEX 15/30/45/60/75/90), Aumento de Atributo (20/50/80/95) e Grau de
+                Treinamento (35/70) pendentes para o NEX atual. Trilha (10/40/65/99) já entra sozinha —
+                veja o aviso no topo da ficha.
+              </p>
+
+              <div className="calc-strip" style={{ marginBottom: 10 }}>
+                {classInnateProgress(draft).map((line, i) => (
+                  <span className="ok" key={i}>
+                    {line}
+                  </span>
+                ))}
+              </div>
+
+              {pendingTotal === 0 && (
+                <p className="faint">Nenhuma escolha de progressão pendente para o NEX atual.</p>
+              )}
+
+              {pendingPowerSlots.map((nex) => (
+                <ClassPowerPicker
+                  key={`power-${nex}`}
+                  nex={nex}
+                  classe={draft.classe}
+                  affinityElement={draft.affinityElement}
+                  onConfirm={(input) => patch(addClassPowerPick(draft, input))}
+                />
+              ))}
+              {pendingAttrSlots.map((nex) => (
+                <AttributeBumpPicker
+                  key={`attr-${nex}`}
+                  nex={nex}
+                  onConfirm={(attr) => patch(addAttributeBump(draft, nex, attr))}
+                />
+              ))}
+              {pendingTrainSlots.map((nex) => (
+                <TrainingBumpPicker
+                  key={`train-${nex}`}
+                  nex={nex}
+                  budget={trainingBumpBudget(draft)}
+                  trainedSkills={Object.entries(draft.skills)
+                    .filter(([, st]) => st.training > 0)
+                    .map(([key, st]) => ({
+                      key,
+                      name: SKILL_BY_KEY[key]?.name ?? key,
+                      training: st.training,
+                    }))}
+                  onConfirm={(skills) => patch(addTrainingBump(draft, nex, skills))}
+                />
+              ))}
+
+              <div className="section-title">Escolhas já feitas</div>
+              {(draft.classPowers || []).length === 0 &&
+                (draft.attributeBumps || []).length === 0 &&
+                (draft.trainingBumps || []).length === 0 && <p className="faint">Nenhuma ainda.</p>}
+              {[...(draft.classPowers || [])]
+                .sort((a, b) => a.nex - b.nex)
+                .map((p) => {
+                  const ab = abilityFor(p.abilityId);
+                  return (
+                    <div className="list-item" key={p.id}>
+                      <div className="li-head">
+                        <span>
+                          NEX {p.nex}% — <strong>{ab?.name ?? p.key}</strong>
+                        </span>
+                        <button className="small ghost" onClick={() => patch(removeClassPowerPick(draft, p.id))}>
+                          ✕
+                        </button>
+                      </div>
+                      {ab?.description && (
+                        <p className="faint" style={{ fontSize: 12, marginTop: 4 }}>
+                          {ab.description}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              {[...(draft.attributeBumps || [])]
+                .sort((a, b) => a.nex - b.nex)
+                .map((b) => (
+                  <div className="list-item" key={b.id}>
+                    <div className="li-head">
+                      <span>
+                        NEX {b.nex}% — <strong>+1 {b.attr}</strong>
+                      </span>
+                      <button className="small ghost" onClick={() => patch(removeAttributeBump(draft, b.id))}>
                         ✕
                       </button>
                     </div>
-                    {expanded ? (
-                      <textarea
-                        className="ability-description"
-                        value={ab.description}
-                        placeholder="Descrição"
-                        onChange={(e) => updateAbility(draft, patch, ab.id, { description: e.target.value })}
-                      />
-                    ) : preview ? (
-                      <p className="ability-preview" onClick={() => abilityManyExpand.toggle(ab.id)}>
-                        {preview.length > 120 ? `${preview.slice(0, 120)}…` : preview}
-                      </p>
-                    ) : null}
                   </div>
-                );
-              })}
+                ))}
+              {[...(draft.trainingBumps || [])]
+                .sort((a, b) => a.nex - b.nex)
+                .map((b) => (
+                  <div className="list-item" key={b.id}>
+                    <span>
+                      NEX {b.nex}% — grau subiu: {b.skills.map((k) => SKILL_BY_KEY[k]?.name ?? k).join(', ')}
+                    </span>
+                  </div>
+                ))}
             </div>
-          ))}
-          <button
-            className="small"
-            onClick={() => patch({ abilities: [...draft.abilities, emptyAbility()] })}
-          >
-            + Adicionar habilidade
-          </button>
-        </div>
-      )}
-
-      {tab === 'inventario' && (
-        <div>
-          <p className="faint" style={{ marginBottom: 8 }}>
-            Espaços usados: <strong>{slotsUsed}</strong> · Limite (Força + 5
-            {draft.trilha === 'Técnico' && draft.nex >= 10 ? ' + Intelecto (Inventário Otimizado)' : ''}):{' '}
-            <strong>{derived.loadLimit}</strong>
-          </p>
-          {draft.inventory.map((it) => (
-            <div className="list-item" key={it.id}>
-              <div className="li-head">
-                <input
-                  value={it.name}
-                  placeholder="Item"
-                  onChange={(e) => updateItem(draft, patch, it.id, { name: e.target.value })}
-                />
-                <button
-                  className="small ghost"
-                  onClick={() =>
-                    patch({ inventory: draft.inventory.filter((x) => x.id !== it.id) })
-                  }
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <div>
-                  <label>Qtd</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={it.qty}
-                    onChange={(e) =>
-                      updateItem(draft, patch, it.id, { qty: Math.max(1, Number(e.target.value)) })
-                    }
-                  />
-                </div>
-                <div>
-                  <label>Espaços</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={it.slots}
-                    onChange={(e) =>
-                      updateItem(draft, patch, it.id, { slots: Number(e.target.value) })
-                    }
-                  />
-                </div>
-                <div>
-                  <label>Categoria</label>
-                  <input
-                    value={it.category}
-                    placeholder="I / II / III"
-                    onChange={(e) => updateItem(draft, patch, it.id, { category: e.target.value })}
-                  />
-                </div>
-              </div>
-              <input
-                style={{ marginTop: 6 }}
-                value={it.notes}
-                placeholder="Observações"
-                onChange={(e) => updateItem(draft, patch, it.id, { notes: e.target.value })}
-              />
-            </div>
-          ))}
-          <div className="row" style={{ marginTop: 4 }}>
-            <button
-              className="small"
-              onClick={() => patch({ inventory: [...draft.inventory, emptyItem()] })}
-            >
-              + Adicionar item
-            </button>
-            <button className="small" onClick={() => setShowEquipCatalog(true)}>
-              📖 Catálogo do livro
-            </button>
-          </div>
-          {showEquipCatalog && (
-            <EquipmentCatalogDialog
-              onAdd={(entry) => patch({ inventory: [...draft.inventory, itemFromCatalog(entry)] })}
-              onClose={() => setShowEquipCatalog(false)}
-            />
           )}
-        </div>
-      )}
 
-      {tab === 'rituais' && (
-        <div>
-          <div className="calc-strip" style={{ marginBottom: 10 }}>
-            <span className={rUsed <= rSlots ? 'ok' : 'warn'}>
-              Vagas de ritual: {rUsed} / {rSlots} (Intelecto)
-            </span>
-            <span className="faint">
-              rituais marcados &quot;ganho por classe/trilha&quot; não contam aqui
-            </span>
-          </div>
-          <details className="ritual-picker">
-            <summary>+ Adicionar do compêndio (1º–4º círculo)</summary>
-            <input
-              placeholder="Filtrar por nome ou elemento…"
-              value={ritualFilter}
-              onChange={(e) => setRitualFilter(e.target.value)}
-              style={{ margin: '8px 0' }}
-            />
-            {[1, 2, 3, 4].map((circle) => {
-              const list = ritualMatches.filter((r) => r.circle === circle);
-              if (!list.length) return null;
-              return (
-                <div key={circle} style={{ marginBottom: 8 }}>
-                  <div className="section-title" style={{ margin: '6px 0 4px' }}>
-                    {circle}º Círculo
-                  </div>
-                  {list.map((r) => (
-                    <div className="ritual-row" key={r.name}>
-                      <button
-                        className="small"
-                        title="Adicionar à ficha"
-                        onClick={() => addRitualFromDef(r)}
-                      >
-                        +
-                      </button>
-                      <span>
-                        <strong>{r.name}</strong>{' '}
-                        <small className="faint">
-                          {r.elements.join('/')}
-                          {r.trilhaOnly ? ' · trilha' : ''}
-                        </small>
-                        <br />
-                        <small className="faint">{r.summary}</small>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </details>
-
-          {draft.rituals.map((rt) => (
-            <div className="list-item" key={rt.id}>
-              <div className="li-head">
-                <input
-                  value={rt.name}
-                  placeholder="Ritual"
-                  onChange={(e) => updateRitual(draft, patch, rt.id, { name: e.target.value })}
-                />
-                <button
-                  className="small ghost"
-                  onClick={() => patch({ rituals: draft.rituals.filter((x) => x.id !== rt.id) })}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <div>
-                  <label>Círculo</label>
-                  <select
-                    value={rt.circle}
-                    onChange={(e) =>
-                      updateRitual(draft, patch, rt.id, {
-                        circle: Number(e.target.value) as Ritual['circle'],
-                      })
-                    }
-                  >
-                    {[1, 2, 3, 4].map((n) => (
-                      <option key={n} value={n}>
-                        {n}º
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label>Elemento</label>
-                  <select
-                    value={rt.element}
-                    onChange={(e) =>
-                      updateRitual(draft, patch, rt.id, {
-                        element: e.target.value as Ritual['element'],
-                      })
-                    }
-                  >
-                    {ELEMENTS.map((el) => (
-                      <option key={el.key} value={el.key}>
-                        {el.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label>Custo</label>
-                  <input
-                    value={rt.cost}
-                    placeholder="2 PE"
-                    onChange={(e) => updateRitual(draft, patch, rt.id, { cost: e.target.value })}
-                  />
-                </div>
-              </div>
+          {tab === 'notas' && (
+            <div className="rd-sheet-tabpanel">
               <textarea
-                style={{ marginTop: 6 }}
-                value={rt.description}
-                placeholder="Execução, alcance, alvo, duração, efeito, resistência..."
-                onChange={(e) =>
-                  updateRitual(draft, patch, rt.id, { description: e.target.value })
-                }
+                style={{ minHeight: 260 }}
+                value={draft.notes}
+                placeholder="Histórico, objetivos, segredos do personagem..."
+                onChange={(e) => patch({ notes: e.target.value })}
               />
-              <label
-                className="chip-row"
-                style={{ marginTop: 6, alignItems: 'center', gap: 6, cursor: 'pointer' }}
-              >
-                <input
-                  type="checkbox"
-                  style={{ width: 'auto' }}
-                  checked={!!rt.freeSource}
-                  onChange={(e) =>
-                    updateRitual(draft, patch, rt.id, { freeSource: e.target.checked })
-                  }
-                />
-                <span className="faint" style={{ fontSize: 12 }}>
-                  ganho por classe/trilha (não conta na vaga)
-                </span>
-              </label>
             </div>
-          ))}
-          <button
-            className="small"
-            onClick={() => patch({ rituals: [...draft.rituals, emptyRitual()] })}
-          >
-            + Adicionar ritual
-          </button>
-        </div>
-      )}
-
-      {tab === 'notas' && (
-        <textarea
-          style={{ minHeight: 260 }}
-          value={draft.notes}
-          placeholder="Histórico, objetivos, segredos do personagem..."
-          onChange={(e) => patch({ notes: e.target.value })}
-        />
-      )}
-
-      <FichaQr characterId={draft.id} />
+          )}
+        </section>
+      </div>
 
       {showTokenLink && (
         <TokenLinkDialog character={draft} mode="manage" onClose={() => setShowTokenLink(false)} />
@@ -1210,11 +1360,13 @@ export function CharacterSheet({
   );
 }
 
-function StatBar(props: {
+/* ---------- barra de recurso (Vida/Sanidade/Esforço) ---------------------- */
+
+function RdBar(props: {
   name: string;
+  resourceClass: string;
   cur: number;
   max: number;
-  color: string;
   extra?: number;
   extraLabel?: string;
   lockMax?: boolean;
@@ -1224,30 +1376,58 @@ function StatBar(props: {
 }) {
   const pct = props.max > 0 ? Math.max(0, Math.min(100, (props.cur / props.max) * 100)) : 0;
   return (
-    <div className="stat-bar">
-      <div className="stat-head">
+    <div className="rd-sheet-bar">
+      <div className="rd-sheet-bar-head">
         <span>{props.name}</span>
-        <span>
-          {props.cur} / {props.max}
-          {props.extra ? ` (+${props.extra})` : ''}
-        </span>
+        <b>{Math.round(pct)}%</b>
       </div>
-      <div className="track">
-        <span style={{ width: `${pct}%`, background: props.color }} />
+      <div className={`rd-resource-bar rd-sheet-bar-track ${props.resourceClass}`}>
+        <div className="rd-resource-bar-fill" style={{ width: `${pct}%` }} />
+        <div className="rd-sheet-bar-controls">
+          <div className="rd-sheet-bar-stepgroup">
+            <button
+              type="button"
+              className="rd-sheet-bar-step"
+              aria-label={`${props.name} menos 5`}
+              onClick={() => props.onCur(props.cur - 5)}
+            >
+              <StepIcon dir="minus5" />
+            </button>
+            <button
+              type="button"
+              className="rd-sheet-bar-step"
+              aria-label={`${props.name} menos 1`}
+              onClick={() => props.onCur(props.cur - 1)}
+            >
+              <StepIcon dir="minus1" />
+            </button>
+          </div>
+          <span className="rd-sheet-bar-value">
+            {props.cur} / {props.max}
+            {props.extra ? ` (+${props.extra})` : ''}
+          </span>
+          <div className="rd-sheet-bar-stepgroup">
+            <button
+              type="button"
+              className="rd-sheet-bar-step"
+              aria-label={`${props.name} mais 1`}
+              onClick={() => props.onCur(props.cur + 1)}
+            >
+              <StepIcon dir="plus1" />
+            </button>
+            <button
+              type="button"
+              className="rd-sheet-bar-step"
+              aria-label={`${props.name} mais 5`}
+              onClick={() => props.onCur(props.cur + 5)}
+            >
+              <StepIcon dir="plus5" />
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="stat-controls">
-        <button className="small" onClick={() => props.onCur(props.cur - 1)}>
-          −
-        </button>
-        <input
-          type="number"
-          value={props.cur}
-          onChange={(e) => props.onCur(Number(e.target.value))}
-        />
-        <button className="small" onClick={() => props.onCur(props.cur + 1)}>
-          +
-        </button>
-        <span className="faint">máx</span>
+      <div className="rd-sheet-bar-meta">
+        <span>máx</span>
         <input
           type="number"
           value={props.max}
@@ -1257,16 +1437,57 @@ function StatBar(props: {
         />
         {props.onExtra && (
           <>
-            <span className="faint">{props.extraLabel}</span>
-            <input
-              type="number"
-              value={props.extra ?? 0}
-              onChange={(e) => props.onExtra!(Number(e.target.value))}
-            />
+            <span>{props.extraLabel}</span>
+            <input type="number" value={props.extra ?? 0} onChange={(e) => props.onExtra!(Number(e.target.value))} />
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function StepIcon({ dir }: { dir: 'minus5' | 'minus1' | 'plus1' | 'plus5' }) {
+  const paths: Record<string, string> = {
+    minus5: 'M11 6l-6 6 6 6M19 6l-6 6 6 6',
+    minus1: 'M15 6l-6 6 6 6',
+    plus1: 'M9 6l6 6-6 6',
+    plus5: 'M5 6l6 6-6 6M13 6l6 6-6 6',
+  };
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d={paths[dir]} stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Ícone de d20 usado no botão de rolar perícia (coluna do meio) e no botão
+// de "rolar dados" livre (aba Combate) — substitui o emoji 🎲 que tinha
+// antes (pedido geral da sequência: emoji cru → SVG em traço).
+function D20Icon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 2 21 7v10l-9 5-9-5V7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path
+        d="M12 2 7.5 9.5h9zM7.5 9.5 3 17M16.5 9.5 21 17M7.5 9.5 12 22l4.5-12.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Ícone do botão "Catálogo do livro" (aba Inventário) — substitui o emoji 📖.
+function BookIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden style={{ marginRight: 4 }}>
+      <path
+        d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5c.8 0 1.5-.7 1.5-1.5v-13Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -1452,8 +1673,8 @@ function ClassPowerPicker({
           )}
           {pdef?.affinitySummary && pdef.element !== 'geral' && pdef.element !== affinityElement && (
             <p className="faint" style={{ fontSize: 11, marginTop: 6 }}>
-              Bônus de Afinidade disponível só se esse for seu elemento de Afinidade (defina na
-              aba Geral, NEX 50%+).
+              Bônus de Afinidade disponível só se esse for seu elemento de Afinidade (defina no
+              cabeçalho da ficha, NEX 50%+).
             </p>
           )}
         </>

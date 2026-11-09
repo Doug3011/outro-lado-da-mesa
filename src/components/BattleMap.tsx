@@ -1336,6 +1336,8 @@ export function BattleMap() {
           topFrac={0.06}
           defaultWidth={420}
           defaultHeight={560}
+          minimizable
+          maximizable
         >
           {me.isGM ? (
             <GmCharacterTabs
@@ -1376,6 +1378,8 @@ export function BattleMap() {
                 topFrac={0.1 + (i % 3) * 0.1}
                 defaultWidth={380}
                 defaultHeight={480}
+                minimizable
+                maximizable
               >
                 <CharacterSheet character={c} />
               </FloatingWindow>

@@ -6610,6 +6610,33 @@ label {
   gap: 12px;
 }
 
+/* Minimizar/maximizar (Passo 5: Ficha de personagem) — chrome extra
+   opt-in (`minimizable`/`maximizable`, ver FloatingWindow.tsx), só usado
+   pelas janelas "Ficha" por enquanto. Mesmo tamanho/posição do botão
+   fechar — fica à esquerda dele na barra de título. */
+.floating-window-tool.dock {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9e9298;
+  flex: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.floating-window-tool.dock:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+.floating-window-body.minimized,
+.floating-window-resize.minimized {
+  display: none;
+}
+
 /* ---------- janela "Dados" (DiceRoller.tsx) ---------- */
 .rd-mm-tabs {
   display: grid;
@@ -6941,4 +6968,820 @@ label {
 .rd-mm-topbar-conndot.off {
   background: var(--text-faint);
   box-shadow: none;
+}
+
+/* =====================================================================
+   REDESIGN — Passo 5: Ficha de personagem (CharacterSheet.tsx)
+   Maior passo até agora — a mesma `<CharacterSheet>` é usada em TRÊS
+   lugares (tela cheia via biblioteca/CharacterPanel.tsx, dentro da
+   FloatingWindow "Ficha" na mesa via GmCharacterTabs.tsx, e dentro de
+   cada janela por personagem aberta pelo mestre) — por isso o layout de
+   3 colunas (`.rd-sheet-grid`) é responsivo por CONTAINER QUERY
+   (`container-type: inline-size` em `.rd-sheet`), não por viewport: a
+   janela flutuante pode nascer com só 380-420px de largura, bem menor
+   que a tela cheia (~1600px da referência). Sob ~1100px de container
+   empilha tudo numa coluna só; a partir daí vira 3 colunas de verdade.
+
+   Em vez de reescrever toda a lógica de cada aba (Combate/Rituais/
+   Inventário/Progressão/Notas — já tinham inputs/lógica prontos e NÃO
+   DEVEM mudar, só layout), a maioria ganha a cara nova por RESKIN
+   ESCOPADO (`.rd-sheet .list-item`, `.rd-sheet .ability-card` etc.) em
+   vez de troca de classe — assim o HTML dessas abas continua quase
+   idêntico ao de antes, só o visual muda. O que é genuinamente NOVO
+   neste passo (cabeçalho, toolbar, pentágono de atributos, barras de
+   recurso com «‹›, escudo de Defesa, tabela de perícias, abas da
+   direita) ganha classes `.rd-sheet-*` próprias, muitas reaproveitando
+   a fundação do Passo 1 (`.rd-resource-bar`, `.rd-tabs`/`.rd-tab`,
+   `.rd-toggle`, `.rd-card`, `.rd-btn-ghost`). ===================================================================== */
+
+.rd-sheet {
+  container-type: inline-size;
+  container-name: rd-sheet;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #eee8ec;
+  font-family: var(--rd-font-body);
+  position: relative;
+}
+.rd-sheet .section-title {
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--rd-sangue-soft);
+  text-transform: uppercase;
+}
+.rd-sheet .section-title::before {
+  display: none;
+}
+.rd-sheet input,
+.rd-sheet select,
+.rd-sheet textarea {
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  color: #eee8ec;
+  border-radius: var(--rd-radius-sm);
+}
+.rd-sheet input::placeholder,
+.rd-sheet textarea::placeholder {
+  color: #6e6670;
+}
+.rd-sheet input:focus-visible,
+.rd-sheet select:focus-visible,
+.rd-sheet textarea:focus-visible {
+  outline: 2px solid var(--rd-sangue-bright);
+  outline-offset: 1px;
+}
+.rd-sheet .list-item,
+.rd-sheet .ritual-picker {
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+  border-radius: var(--rd-radius-sm);
+}
+.rd-sheet .ability-card {
+  border-color: var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+}
+.rd-sheet .ability-card.expanded {
+  border-color: #5a1a20;
+  background: rgba(40, 14, 20, 0.85);
+}
+.rd-sheet .ability-name-input:hover,
+.rd-sheet .ability-name-input:focus,
+.rd-sheet .ability-source-input:hover,
+.rd-sheet .ability-source-input:focus {
+  border-color: var(--rd-sangue-line);
+}
+.rd-sheet .calc-strip {
+  border-color: var(--rd-sangue-line);
+  border-left-color: var(--rd-sangue);
+  background: var(--rd-sangue-panel);
+}
+.rd-sheet .calc-strip .warn {
+  color: var(--rd-conhecimento);
+}
+.rd-sheet .chip {
+  border-color: var(--rd-sangue-line);
+  background: transparent;
+  border-radius: var(--rd-radius-sm);
+}
+.rd-sheet .chip:hover {
+  border-color: var(--rd-sangue);
+  color: #fff;
+}
+.rd-sheet .chip.on {
+  background: var(--rd-sangue);
+  border-color: var(--rd-sangue);
+}
+
+/* ---------- cabeçalho (identidade + retrato + NEX + no celular) ---------- */
+.rd-sheet-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+  padding: 12px 16px;
+  border-radius: var(--rd-radius);
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+}
+.rd-sheet-portrait {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  border: 1px solid var(--rd-sangue-deep);
+  background: radial-gradient(circle at 50% 35%, #3a1a40, #160c18) center / cover no-repeat;
+  color: #c9a0ff;
+  font-family: var(--rd-font-disp);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.rd-sheet-portrait-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rd-sheet-portrait-more {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #8e8088;
+  font-size: 10.5px;
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+}
+.rd-sheet-portrait-more:hover {
+  color: #fff;
+}
+.rd-sheet-portrait-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+.rd-sheet-identity {
+  flex: 1 1 420px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 8px 22px;
+}
+.rd-sheet-field {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid #2e2228;
+  padding-bottom: 4px;
+  min-width: 0;
+}
+.rd-sheet-field-label {
+  flex: 0 0 auto;
+  font-family: var(--rd-font-disp);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: #8e8088;
+  white-space: nowrap;
+}
+.rd-sheet-field input,
+.rd-sheet-field select {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #f4eef0;
+  font-size: 14px;
+  padding: 2px 0;
+  border-radius: 0;
+}
+.rd-sheet-header-side {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.rd-sheet-nexbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--rd-sangue-line);
+}
+.rd-sheet-nexbox input {
+  width: 48px;
+  text-align: center;
+  border: 0 !important;
+  background: transparent !important;
+  font-family: var(--rd-font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--rd-sangue-soft);
+  padding: 0;
+}
+.rd-sheet-nexbox span {
+  font-family: var(--rd-font-disp);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: #9e9298;
+}
+.rd-sheet-icon-btn {
+  width: var(--rd-tap-min);
+  height: var(--rd-tap-min);
+  border-radius: 10px;
+  border: 1px solid var(--rd-sangue-line);
+  background: transparent;
+  color: #cfc4c8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rd-sheet-icon-btn:hover,
+.rd-sheet-icon-btn.on {
+  background: var(--rd-sangue);
+  border-color: var(--rd-sangue);
+  color: #fff;
+}
+.rd-sheet-qr-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 5;
+  width: 260px;
+  padding: 14px;
+  border-radius: var(--rd-radius);
+  border: 1px solid var(--rd-sangue-line);
+  background: rgba(16, 11, 14, 0.98);
+  box-shadow: var(--rd-shadow-panel);
+  animation: rd-panel-in 0.2s ease-out both;
+}
+
+/* ---------- toolbar (cálculo automático / regra PD / token) ---------- */
+.rd-sheet-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+.rd-sheet-toolbar-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+.rd-sheet-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #d9cfd3;
+}
+.rd-sheet-hint {
+  font-size: 11.5px;
+  color: #9e9298;
+  margin-top: -4px;
+}
+
+/* ---------- grid de 3 colunas (responsivo por container query) ---------- */
+.rd-sheet-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rd-sheet-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+@container rd-sheet (min-width: 760px) {
+  .rd-sheet-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) 1fr;
+    align-items: start;
+  }
+  .rd-sheet-col-mid {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .rd-sheet-col-right {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+@container rd-sheet (min-width: 1160px) {
+  .rd-sheet-grid {
+    grid-template-columns: minmax(280px, 340px) minmax(300px, 1fr) minmax(360px, 1.1fr);
+  }
+  .rd-sheet-col-mid {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .rd-sheet-col-right {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+/* ---------- pentágono de atributos ---------- */
+.rd-pentagon-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px;
+}
+.rd-pentagon-head {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+.rd-pentagon-mode-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #7e7078;
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.rd-pentagon-mode-btn:hover {
+  color: #fff;
+}
+.rd-pentagon {
+  position: relative;
+  width: 100%;
+  max-width: 272px;
+  aspect-ratio: 300 / 290;
+  margin: 4px auto 2px;
+}
+.rd-pentagon-svg {
+  position: absolute;
+  inset: 0;
+}
+.rd-pentagon-svg polygon {
+  fill: none;
+  stroke: #5a1a20;
+  stroke-width: 1.5;
+  stroke-dasharray: 600;
+  animation: rd-draw 1.2s ease-out both;
+}
+.rd-pentagon-svg path {
+  stroke: #3a1418;
+  stroke-width: 1;
+  stroke-dasharray: 600;
+  animation: rd-draw 1.4s 0.15s ease-out both;
+}
+.rd-pentagon-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44%;
+  height: 44%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px dashed #7a1c22;
+  animation: rd-spin 70s linear infinite;
+}
+.rd-pentagon-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30%;
+  height: 30%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #2a1016, #120a0e 70%);
+  border: 1.5px solid var(--rd-sangue);
+  box-shadow: 0 0 24px rgba(224, 22, 30, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--rd-font-disp);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #f4eef0;
+  padding: 4px;
+}
+.rd-pentagon-node {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  border: 2px solid var(--rd-sangue);
+  background: radial-gradient(circle at 50% 35%, #2a1016, #140a0e);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s;
+  padding: 0;
+}
+.rd-pentagon-node:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 22px rgba(224, 22, 30, 0.55);
+}
+.rd-pentagon-node-val {
+  font-family: var(--rd-font-disp);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.rd-pentagon-node-short {
+  font-family: var(--rd-font-disp);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: #e9a0a4;
+}
+.rd-pentagon-node.editing {
+  cursor: default;
+  padding: 2px;
+}
+.rd-pentagon-node.editing input {
+  width: 44px;
+  text-align: center;
+  border: 0 !important;
+  background: transparent !important;
+  font-family: var(--rd-font-disp);
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  padding: 0;
+}
+
+/* ---------- mini estatísticas (NEX / PE por turno / deslocamento) ---------- */
+.rd-sheet-ministats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.rd-sheet-ministat {
+  border-radius: 10px;
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+.rd-sheet-ministat-val {
+  font-family: var(--rd-font-mono);
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  text-align: center;
+  width: 100%;
+  padding: 0;
+}
+.rd-sheet-ministat-label {
+  font-family: var(--rd-font-disp);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #8e8088;
+}
+
+/* ---------- barras de recurso (Vida/Sanidade/Esforço) ---------- */
+.rd-sheet-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rd-sheet-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.rd-sheet-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.rd-sheet-bar-head span {
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: #d9cfd3;
+}
+.rd-sheet-bar-head b {
+  font-family: var(--rd-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #8e8088;
+}
+.rd-sheet-bar-track {
+  height: 42px;
+}
+.rd-sheet-bar-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+.rd-sheet-bar-stepgroup {
+  display: flex;
+  gap: 2px;
+}
+.rd-sheet-bar-step {
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 8px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.rd-sheet-bar-step:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+.rd-sheet-bar-value {
+  font-family: var(--rd-font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+.rd-sheet-bar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: #8e8088;
+}
+.rd-sheet-bar-meta input {
+  width: 48px;
+  text-align: center;
+  padding: 2px 4px;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+}
+
+/* ---------- defesa / proteção / proficiências ---------- */
+.rd-sheet-defense {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+}
+.rd-sheet-shield {
+  position: relative;
+  width: 58px;
+  height: 66px;
+  flex: none;
+  color: var(--rd-sangue);
+  --rd-glow-rgb: 224, 22, 30;
+  animation: rd-glow-drop 3s ease-in-out infinite;
+}
+.rd-sheet-shield-val {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 4px;
+  font-family: var(--rd-font-disp);
+  font-size: 24px;
+  font-weight: 700;
+  color: #f4eef0;
+}
+.rd-sheet-defense-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rd-sheet-defense-title {
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+.rd-sheet-defense-formula {
+  font-family: var(--rd-font-mono);
+  font-size: 10.5px;
+  color: #8e8088;
+}
+.rd-sheet-traits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rd-sheet-subhead {
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--rd-sangue-soft);
+  text-transform: uppercase;
+}
+.rd-sheet-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---------- tabela de perícias (coluna do meio) ---------- */
+.rd-sheet-skills {
+  padding: 14px 10px;
+}
+.rd-sheet-skills-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 6px 8px;
+}
+.rd-sheet-skills-head > span:first-child {
+  font-family: var(--rd-font-disp);
+  font-size: 15px;
+  letter-spacing: 0.14em;
+}
+.rd-sheet-skills-legend {
+  display: flex;
+  gap: 10px;
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+}
+.rd-legend-dot::before {
+  content: '●';
+  margin-right: 3px;
+}
+.rd-sheet-skills-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px 42px 58px 58px;
+  gap: 0 4px;
+  padding: 0 6px 6px;
+  font-family: var(--rd-font-disp);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #7e7078;
+  border-bottom: 1px solid #2e2228;
+}
+.rd-sheet-skills-cols span {
+  text-align: center;
+}
+.rd-sheet-skills-cols span:first-child {
+  text-align: left;
+}
+.rd-sheet-skill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px 42px 58px 58px;
+  gap: 0 4px;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 6px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.rd-sheet-skill-row:hover {
+  background: rgba(224, 22, 30, 0.08);
+}
+.rd-sheet-skill-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 30px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12.5px;
+}
+.rd-sheet-skill-name span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rd-sheet-skill-d20 {
+  flex: none;
+  color: #8e8088;
+  transition: transform 0.25s, color 0.15s;
+}
+.rd-sheet-skill-row:hover .rd-sheet-skill-d20 {
+  color: var(--rd-sangue-bright);
+  transform: rotate(60deg);
+}
+.rd-sheet-skill-attr,
+.rd-sheet-skill-bonus {
+  text-align: center;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+}
+.rd-sheet-skill-row select,
+.rd-sheet-skill-row input {
+  width: 100%;
+  height: 24px;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid var(--rd-sangue-line);
+  background: transparent;
+  text-align: center;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  padding: 0;
+  border-radius: 0;
+}
+.rd-sheet-skills-foot {
+  margin: 10px 6px 0;
+  font-size: 10.5px;
+  color: #7e7078;
+}
+
+/* ---------- abas da direita + conteúdo ---------- */
+.rd-sheet-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: rd-rise 0.25s ease-out both;
+}
+.rd-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--rd-sangue);
+  color: #fff;
+  font-family: var(--rd-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  --rd-pulse-rgb: 224, 22, 30;
+  animation: rd-pulse-ring 2s ease-in-out infinite;
+}
+.rd-sheet-combat-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.rd-sheet-freeroll {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 200px;
+}
+.rd-sheet-freeroll input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+}
+.rd-sheet-freeroll button {
+  width: 42px;
+  height: 42px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 10px;
+  border: 0;
+  background: var(--rd-sangue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- inventário ---------- */
+.rd-sheet-inv-head {
+  font-size: 12px;
+  color: #b9aeb3;
+}
+
+@media (max-width: 760px) {
+  .rd-sheet-identity {
+    grid-template-columns: 1fr;
+  }
 }
