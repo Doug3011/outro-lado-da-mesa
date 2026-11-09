@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rollExpression, rollOrdemTest, type OrdemTestResult } from '../domain/dice';
 import { fileToDownscaledDataURL } from '../lib/image';
@@ -1650,7 +1650,13 @@ function MinigameMenuShell({
   );
 }
 
-function CharacterCreate({ onConfirm }: { onConfirm: (c: MinigameCharacter) => void }) {
+function CharacterCreate({
+  onConfirm,
+  onShowGallery,
+}: {
+  onConfirm: (c: MinigameCharacter) => void;
+  onShowGallery?: () => void;
+}) {
   const [draft, setDraft] = useState<MinigameCharacter>(defaultCharacter);
   // clique num <label> que embrulha o <input type=file> escondido não abre o
   // seletor nativo de forma confiável neste Electron (confirmado: o evento
@@ -1692,10 +1698,18 @@ function CharacterCreate({ onConfirm }: { onConfirm: (c: MinigameCharacter) => v
 
   return (
     <div className="minigame-create">
-      <p className="faint" style={{ fontSize: 12, marginBottom: 14 }}>
+      <p className="faint" style={{ fontSize: 12, marginBottom: onShowGallery ? 2 : 14 }}>
         Ficha simplificada — NEX {START_NEX}% pra começar (sobe 10% a cada Descanso na
         expedição), sem trilha/origem/sanidade.
       </p>
+      {onShowGallery && (
+        <button type="button" className="minigame-gallery-link" onClick={onShowGallery}>
+          Ver galeria de cartas
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      )}
 
       <div className="minigame-create-row minigame-create-row-portrait">
         <div className="minigame-portrait-picker">
@@ -1816,51 +1830,209 @@ function CharacterCreate({ onConfirm }: { onConfirm: (c: MinigameCharacter) => v
   );
 }
 
-// Conteúdo de uma carta (cabeçalho+ícone, custo/dado, texto) — compartilhado
-// entre a tela de montar baralho (clique = selecionar) e a mão em combate
-// (clique = jogar), só o `<button>` ao redor muda de comportamento.
-function CardFace({ card, cardTiers = {} }: { card: CombatCard; cardTiers?: Record<string, number> }) {
+// ---------- Passo 10A: componente de carta (`.rd-carta`) ----------
+// Caminhos SVG (traço, viewBox "0 0 120 80") portados do .dc.html de
+// referência (Carta.dc.html, objeto `ART` em `renderVals()`) — já existiam
+// prontos, 1 ilustração por TIPO de arma/ritual/esquiva real do jogo (não
+// por valor numérico, então reaproveitar não é "copiar dado fictício": os
+// números exibidos na carta vêm sempre de `CARDS`/`ESQUIVA_COMUM`, nunca da
+// referência). Desenhar 27 ilustrações do zero seria desproporcional ao
+// resto do Passo 10A — como já estavam prontas e no estilo certo, portar
+// foi a escolha (ver decisão documentada no relatório/CSS).
+const CARD_ILLUSTRATIONS: Record<string, string> = {
+  fist: 'M40 62V38a5 5 0 0 1 10 0v-4a5 5 0 0 1 10 0v2a5 5 0 0 1 10 0v2a5 5 0 0 1 10 0v16c0 10-7 16-17 16H54c-8 0-14-5-14-12z M40 46c-6 0-9 4-9 9 M14 30h14 M10 42h16 M14 54h14',
+  smg: 'M14 34h58l6-6h18v10H82l-2 6H56l-4 16H42l3-16H26l-4 6h-8z M60 44l-3 14 M100 30l10-4 M100 34h12 M100 38l10 4',
+  hmg: 'M8 32h70l4-4h28v8H82v8H40l-6 4H18l-4-6H8z M36 44l-8 20 M44 44l8 20 M62 44c4 6 10 8 16 6 M66 48v6 M72 50v6',
+  assault: 'M10 36l18-4h44l4-4h26v8H76l-4 6H60l2 16H50l-4-16H34l-8 8H12z M56 48c2 6 6 10 10 10 M30 28h18',
+  hunting: 'M6 40l24-6h64l4-4h16v6H98l-4 4H38l-14 10H8z M44 42v6 M60 34v-4h14v4',
+  sniper: 'M6 42l24-6h58l4-2h22v6H92l-4 4H38l-14 10H8z M44 20h30v10H44z M58 30v6 M40 44v4 M50 25h10',
+  flamethrower: 'M10 44h40l6-6h16v12H56l-6-6 M18 44v14h14V44 M24 30c4 2 4 10 0 14 M76 40c8-6 14-2 18-8 2 6 8 6 12 2-2 8-6 12-12 14 4 2 10 0 12-2-4 8-16 12-30 6',
+  gauntlets: 'M30 30h30l6 8v18a8 8 0 0 1-8 8H38a8 8 0 0 1-8-8z M30 40h36 M38 30v-6 M48 30v-6 M58 30v-6 M76 30l10-8-4 10 12-4-10 12 M80 50l14 4',
+  bolt: 'M66 6 40 44h18l-8 30 30-40H62z M24 20l8 6 M96 54l-8-6',
+  slashes: 'M30 14 70 66 M46 10 86 62 M62 14 98 58',
+  fangdrop: 'M60 8c12 18 22 28 22 42a22 22 0 0 1-44 0c0-14 10-24 22-42z M50 48l4 10 4-10 M62 48l4 10 4-10',
+  boil: 'M60 14c10 16 18 24 18 36a18 18 0 0 1-36 0c0-12 8-20 18-36z M26 30a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M84 22a5 5 0 1 0 10 0a5 5 0 1 0-10 0 M92 46a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
+  mind: 'M44 30a16 16 0 0 1 32 0c8 2 10 14 2 18 2 10-10 14-16 8-6 6-18 2-16-8-8-4-6-16-2-18z M60 22v40 M14 40h12 M94 40h12 M20 22l8 6 M100 22l-8 6 M20 58l8-6 M100 58l-8-6',
+  spiral: 'M56 40a4 4 0 1 1 8 0a10 10 0 1 1-20 0a16 16 0 1 1 32 0a22 22 0 1 1-44 0a28 28 0 1 1 56 0',
+  skullmist: 'M60 12a16 16 0 0 0-16 16v8l4 4v6h24v-6l4-4v-8a16 16 0 0 0-16-16z M53 30h0.1 M67 30h0.1 M56 46v-4 M64 46v-4 M16 62c10-6 20 6 30 0s20 6 30 0 20 6 30 0 M24 72c10-6 20 6 30 0s20 6 30 0',
+  wilt: 'M60 74V40c0-10 6-16 14-18 M74 22c8 0 12 6 10 12-8 2-14-2-10-12z M60 52c-10-2-16 2-18 10 10 2 16-2 18-10z M90 42l4 8 M84 56l2 8 M36 30l-4 6',
+  pain: 'M60 12a18 18 0 0 1 18 18v8l-6 6v10H48V44l-6-6v-8a18 18 0 0 1 18-18z M14 22l10 6-8 4 10 6 M106 22l-10 6 8 4-10 6 M52 30l8 4 M68 30l-8 4 M54 46q6-4 12 0',
+  flame: 'M60 6c14 18 24 26 24 42a24 24 0 0 1-48 0c0-10 6-16 10-20 0 10 4 14 10 14 0-12-4-24 4-36z M60 72a10 10 0 0 1-10-10c0-6 6-10 10-16 4 6 10 10 10 16a10 10 0 0 1-10 10z',
+  dust: 'M30 50a12 12 0 0 1 4-23 16 16 0 0 1 30-4 14 14 0 0 1 22 12 10 10 0 0 1-2 20H34a8 8 0 0 1-4-5z M40 66h0.1 M56 70h0.1 M72 66h0.1 M48 74h0.1 M82 72h0.1 M64 76h0.1',
+  pool: 'M18 58c0-8 18-12 42-12s42 4 42 12-18 12-42 12-42-4-42-12z M60 46c-8-10-4-24 0-36 4 12 8 26 0 36z M34 56c2-2 6-2 8 0 M76 60c2-2 6-2 8 0',
+  swarm: 'M30 40a6 6 0 1 0 12 0a6 6 0 1 0-12 0 M70 24a5 5 0 1 0 10 0a5 5 0 1 0-10 0 M76 54a6 6 0 1 0 12 0a6 6 0 1 0-12 0 M48 62a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M28 34l-6-6 M44 34l6-6 M68 18l-4-6 M82 18l4-6 M74 48l-6-6 M90 48l6-6 M14 70c20-30 60-42 94-32',
+  rocks: 'M16 74l14-22 16 6 12-16 18 12 20-8 8 28z M42 14l8-6 8 8-6 8-10-2z M72 22l6-4 6 6-4 6-8-2z M48 32v8 M78 36v6 M30 24l4 4',
+  algoz: 'M60 6c-14 0-22 12-22 26v42h44V32c0-14-8-26-22-26z M52 30h0.1 M68 30h0.1 M38 74c-6-6-12-6-18-2 M82 74c6-6 12-6 18-2 M50 44q10 6 20 0',
+  eye: 'M14 40c12-18 28-26 46-26s34 8 46 26c-12 18-28 26-46 26S26 58 14 40z M48 40a12 12 0 1 0 24 0a12 12 0 1 0-24 0 M56 40a4 4 0 1 0 8 0a4 4 0 1 0-8 0',
+  heal: 'M52 14h16v18h18v16H68v18H52V48H34V32h18z M18 20l6 6 M102 20l-6 6 M18 64l6-6 M102 64l-6-6',
+  dodge: 'M16 40h54 M56 26l16 14-16 14 M80 18c10 6 14 14 14 22s-4 16-14 22 M26 26h20 M26 54h20 M100 30v20',
+};
+// id da carta real (`CARDS`/`ESQUIVA_COMUM`) → chave em `CARD_ILLUSTRATIONS`.
+// Cópias duplicadas ganhas de Tesouro (`baseId` presente, id sufixado "#2")
+// caem na mesma ilustração da carta original — ver `cardArtKey`.
+const CARD_ART_BY_ID: Record<string, string> = {
+  soco: 'fist',
+  'metralhadora-leve': 'smg',
+  'metralhadora-pesada': 'hmg',
+  manoplas: 'gauntlets',
+  'fuzil-assalto': 'assault',
+  'fuzil-caca': 'hunting',
+  'fuzil-precisao': 'sniper',
+  'lanca-chamas': 'flamethrower',
+  cicatrizacao: 'heal',
+  eletrocussao: 'bolt',
+  descarnar: 'slashes',
+  hemofagia: 'fangdrop',
+  'ferver-sangue': 'boil',
+  'invadir-mente': 'mind',
+  paradoxo: 'spiral',
+  'miasma-entropico': 'skullmist',
+  decadencia: 'wilt',
+  'perturbacao-sofra': 'pain',
+  'chamas-do-caos': 'flame',
+  'eco-espiral': 'spiral',
+  'poeira-da-podridao': 'dust',
+  purgatorio: 'pool',
+  'tecer-ilusao-verdadeira': 'eye',
+  'vomitar-pestes': 'swarm',
+  'transfigurar-terra-amolecer': 'rocks',
+  'convocar-o-algoz': 'algoz',
+  'esquiva-comum': 'dodge',
+};
+function cardArtKey(card: CombatCard): string {
+  const withBase = card as { baseId?: string };
+  return withBase.baseId ?? card.id;
+}
+const SAVE_SKILL_LABEL: Record<'fortitude' | 'vontade' | 'reflexos', string> = {
+  fortitude: 'Fortitude',
+  vontade: 'Vontade',
+  reflexos: 'Reflexos',
+};
+// Moldura: cor da RARIDADE em arma/cura/esquiva, cor do ELEMENTO em ritual
+// (pedido do usuário). `--rd-morte` é novo (Passo 10A) — os outros 3
+// elementos já tinham token de tema de tela; Morte não tinha tela própria.
+const ELEMENT_ACCENT: Record<string, string> = {
+  Energia: 'var(--rd-energia-purple)',
+  Sangue: 'var(--rd-sangue)',
+  Morte: 'var(--rd-morte)',
+  Conhecimento: 'var(--rd-conhecimento)',
+};
+const RARITY_ACCENT: Record<Rarity, string> = {
+  comum: 'var(--rd-rarity-comum)',
+  incomum: 'var(--rd-rarity-incomum)',
+  rara: 'var(--rd-rarity-rara)',
+  lendaria: 'var(--rd-rarity-lendaria)',
+};
+function cardAccentColor(card: CombatCard): string {
+  return card.kind === 'ritual' ? ELEMENT_ACCENT[card.element] ?? RARITY_ACCENT.rara : RARITY_ACCENT[card.rarity];
+}
+
+// Carta de combate completa — ilustração SVG, custo em PE, etiqueta
+// (raridade ou "ritual · elemento"), teste (perícia/resistência), dano +
+// dano evoluído (último tier, quando a carta evolui) e descrição real.
+// Autocontida (desenha a própria moldura `.rd-carta`) — compartilhada entre
+// a Galeria, Monte seu Baralho, oferta de Tesouro e a mão de combate; só a
+// mão/fantasma de arrasto (Combate, Parte 2) passam `size="compact"` pra
+// caber na faixa inferior da tela sem precisar mexer no resto dela.
+function CardFace({
+  card,
+  cardTiers = {},
+  size,
+}: {
+  card: CombatCard;
+  cardTiers?: Record<string, number>;
+  size?: 'compact';
+}) {
   const peCost = effectivePeCost(card, cardTiers);
+  const accent = cardAccentColor(card);
+  const illustration = CARD_ILLUSTRATIONS[CARD_ART_BY_ID[cardArtKey(card)] ?? 'bolt'];
+  const tagLabel = card.kind === 'ritual' ? `Ritual · ${card.element}` : RARITY_LABEL[card.rarity];
+  const tierIdx = card.kind === 'attack' || card.kind === 'ritual' ? tierIndexOf(card, cardTiers) : -1;
+
+  let testLabel: string | null = null;
+  let dmgLabel = 'DANO';
+  let dmgValue = '';
+  let evoValue: string | null = null;
+  let tierLabel: string | null = null;
+  if (card.kind === 'attack') {
+    testLabel = SKILL_BY_KEY[card.attackSkill].name;
+    dmgValue = weaponDamageFor(card, cardTiers);
+    if (card.tiers.length > 1) {
+      evoValue = card.tiers[card.tiers.length - 1].damageDice;
+      tierLabel = card.tiers[tierIdx].label;
+    }
+  } else if (card.kind === 'ritual') {
+    const stats = ritualStatsFor(card, cardTiers);
+    testLabel = SAVE_SKILL_LABEL[stats.saveSkill];
+    dmgValue = stats.damageDice;
+    if (card.tiers.length > 1) {
+      evoValue = card.tiers[card.tiers.length - 1].damageDice;
+      tierLabel = card.tiers[tierIdx].label;
+    }
+  } else if (card.kind === 'heal') {
+    dmgLabel = 'CURA';
+    dmgValue = card.healDice;
+  } else {
+    dmgLabel = 'BÔNUS';
+    dmgValue = '+' + card.dodgeDice;
+  }
+  const costLabel = card.kind === 'dodge' && peCost === 0 ? 'Grátis' : `${peCost} PE`;
+
   return (
-    <>
-      <div className="minigame-card-head">
-        <span>{card.name}</span>
-        <span className="minigame-card-icon">{card.icon}</span>
+    <div className={'rd-carta' + (size === 'compact' ? ' rd-carta--compact' : '')} style={{ '--el-accent': accent } as CSSProperties}>
+      <span className="rd-carta-corner" aria-hidden />
+      <div className="rd-carta-top">
+        <span className="rd-carta-name">{card.name}</span>
+        <span className="rd-carta-cost">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
+          </svg>
+          {costLabel}
+        </span>
       </div>
-      <span className={'minigame-card-rarity rarity-' + card.rarity}>{RARITY_LABEL[card.rarity]}</span>
-      <div className="minigame-card-stats">
-        <span>⚡ {peCost} PE</span>
-        {card.kind === 'attack' &&
-          (() => {
-            const dmg = weaponDamageFor(card, cardTiers);
-            const tierIdx = tierIndexOf(card, cardTiers);
-            return (
-              <span>
-                🎲 {SKILL_BY_KEY[card.attackSkill].name} / {dmg}
-                {card.tiers.length > 1 && <span className="minigame-card-tier"> · {card.tiers[tierIdx].label}</span>}
-              </span>
-            );
-          })()}
-        {card.kind === 'heal' && <span>💚 {card.healDice}</span>}
-        {card.kind === 'dodge' && <span>🛡️ {card.dodgeDice}</span>}
-        {card.kind === 'ritual' &&
-          (() => {
-            const stats = ritualStatsFor(card, cardTiers);
-            const tierIdx = tierIndexOf(card, cardTiers);
-            return (
-              <span>
-                🔮 {card.element} / {stats.damageDice}
-                {card.tiers.length > 1 && <span className="minigame-card-tier"> · {card.tiers[tierIdx].label}</span>}
-              </span>
-            );
-          })()}
+      <div className="rd-carta-art">
+        <svg className="rd-carta-art-deco" viewBox="0 0 120 80" aria-hidden>
+          <circle cx="60" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 3" />
+          <circle cx="60" cy="40" r="26" fill="none" stroke="currentColor" strokeWidth="0.4" />
+          <path d="M0 40h18M102 40h18M60 0v6M60 74v6" stroke="currentColor" strokeWidth="0.5" />
+        </svg>
+        <svg className="rd-carta-art-main" viewBox="0 0 120 80" role="img" aria-label={card.name}>
+          <path d={illustration} fill="none" stroke="#F4EEF0" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
-      <p className="minigame-card-text">{card.description}</p>
-    </>
+      <div className="rd-carta-tags">
+        <span className="rd-carta-tag">{tagLabel}</span>
+        {testLabel && <span className="rd-carta-test">testa {testLabel}</span>}
+      </div>
+      <div className="rd-carta-dmg">
+        <div className="rd-carta-dmg-col">
+          <span className="rd-carta-dmg-label">{dmgLabel}</span>
+          <span className="rd-carta-dmg-value">
+            {dmgValue}
+            {tierLabel && <span className="minigame-card-tier"> · {tierLabel}</span>}
+          </span>
+        </div>
+        {evoValue && (
+          <div className="rd-carta-dmg-col rd-carta-dmg-col-evo">
+            <span className="rd-carta-dmg-label">EVOLUÍDO</span>
+            <span className="rd-carta-evo-value">{evoValue}</span>
+          </div>
+        )}
+      </div>
+      <p className="rd-carta-desc">{card.description}</p>
+    </div>
   );
 }
 
-function DeckSelect({ classe, onConfirm }: { classe: ClassKey; onConfirm: (cards: CombatCard[]) => void }) {
+function DeckSelect({
+  classe,
+  onConfirm,
+  onShowGallery,
+}: {
+  classe: ClassKey;
+  onConfirm: (cards: CombatCard[]) => void;
+  onShowGallery?: () => void;
+}) {
   // rituais são só pra Ocultista (regra dada lá no início da ideia do
   // mini-jogo) — filtra ANTES de sortear a oferta, então quem não é
   // Ocultista nunca vê ritual na lista pra escolher.
@@ -1874,43 +2046,183 @@ function DeckSelect({ classe, onConfirm }: { classe: ClassKey; onConfirm: (cards
   // sorteia a oferta uma vez só (não re-sorteia a cada re-render) — viés por
   // raridade: cartas de mais dano são mais raras de aparecer aqui.
   const [offer] = useState<CombatCard[]>(() => weightedSample(eligible, weightOf, OFFER_SIZE));
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Array (não Set) — Passo 10A: a barra inferior mostra os DECK_SIZE
+  // espaços na ORDEM em que foram escolhidos, então precisa preservar
+  // ordem de inserção (Set também preserva, mas indexar um array é mais
+  // direto pro slot i → carta).
+  const [selected, setSelected] = useState<string[]>([]);
 
   const toggle = (id: string) => {
     setSelected((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < DECK_SIZE) next.add(id);
-      return next;
+      if (s.includes(id)) return s.filter((x) => x !== id);
+      if (s.length >= DECK_SIZE) return s;
+      return [...s, id];
     });
   };
 
-  const canConfirm = selected.size === DECK_SIZE;
+  const canConfirm = selected.length === DECK_SIZE;
+  const full = selected.length >= DECK_SIZE;
 
   return (
-    <div className="minigame-create minigame-deck-select">
-      <p className="faint" style={{ fontSize: 12, marginBottom: 14 }}>
+    <div className="minigame-deck-select">
+      <p className="faint" style={{ fontSize: 12, marginBottom: onShowGallery ? 2 : 14 }}>
         Escolha {DECK_SIZE} de {offer.length} cartas — elas ficam com você a luta inteira. Em
         combate dá pra jogar até {MAX_CARDS_PER_TURN} por turno. Cartas mais raras causam mais
         dano, mas aparecem com menos frequência aqui.
       </p>
+      {onShowGallery && (
+        <button type="button" className="minigame-gallery-link" onClick={onShowGallery}>
+          Ver todas as cartas
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      )}
       <div className="minigame-deck-grid">
-        {offer.map((c) => (
+        {offer.map((c) => {
+          const isSelected = selected.includes(c.id);
+          const dim = full && !isSelected;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              className={'minigame-card' + (isSelected ? ' selected' : '') + (dim ? ' dim' : '')}
+              aria-pressed={isSelected}
+              aria-label={(isSelected ? 'Remover ' : 'Escolher ') + c.name}
+              disabled={dim}
+              onClick={() => toggle(c.id)}
+            >
+              <CardFace card={c} />
+              {isSelected && (
+                <span className="minigame-card-check" aria-hidden>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="minigame-deckbar">
+        <div className="minigame-deckbar-count">
+          <span className="minigame-deckbar-label">Seu baralho</span>
+          <span className="minigame-deckbar-num">
+            {selected.length} / {DECK_SIZE}
+          </span>
+        </div>
+        <div className="minigame-deckbar-slots">
+          {Array.from({ length: DECK_SIZE }, (_, i) => {
+            const id = selected[i];
+            const card = id ? offer.find((c) => c.id === id) : undefined;
+            return (
+              <span
+                key={i}
+                className={'minigame-deckbar-slot' + (card ? ' filled' : '')}
+                style={card ? ({ '--el-accent': cardAccentColor(card) } as CSSProperties) : undefined}
+              >
+                {card ? card.name : 'vazio'}
+              </span>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className="primary minigame-start-btn minigame-deckbar-confirm"
+          disabled={!canConfirm}
+          onClick={() => onConfirm(offer.filter((c) => selected.includes(c.id)))}
+        >
+          Confirmar baralho
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Todas as cartas reais pra exibição na Galeria — `CARDS` (26) + a Esquiva
+// (`ESQUIVA_COMUM` mora fora do array de propósito, ver comentário acima
+// dela: nunca entra em oferta/sorteio, só aqui pra completar a lista visual
+// das 27). Concatenado 1x no módulo, não recalculado a cada render.
+const GALLERY_CARDS: CombatCard[] = [...CARDS, ESQUIVA_COMUM];
+
+type GalleryFilterKey = 'todas' | 'armas' | 'rituais' | 'outras';
+
+// Galeria de cartas (tela nova, Passo 10A) — mostra as 27 cartas reais do
+// jogo com o componente `CardFace`/`.rd-carta` novo. Alcançável a partir de
+// Criar Personagem e de Monte seu Baralho (link "Ver todas as cartas"), sem
+// precisar de ficha/baralho formado — por isso vive como um estado próprio
+// (`galleryOpen`) em `MinigameTest`, não como mais uma `Phase` do fluxo de
+// combate/mapa (ver comentário lá).
+function CardGallery() {
+  const [filter, setFilter] = useState<GalleryFilterKey>('todas');
+  const armas = GALLERY_CARDS.filter((c) => c.kind === 'attack');
+  const rituais = GALLERY_CARDS.filter((c) => c.kind === 'ritual');
+  const outras = GALLERY_CARDS.filter((c) => c.kind === 'heal' || c.kind === 'dodge');
+  const groups: Record<GalleryFilterKey, CombatCard[]> = { todas: GALLERY_CARDS, armas, rituais, outras };
+  const filters: { key: GalleryFilterKey; label: string }[] = [
+    { key: 'todas', label: `Todas · ${GALLERY_CARDS.length}` },
+    { key: 'armas', label: `Armas · ${armas.length}` },
+    { key: 'rituais', label: `Rituais · ${rituais.length}` },
+    { key: 'outras', label: `Outras · ${outras.length}` },
+  ];
+  const list = groups[filter];
+
+  return (
+    <div className="minigame-gallery">
+      <p className="faint" style={{ fontSize: 12, marginBottom: 14 }}>
+        Arte, custo, teste, dano e descrição de cada carta do baralho de combate. Passe o mouse
+        pra destacar.
+      </p>
+      <div className="minigame-gallery-filters" role="group" aria-label="Filtrar cartas">
+        {filters.map((f) => (
           <button
-            key={c.id}
-            className={'minigame-card' + (selected.has(c.id) ? ' selected' : '')}
-            onClick={() => toggle(c.id)}
+            key={f.key}
+            type="button"
+            className={'rd-chip' + (filter === f.key ? ' on' : '')}
+            aria-pressed={filter === f.key}
+            onClick={() => setFilter(f.key)}
           >
-            <CardFace card={c} />
+            {f.label}
           </button>
         ))}
       </div>
-      <div className="minigame-create-preview">
-        {selected.size}/{DECK_SIZE} escolhidas
+      <div className="minigame-gallery-legend">
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-rarity-comum)' }} /> comum
+        </span>
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-rarity-incomum)' }} /> incomum
+        </span>
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-rarity-rara)' }} /> rara
+        </span>
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-rarity-lendaria)' }} /> lendária
+        </span>
+        <span className="minigame-gallery-legend-sep" />
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-energia-purple)' }} /> Energia
+        </span>
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-sangue)' }} /> Sangue
+        </span>
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-morte)' }} /> Morte
+        </span>
+        <span>
+          <span className="minigame-gallery-swatch" style={{ background: 'var(--rd-conhecimento)' }} /> Conhecimento
+        </span>
       </div>
-      <button className="primary minigame-start-btn" disabled={!canConfirm} onClick={() => onConfirm(offer.filter((c) => selected.has(c.id)))}>
-        Confirmar baralho
-      </button>
+      <div className="minigame-gallery-grid">
+        {list.map((c, i) => (
+          <div key={c.id} className="minigame-gallery-item" style={{ animationDelay: `${Math.min(i * 0.03, 0.6)}s` }}>
+            <CardFace card={c} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1919,6 +2231,8 @@ export function MinigameTest() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>('create');
   const [character, setCharacter] = useState<MinigameCharacter | null>(null);
+  // Galeria de cartas (Passo 10A) — ver comentário no bloco de render.
+  const [galleryOpen, setGalleryOpen] = useState(false);
   // baralho de compra (deckPile), mão atual (hand, sempre até HAND_SIZE
   // cartas) e pilha de descarte (discardPile) — juntos sempre somam
   // DECK_SIZE cartas (as 5 escolhidas em DeckSelect), só circulando entre os
@@ -2515,10 +2829,22 @@ export function MinigameTest() {
     }
   };
 
+  // Galeria de cartas (Passo 10A) — estado próprio, não uma `Phase`: dá pra
+  // abrir a partir de Criar Personagem OU de Monte seu Baralho e sempre
+  // volta pra tela de onde saiu, sem interferir no fluxo da `Phase`
+  // (criação → baralho → mapa → combate) que o resto do arquivo controla.
+  if (galleryOpen) {
+    return (
+      <MinigameMenuShell title="Galeria de Cartas" onBack={() => setGalleryOpen(false)} wide>
+        <CardGallery />
+      </MinigameMenuShell>
+    );
+  }
+
   if (phase === 'create' || !character) {
     return (
       <MinigameMenuShell title="Criar Personagem" onBack={() => navigate('/')}>
-        <CharacterCreate onConfirm={startCharacter} />
+        <CharacterCreate onConfirm={startCharacter} onShowGallery={() => setGalleryOpen(true)} />
       </MinigameMenuShell>
     );
   }
@@ -2526,7 +2852,7 @@ export function MinigameTest() {
   if (phase === 'deck') {
     return (
       <MinigameMenuShell title="Monte seu Baralho" onBack={() => navigate('/')} wide>
-        <DeckSelect classe={character.classe} onConfirm={confirmDeck} />
+        <DeckSelect classe={character.classe} onConfirm={confirmDeck} onShowGallery={() => setGalleryOpen(true)} />
       </MinigameMenuShell>
     );
   }
@@ -2836,7 +3162,11 @@ export function MinigameTest() {
                   onClick={() => (c.kind === 'heal' || c.kind === 'dodge') && playCard(c)}
                   onPointerDown={(e) => onCardPointerDown(e, c)}
                 >
-                  <CardFace card={c} cardTiers={cardTiers} />
+                  {/* size="compact" (Passo 10A): o `CardFace` novo é autocontido e
+                      bem maior (220x340) — sem isso não cabe na faixa de combate,
+                      que é tela/fluxo da Parte 2 e não devia precisar de mais
+                      nenhuma mudança aqui além desse 1 prop. */}
+                  <CardFace card={c} cardTiers={cardTiers} size="compact" />
                   {c.kind !== 'heal' && c.kind !== 'dodge' && <span className="minigame-card-drag-hint">arraste até o inimigo</span>}
                 </button>
               ))}
@@ -2850,7 +3180,7 @@ export function MinigameTest() {
             if (!draggedCard) return null;
             return (
               <div className="minigame-drag-ghost" style={{ left: dragPos.x, top: dragPos.y }}>
-                <CardFace card={draggedCard} cardTiers={cardTiers} />
+                <CardFace card={draggedCard} cardTiers={cardTiers} size="compact" />
               </div>
             );
           })()}

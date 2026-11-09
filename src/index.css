@@ -168,6 +168,26 @@
   --rd-medo-bg: #05070b;
   --rd-medo-panel: rgba(10, 13, 20, 0.9);
 
+  /* Morte (cinza-azulado) — adicionado no Passo 10A: as cartas de ritual
+     (combate/mini-jogo) têm 4 elementos (Sangue/Energia/Morte/Conhecimento)
+     e os 3 primeiros já tinham token de tela — Morte não tinha porque
+     nenhuma tela de menu usou esse elemento como tema até agora. Tom tirado
+     da referência (Cartas-Combate.dc.html, E.Morte = #8A9099). */
+  --rd-morte: #8a9099;
+  --rd-morte-bright: #b5bac2;
+  --rd-morte-deep: #5f6570;
+
+  /* Raridade de carta (comum/incomum/rara/lendária) — adicionado no Passo
+     10A. Diferente dos tokens de elemento acima: não é tema de UMA tela,
+     é um conceito transversal (toda carta de arma/cura/esquiva tem
+     raridade). Tons também da referência (Cartas-Combate.dc.html, objeto
+     R) — por coincidência bem próximos dos `.rarity-*` antigos que já
+     existiam no CSS pré-redesign (não eram tokens, só cores soltas). */
+  --rd-rarity-comum: #9a9aa2;
+  --rd-rarity-incomum: #3fbf6a;
+  --rd-rarity-rara: #4a8bf0;
+  --rd-rarity-lendaria: #f2a33a;
+
   /* Recursos da ficha (gradiente a → b usado no preenchimento da barra) */
   --rd-res-vida-a: #c8141c;
   --rd-res-vida-b: #ff4a50;
@@ -4737,17 +4757,24 @@ label {
   width: 100%;
   margin-top: 14px;
 }
-.minigame-deck-select {
-  max-width: 760px;
-}
+/* `.minigame-deck-select` ganhou visual próprio no Passo 10A (ver seção no
+   fim do arquivo) — o max-width antigo de 760px foi substituído por
+   width:100% lá (a tela usa a largura cheia do `.minigame-content-wide`
+   de 960px agora, pra caber a grade de cartas grandes + a barra do
+   baralho). Regra antiga removida daqui pra não brigar com a nova. */
 .minigame-deck-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 20px;
   justify-content: center;
   margin-top: 4px;
 }
-.minigame-deck-grid .minigame-card {
+/* largura fixa de 150px só pra cards que NÃO usam o componente `.rd-carta`
+   novo (Passo 10A) — hoje só `.minigame-relic-card` (oferta de Item
+   Amaldiçoado no nó de Tesouro), que continua com o visual antigo. Cards
+   com `.rd-carta` dentro (CardFace redesenhado) tiram a própria largura do
+   próprio componente — ver `:has()` no fim do arquivo. */
+.minigame-deck-grid .minigame-card:not(:has(> .rd-carta)) {
   width: 150px;
 }
 .minigame-card.selected {
@@ -9886,4 +9913,472 @@ label {
   .rd-ex-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* =====================================================================
+   REDESIGN — Passo 10A: Carta de combate (componente `.rd-carta`,
+   compartilhado) + Galeria de cartas + Monte seu baralho (MinigameTest.tsx)
+
+   `CardFace` (a função React) virou autocontida: antes só devolvia o
+   MIOLO de uma carta, esperando o chamador (`<button className="minigame-card">`)
+   fornecer a moldura. Agora ela desenha a moldura inteira (`.rd-carta`:
+   220x340, borda/gradiente pela cor de RARIDADE em arma/cura/esquiva ou de
+   ELEMENTO em ritual, ilustração SVG, custo em PE, etiqueta, teste, dano +
+   evoluído, descrição) — igual ao componente `Carta` dos .dc.html de
+   referência, que também é autocontido e só é importado (`dc-import`) nos
+   outros dois (Cartas-Combate e Jogo-Baralho).
+
+   Isso significa que TODO lugar que já chamava `<CardFace/>` ganha o novo
+   visual de uma vez (Monte seu Baralho, oferta de Tesouro no mapa, mão de
+   combate, fantasma de arrasto) — é o ganho de centralizar num componente
+   só. Os `<button className="minigame-card">`/`<div className="minigame-drag-ghost">`
+   que embrulham essas chamadas NÃO foram editados (são Combate/Mapa da
+   expedição, Parte 2) — em vez disso, as regras `:has(> .rd-carta)` abaixo
+   neutralizam a moldura ANTIGA desses wrappers só quando eles contêm o
+   componente novo, sem precisar tocar no JSX de Combate/Mapa. Quem NÃO usa
+   `CardFace` (`.minigame-upgrade-btn`, `.minigame-relic-card`) não bate
+   nesse seletor e continua com o visual antigo, intocado.
+
+   Única exceção com prop nova: a mão de combate e o fantasma de arrasto
+   (ambos Parte 2) passam `size="compact"` pro `CardFace` — sem isso, a
+   carta de 220x340 não cabe na faixa inferior da tela de combate (HUD,
+   pilhas, intenção do monstro já ocupam esse espaço) e quebraria a tela que
+   não é pra eu redesenhar. É a única mudança de 1 prop nesses dois pontos;
+   nenhum outro JSX de Combate/Mapa foi alterado.
+
+   Ilustração SVG: a referência já trazia 26 desenhos à mão (traço, no
+   objeto `ART` do Carta.dc.html) cobrindo 1:1 cada arma/ritual/esquiva real
+   do jogo (ex.: `fist`=Soco, `flamethrower`=Lança-chamas, `bolt`=
+   Eletrocussão) — iguais por TIPO de carta, não por valor de jogo, então
+   reaproveitar os caminhos SVG não é "copiar dado fictício" (os dados
+   numéricos exibidos vêm de `CARDS`/`ESQUIVA_COMUM`, nunca da referência).
+   Desenhar 27 ilustrações do zero seria desproporcional ao resto do Passo
+   10A; como elas já existiam prontas e exatamente no estilo certo, portar
+   foi a escolha — ver `CARD_ILLUSTRATIONS`/`CARD_ART_BY_ID` no .tsx.
+
+   Reaproveitado: `rd-float` (flutuação da ilustração, idêntico ao
+   `cd-float` da referência), `rd-rise` (entrada em cascata da galeria/
+   baralho), `rd-pop` (selo de ✓ ao escolher carta), `color-mix(in srgb...)`
+   (mesma técnica já usada em `--el-accent` no Passo da Área do mestre),
+   `.rd-chip` (Passo 1, nunca usado até agora — vira filtro da Galeria).
+   Variável `--el-accent`: nome reaproveitado do app ORIGINAL (`char-card`/
+   `ProfileEditor`), que já usa esse nome pra "cor de destaque do elemento
+   atual" do mesmo jeito. ===================================================================== */
+
+.rd-carta {
+  --el-accent: var(--rd-rarity-comum);
+  position: relative;
+  width: 220px;
+  min-height: 340px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 2px solid var(--el-accent);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--el-accent) 30%, transparent) 0%, #120e12 38%, #0c0a0d 100%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  font-family: var(--rd-font-body);
+  color: #eee8ec;
+  text-align: left;
+  transition: transform 0.2s;
+}
+.rd-carta:hover {
+  transform: translateY(-8px) rotate(-1deg);
+}
+.rd-carta-corner {
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--el-accent) 55%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.rd-carta-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.rd-carta-name {
+  font-family: var(--rd-font-disp);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+.rd-carta-cost {
+  flex: 0 0 auto;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--el-accent);
+  color: #ffe08a;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.rd-carta-art {
+  position: relative;
+  height: 112px;
+  flex: none;
+  border-radius: 10px;
+  background: radial-gradient(ellipse at 50% 55%, color-mix(in srgb, var(--el-accent) 40%, transparent), #0a080b 72%);
+  border: 1px solid color-mix(in srgb, var(--el-accent) 55%, transparent);
+  overflow: hidden;
+  color: var(--el-accent);
+}
+.rd-carta-art-deco {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+}
+.rd-carta-art-main {
+  position: absolute;
+  inset: 6px 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 12px);
+  filter: drop-shadow(0 0 6px var(--el-accent)) drop-shadow(0 0 1px var(--el-accent));
+  animation: rd-float 4s ease-in-out infinite;
+}
+.rd-carta-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.rd-carta-tag {
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--el-accent) 20%, transparent);
+  border: 1px solid var(--el-accent);
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+}
+.rd-carta-test {
+  font-family: var(--rd-font-mono);
+  font-size: 9.5px;
+  color: #b9b0b5;
+}
+.rd-carta-dmg {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--el-accent) 44%, transparent);
+}
+.rd-carta-dmg-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rd-carta-dmg-col-evo {
+  align-items: flex-end;
+}
+.rd-carta-dmg-label {
+  font-family: var(--rd-font-disp);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: #b9b0b5;
+}
+.rd-carta-dmg-col-evo .rd-carta-dmg-label {
+  color: #8e868b;
+}
+.rd-carta-dmg-value {
+  font-family: var(--rd-font-disp);
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 12px var(--el-accent);
+  white-space: nowrap;
+}
+.rd-carta-dmg-value .minigame-card-tier {
+  font-size: 10px;
+  font-weight: 600;
+  text-shadow: none;
+}
+.rd-carta-evo-value {
+  font-family: var(--rd-font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #d9d2d6;
+}
+.rd-carta-desc {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #d3cbd0;
+}
+
+/* ---------- variante compacta (mão de combate / fantasma de arrasto —
+   Parte 2, ver `size="compact"` no comentário acima) ---------- */
+.rd-carta--compact {
+  width: 132px;
+  min-height: 0;
+  height: 204px;
+  padding: 7px;
+  gap: 4px;
+  border-radius: 10px;
+}
+.rd-carta--compact .rd-carta-name {
+  font-size: 10px;
+}
+.rd-carta--compact .rd-carta-cost {
+  height: 16px;
+  font-size: 8.5px;
+  padding: 0 5px;
+}
+.rd-carta--compact .rd-carta-art {
+  height: 46px;
+  border-radius: 6px;
+}
+.rd-carta--compact .rd-carta-art-main {
+  inset: 3px 5px;
+  width: calc(100% - 10px);
+  height: calc(100% - 6px);
+}
+.rd-carta--compact .rd-carta-tag {
+  height: 14px;
+  font-size: 7px;
+  padding: 0 4px;
+}
+.rd-carta--compact .rd-carta-test {
+  font-size: 7px;
+}
+.rd-carta--compact .rd-carta-dmg {
+  padding: 3px 5px;
+}
+.rd-carta--compact .rd-carta-dmg-label {
+  font-size: 6.5px;
+}
+.rd-carta--compact .rd-carta-dmg-value {
+  font-size: 13px;
+}
+.rd-carta--compact .rd-carta-dmg-value .minigame-card-tier {
+  font-size: 7px;
+}
+.rd-carta--compact .rd-carta-evo-value {
+  font-size: 8px;
+}
+.rd-carta--compact .rd-carta-desc {
+  font-size: 6.6px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- compat com wrappers antigos que embrulham `CardFace`
+   (ver comentário grande no topo da seção) ---------- */
+.minigame-card:has(> .rd-carta) {
+  position: relative;
+  display: block;
+  width: auto;
+  background: none;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.minigame-card.selected:has(> .rd-carta) {
+  border: 0;
+  box-shadow: none;
+}
+.minigame-drag-ghost:has(> .rd-carta) {
+  width: auto;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+/* selo de ✓ (Monte seu baralho) — SVG, não emoji; `rd-pop` já existia
+   (Passo 1) pro "estala e assenta" igual o `bj-check` da referência. */
+.minigame-card-check {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--rd-sangue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(224, 22, 30, 0.75);
+  animation: rd-pop 0.35s ease-out both;
+  pointer-events: none;
+}
+.minigame-card.selected > .rd-carta {
+  transform: translateY(-14px);
+  filter: drop-shadow(0 0 18px rgba(224, 22, 30, 0.55));
+}
+.minigame-card.dim {
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+
+/* ---------- Galeria de cartas (tela nova) ---------- */
+.minigame-gallery {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.minigame-gallery-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.minigame-gallery-filters .rd-chip {
+  height: var(--rd-tap-min);
+  padding: 0 16px;
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.rd-chip.on {
+  border-color: var(--rd-sangue);
+  background: var(--rd-sangue);
+  color: #fff;
+}
+.minigame-gallery-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #9e9298;
+  margin-bottom: 20px;
+}
+.minigame-gallery-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.minigame-gallery-legend-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--rd-sangue-line);
+}
+.minigame-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 220px);
+  gap: 26px 20px;
+  justify-content: start;
+  padding-bottom: 8px;
+}
+.minigame-gallery-item {
+  animation: rd-rise 0.5s ease-out both;
+}
+
+/* ---------- Monte seu baralho (visual novo) ---------- */
+.minigame-deck-select {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.minigame-gallery-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--rd-tap-min);
+  margin: 2px 0 14px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--rd-sangue-soft);
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.minigame-gallery-link:hover {
+  background: none;
+  color: #fff;
+}
+.minigame-deckbar {
+  margin-top: 18px;
+  padding: 16px 18px;
+  border-radius: var(--rd-radius);
+  background: rgba(10, 8, 9, 0.7);
+  border: 1px solid var(--rd-sangue-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.minigame-deckbar-count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.minigame-deckbar-label {
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rd-sangue-soft);
+}
+.minigame-deckbar-num {
+  font-family: var(--rd-font-mono);
+  font-size: 17px;
+  font-weight: 600;
+}
+.minigame-deckbar-slots {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
+}
+.minigame-deckbar-slot {
+  --el-accent: var(--rd-sangue-line);
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12.5px;
+  border: 1px dashed var(--rd-sangue-line);
+  color: #6e6670;
+}
+.minigame-deckbar-slot.filled {
+  border: 1px solid var(--el-accent);
+  background: color-mix(in srgb, var(--el-accent) 20%, transparent);
+  color: #fff;
+  font-weight: 600;
+  animation: rd-pop 0.25s ease-out both;
+}
+.minigame-deckbar-confirm {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
