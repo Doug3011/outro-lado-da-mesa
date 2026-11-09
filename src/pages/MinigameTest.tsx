@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointer
 import { useNavigate } from 'react-router-dom';
 import { rollExpression, rollOrdemTest, type OrdemTestResult } from '../domain/dice';
 import { fileToDownscaledDataURL } from '../lib/image';
+import { BackChevronIcon } from '../components/icons';
 import {
   ATTRIBUTES,
   CLASS_BY_KEY,
@@ -1410,13 +1411,25 @@ function difficultyScaleForRow(row: number): number {
   return 1 + row * DIFFICULTY_SCALE_PER_ROW;
 }
 
-const NODE_ICON: Record<NodeKind, string> = {
-  enemy: '👹',
-  elite: '💀',
-  unknown: '❓',
-  rest: '🔥',
-  treasure: '💰',
-  boss: '👺',
+// Passo 10B: emoji trocado por ícone SVG em traço por tipo de nó (caminhos
+// genéricos — zumbi/caveira/interrogação/fogueira/baú/caveira-coroada —
+// portados da referência Jogo-Mapa.dc.html, `T`). Cor por tipo também vem
+// de lá (`NODE_COLOR`), usada no anel/traço do próprio ícone.
+const NODE_ICON_PATH: Record<NodeKind, string> = {
+  enemy: 'M5 4l3 4h8l3-4v9a7 7 0 0 1-14 0zM9.5 12.5h.01M14.5 12.5h.01M10 16.5h4',
+  elite: 'M12 3a7 7 0 0 0-7 7v4l2 2v3h10v-3l2-2v-4a7 7 0 0 0-7-7zM9 11h.01M15 11h.01M10 19v-2M14 19v-2',
+  unknown: 'M9 9a3 3 0 1 1 4 2.8c-.6.3-1 .8-1 1.5V14M12 18h.01',
+  rest: 'M12 3c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 3 1 4 3 4 0-3-1-6 0-9z',
+  treasure: 'M4 10h16v9H4zM4 10l2-5h12l2 5M12 10v4',
+  boss: 'M4 4l4 5h8l4-5v9a8 8 0 0 1-16 0zM9 12.5h.01M15 12.5h.01M9 17l1.5-1 1.5 1 1.5-1 1.5 1',
+};
+const NODE_COLOR: Record<NodeKind, string> = {
+  enemy: '#ff4a50',
+  elite: '#d9d2e0',
+  unknown: '#b57cff',
+  rest: '#ff8a3a',
+  treasure: '#f2c14e',
+  boss: '#ff2a32',
 };
 const NODE_LABEL: Record<NodeKind, string> = {
   enemy: 'Inimigo',
@@ -1426,6 +1439,13 @@ const NODE_LABEL: Record<NodeKind, string> = {
   treasure: 'Tesouro',
   boss: 'Chefe',
 };
+function NodeIcon({ kind, size = 24 }: { kind: NodeKind; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={NODE_COLOR[kind]} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={NODE_ICON_PATH[kind]} />
+    </svg>
+  );
+}
 
 const MAP_NODE_KIND_WEIGHT: Record<Exclude<NodeKind, 'boss'>, number> = {
   enemy: 10,
@@ -1614,6 +1634,23 @@ function GenericPortrait() {
   );
 }
 
+function HeartLineIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 5c-2.5 4.5-9.5 9-9.5 9z" />
+    </svg>
+  );
+}
+
+function DeckLineIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <rect x="4" y="3" width="12" height="17" rx="2" />
+      <path d="M9 21h9a2 2 0 0 0 2-2V7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function MinigameMenuShell({
   title,
   onBack,
@@ -1649,6 +1686,247 @@ function MinigameMenuShell({
     </div>
   );
 }
+
+// ---------- Passo 10B (parte 4/4): cenários noturnos do combate ----------
+// 5 cenários (sorteados a cada luta nova, ver `scenarioIdx`/`enterNode`),
+// versões mais leves (menos pontos/paths) das cenas da referência
+// (Jogo-Combate.dc.html) — mesma composição e paleta, só sem os centos de
+// coordenadas de chuva/poeira individuais (trocadas por um número menor de
+// elementos + CSS animado, bem mais barato de renderizar).
+const SCENARIOS: { name: string; sub: string }[] = [
+  { name: 'Rua Treze', sub: 'cidade · chuva' },
+  { name: 'Galeria 4', sub: 'esgoto · sem sinal' },
+  { name: 'Escola Estadual', sub: 'abandonada · corredor B' },
+  { name: 'Mata Fechada', sub: 'floresta · lua cheia' },
+  { name: 'Estação 13', sub: 'metrô desativado' },
+];
+
+function ScenarioBackground({ idx }: { idx: number }) {
+  const Scene = [SceneRuaTreze, SceneGaleria4, SceneEscola, SceneMata, SceneEstacao][idx] ?? SceneRuaTreze;
+  return (
+    <div className="rd-cb-bg" aria-hidden="true">
+      <Scene />
+      <div className="rd-vignette" />
+    </div>
+  );
+}
+
+function SceneRuaTreze() {
+  const buildings = [12, 30, 48, 64, 80];
+  return (
+    <>
+      <svg className="rd-cb-scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="cb-sky1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#03040a" />
+          <stop offset="1" stopColor="#151b33" />
+        </linearGradient>
+        <radialGradient id="cb-moon" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stopColor="#e8ecff" stopOpacity=".9" />
+          <stop offset="1" stopColor="#9fb0e0" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="cb-cone1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffc970" stopOpacity=".5" />
+          <stop offset="1" stopColor="#ffc970" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="1440" height="900" fill="url(#cb-sky1)" />
+      <circle cx="1150" cy="150" r="220" fill="url(#cb-moon)" className="rd-cb-anim-moon" />
+      <circle cx="1150" cy="150" r="46" fill="#d9def5" opacity=".85" />
+      {buildings.map((x, i) => (
+        <rect key={i} x={`${x}%`} y={300 + (i % 3) * 60} width="9%" height="900" fill="#0c1020" className="rd-cb-anim-flicker" style={{ animationDelay: `${i * 0.6}s` }} />
+      ))}
+      <polygon points="268,210 120,880 470,880" fill="url(#cb-cone1)" className="rd-cb-anim-lamp" />
+      <path d="M252 900V200q0-24 24-24h28" fill="none" stroke="#0a0b12" strokeWidth="12" />
+      <rect x="292" y="190" width="40" height="14" rx="4" fill="#ffe1a8" />
+      <polygon points="0,900 1440,900 1440,760 0,780" fill="#05060c" />
+      </svg>
+      <div className="rd-cb-rain" />
+    </>
+  );
+}
+
+function SceneGaleria4() {
+  return (
+    <svg className="rd-cb-scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <radialGradient id="cb-sewglow" cx=".5" cy=".45" r=".5">
+          <stop offset="0" stopColor="#5be38a" stopOpacity=".35" />
+          <stop offset="1" stopColor="#000" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="cb-water" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#16402a" />
+          <stop offset="1" stopColor="#030a06" />
+        </linearGradient>
+      </defs>
+      <rect width="1440" height="900" fill="#040605" />
+      <path d="M-60 900V420a780 620 0 0 1 1560 0v480z" fill="#0e120f" />
+      <path d="M300 900V470a420 330 0 0 1 840 0v430z" fill="#070908" />
+      <rect width="1440" height="900" fill="url(#cb-sewglow)" className="rd-cb-anim-flicker-slow" />
+      <polygon points="0,900 1440,900 1440,700 980,640 460,640 0,700" fill="url(#cb-water)" />
+      <g className="rd-cb-ripple">
+        <ellipse cx="720" cy="760" rx="60" ry="10" fill="none" stroke="#7ff0a8" strokeWidth="1.5" />
+      </g>
+      <g className="rd-cb-ripple" style={{ animationDelay: '1s' }}>
+        <ellipse cx="400" cy="800" rx="50" ry="8" fill="none" stroke="#7ff0a8" strokeWidth="1.5" />
+      </g>
+      <path d="M400 240v14" stroke="#9ff0c0" strokeWidth="3" strokeLinecap="round" className="rd-cb-drip" />
+      <path d="M1060 260v14" stroke="#9ff0c0" strokeWidth="3" strokeLinecap="round" className="rd-cb-drip" style={{ animationDelay: '1.2s' }} />
+      <rect width="1440" height="900" fill="#021006" opacity=".3" />
+    </svg>
+  );
+}
+
+function SceneEscola() {
+  return (
+    <svg className="rd-cb-scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <radialGradient id="cb-tube" cx=".5" cy="0" r=".9">
+          <stop offset="0" stopColor="#cfe8ff" stopOpacity=".45" />
+          <stop offset="1" stopColor="#cfe8ff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="1440" height="900" fill="#07080b" />
+      <polygon points="0,0 1440,0 860,330 580,330" fill="#0c0e13" />
+      <polygon points="0,900 1440,900 860,560 580,560" fill="#0e0f12" />
+      <polygon points="0,0 580,330 580,560 0,900" fill="#101319" />
+      <polygon points="1440,0 860,330 860,560 1440,900" fill="#0d1016" />
+      <path d="M60 140 300 230V680L60 790z M1380 140 1140 230V680L1380 790z" fill="#1a2230" stroke="#0a0d12" strokeWidth="3" />
+      <rect x="660" y="360" width="120" height="200" fill="#030304" />
+      <rect x="700" y="380" width="40" height="60" fill="#5b1418" opacity=".55" className="rd-cb-anim-flicker-slow" />
+      <path d="M580 560 0 900M860 560 1440 900M650 560 340 900M790 560 1100 900M720 560v340" stroke="#16181e" strokeWidth="2" />
+      <g className="rd-cb-anim-flicker">
+        <polygon points="560,80 880,80 1180,700 260,700" fill="url(#cb-tube)" />
+        <rect x="560" y="70" width="320" height="14" rx="4" fill="#e6f2ff" />
+      </g>
+      <g className="rd-cb-dust">
+        <circle cx="500" cy="300" r="2" fill="#e6f2ff" opacity=".4" />
+        <circle cx="900" cy="500" r="2" fill="#e6f2ff" opacity=".4" />
+        <circle cx="700" cy="650" r="2" fill="#e6f2ff" opacity=".4" />
+      </g>
+      <rect width="1440" height="900" fill="#0a1420" opacity=".25" />
+    </svg>
+  );
+}
+
+function SceneMata() {
+  const trunks = [40, 160, 280, 430, 620, 800, 980, 1150, 1320];
+  return (
+    <svg className="rd-cb-scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="cb-fsky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#02050a" />
+          <stop offset="1" stopColor="#0c1a22" />
+        </linearGradient>
+        <linearGradient id="cb-beam" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#bfe4ff" stopOpacity=".18" />
+          <stop offset="1" stopColor="#bfe4ff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="1440" height="900" fill="url(#cb-fsky)" />
+      <polygon points="760,0 900,0 1100,900 640,900" fill="url(#cb-beam)" className="rd-cb-anim-moon" />
+      {trunks.map((x, i) => (
+        <rect key={i} x={x} y="0" width={18 + (i % 3) * 6} height="900" fill="#08100f" opacity=".75" />
+      ))}
+      <rect x="-100" y="560" width="1640" height="340" fill="#9fc4d8" opacity=".12" className="rd-cb-fog" />
+      <polygon points="0,900 1440,900 1440,780 0,800" fill="#020404" />
+      <g fill="#d4ff8a">
+        {[380, 520, 980, 1120, 260, 1260].map((x, i) => (
+          <circle key={i} cx={x} cy={420 + (i % 3) * 80} r="2.6" className="rd-cb-firefly" style={{ animationDelay: `${i * 0.7}s` }} />
+        ))}
+      </g>
+      <rect x="-100" y="680" width="1640" height="220" fill="#9fc4d8" opacity=".1" className="rd-cb-fog" style={{ animationDirection: 'reverse' }} />
+    </svg>
+  );
+}
+
+function SceneEstacao() {
+  return (
+    <svg className="rd-cb-scene" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <radialGradient id="cb-head" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stopColor="#fff6d8" stopOpacity="1" />
+          <stop offset=".3" stopColor="#ffe29a" stopOpacity=".5" />
+          <stop offset="1" stopColor="#ffe29a" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="1440" height="900" fill="#060608" />
+      <rect x="0" y="0" width="1440" height="560" fill="#101216" />
+      <path d="M0 80H1440M0 160H1440M0 240H1440M0 320H1440M0 400H1440M0 480H1440" stroke="#16191f" strokeWidth="2" />
+      <rect x="0" y="380" width="1440" height="26" fill="#5b1418" opacity=".7" />
+      <path d="M940 560V330a150 150 0 0 1 300 0v230z" fill="#010102" />
+      <circle cx="1090" cy="450" r="110" fill="url(#cb-head)" className="rd-cb-train-light" />
+      <g className="rd-cb-anim-flicker">
+        <rect x="340" y="150" width="420" height="90" rx="6" fill="#0a0b0e" stroke="#3a3f4a" strokeWidth="3" />
+        <text x="550" y="208" textAnchor="middle" fill="#e6e2d8" fontFamily="Oswald, sans-serif" fontSize="40" letterSpacing="6">
+          ESTAÇÃO 13
+        </text>
+      </g>
+      <rect x="140" y="0" width="70" height="680" fill="#0b0c10" />
+      <rect x="820" y="0" width="60" height="640" fill="#0b0c10" />
+      <polygon points="0,560 1440,560 1440,640 0,700" fill="#14151a" />
+      <path d="M0 700 1440 640" stroke="#e0b830" strokeWidth="10" opacity=".55" strokeDasharray="40 20" />
+      <polygon points="0,700 1440,640 1440,900 0,900" fill="#030304" />
+      <rect width="1440" height="900" fill="#14100a" opacity=".2" />
+    </svg>
+  );
+}
+
+function DiceGlyphIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2 21 7v10l-9 5-9-5V7z" />
+      <path d="M12 2 7.5 9.5h9zM7.5 9.5 12 22l4.5-12.5" />
+    </svg>
+  );
+}
+
+function TrashLineIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+    </svg>
+  );
+}
+
+function WarnLineIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <path d="M12 2 21 7v10l-9 5-9-5V7z" />
+    </svg>
+  );
+}
+
+function ShieldLineIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3l8 3.5v6c0 5-3.5 7.5-8 8.5-4.5-1-8-3.5-8-8.5v-6z" />
+    </svg>
+  );
+}
+
+function ArrowRightLineIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+// Ícone por classe (Passo 10B) — caminhos SVG genéricos (espadas cruzadas /
+// estrela / olho) portados da referência (Jogo-Criar.dc.html, `clsDefs`) —
+// são só pictogramas de classe, não dado de jogo, então portar não conflita
+// com a regra de "não copiar número fictício da referência".
+const CLASS_ICON: Record<ClassKey, string> = {
+  combatente: 'M5 19 19 5M15 5h4v4M9 19H5v-4M14 14l5 5M10 10 5 5',
+  especialista: 'M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z',
+  ocultista: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5 12q7-6 14 0q-7 6-14 0zM12 12h.01',
+};
+const CLASS_DESC: Record<ClassKey, string> = {
+  combatente: 'Linha de frente: mais vida, armas pesadas.',
+  especialista: 'Versátil: mais perícias e esforço.',
+  ocultista: 'Rituais: mais esforço, menos vida.',
+};
 
 function CharacterCreate({
   onConfirm,
@@ -1694,139 +1972,204 @@ function CharacterCreate({
   };
 
   const preview = deriveMinigameStats(draft.classe, draft.attributes, draft.nex);
+  // Gate original (não altere): só exige nome + atributos todos distribuídos
+  // — perícia sobrando sempre foi permitido ficar pra depois (o jogo real
+  // não trava a criação por perícia não gasta).
   const canStart = draft.name.trim().length > 0 && attrLeft === 0;
+  const missing = [draft.name.trim() ? '' : 'nome', attrLeft > 0 ? `${attrLeft} ponto(s) de atributo` : ''].filter(Boolean);
 
   return (
-    <div className="minigame-create">
-      <p className="faint" style={{ fontSize: 12, marginBottom: onShowGallery ? 2 : 14 }}>
-        Ficha simplificada — NEX {START_NEX}% pra começar (sobe 10% a cada Descanso na
-        expedição), sem trilha/origem/sanidade.
-      </p>
-      {onShowGallery && (
-        <button type="button" className="minigame-gallery-link" onClick={onShowGallery}>
-          Ver galeria de cartas
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </button>
-      )}
-
-      <div className="minigame-create-row minigame-create-row-portrait">
-        <div className="minigame-portrait-picker">
-          <div className="minigame-portrait-preview">
-            {draft.portrait ? <img src={draft.portrait} alt="" /> : <GenericPortrait />}
-          </div>
-          <button type="button" className="small ghost minigame-portrait-btn" onClick={() => portraitInputRef.current?.click()}>
-            {draft.portrait ? 'Trocar foto' : 'Adicionar foto'}
+    <div className="rd-cc">
+      <div className="rd-cc-note-row">
+        <p className="faint rd-cc-note">
+          Ficha simplificada — NEX {START_NEX}% pra começar (sobe 10% a cada Descanso na
+          expedição), sem trilha/origem/sanidade.
+        </p>
+        {onShowGallery && (
+          <button type="button" className="minigame-gallery-link" onClick={onShowGallery}>
+            Ver galeria de cartas
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
           </button>
-          <input
-            ref={portraitInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (!file) return;
-              const dataUrl = await fileToDownscaledDataURL(file, 320);
-              if (dataUrl) setDraft((d) => ({ ...d, portrait: dataUrl }));
-            }}
-          />
-          {draft.portrait && (
-            <button className="small ghost" onClick={() => setDraft((d) => ({ ...d, portrait: undefined }))}>
-              Remover
-            </button>
-          )}
-        </div>
-        <div className="minigame-create-row" style={{ flex: 1 }}>
-          <div className="field">
-            <label>Nome</label>
-            <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
-          </div>
-          <div className="field">
-            <label>Aparência</label>
-            <input
-              value={draft.appearance}
-              onChange={(e) => setDraft((d) => ({ ...d, appearance: e.target.value }))}
-              placeholder="opcional"
-            />
-          </div>
-        </div>
+        )}
       </div>
 
-      <div className="field">
-        <label>Classe</label>
-        <div className="minigame-class-row">
-          {CLASSES.map((c) => (
-            <button
-              key={c.key}
-              className={'minigame-class-btn' + (draft.classe === c.key ? ' on' : '')}
-              onClick={() => setDraft((d) => ({ ...d, classe: c.key }))}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="minigame-create-section">
-        <div className="minigame-create-section-head">
-          <span>Atributos</span>
-          <span className={attrLeft === 0 ? 'minigame-budget-ok' : 'minigame-budget'}>
-            {attrLeft} restante(s)
-          </span>
-        </div>
-        <div className="minigame-attr-grid">
-          {ATTRIBUTES.map((a) => (
-            <div key={a.key} className="minigame-attr-cell">
-              <span className="minigame-attr-name">{a.short}</span>
-              <button className="small ghost" onClick={() => decAttr(a.key)}>
-                −
+      <div className="rd-cc-grid">
+        <section className="rd-cc-form">
+          <div className="rd-cc-portrait-row">
+            <div className="rd-cc-portrait-picker">
+              <button type="button" className="rd-cc-portrait-btn" onClick={() => portraitInputRef.current?.click()} aria-label={draft.portrait ? 'Trocar foto' : 'Adicionar foto'}>
+                {draft.portrait ? <img src={draft.portrait} alt="" /> : <CameraIcon />}
+                {!draft.portrait && <span>Foto</span>}
               </button>
-              <span className="minigame-attr-val">{draft.attributes[a.key]}</span>
-              <button className="small ghost" onClick={() => incAttr(a.key)}>
-                +
-              </button>
+              <input
+                ref={portraitInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  const dataUrl = await fileToDownscaledDataURL(file, 320);
+                  if (dataUrl) setDraft((d) => ({ ...d, portrait: dataUrl }));
+                }}
+              />
+              {draft.portrait && (
+                <button type="button" className="rd-cc-portrait-remove" onClick={() => setDraft((d) => ({ ...d, portrait: undefined }))}>
+                  Remover foto
+                </button>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="minigame-create-section">
-        <div className="minigame-create-section-head">
-          <span>Perícias de combate</span>
-          <span className={skillLeft === 0 ? 'minigame-budget-ok' : 'minigame-budget'}>
-            {skillLeft} restante(s)
-          </span>
-        </div>
-        {COMBAT_SKILL_KEYS.map((k) => {
-          const def = SKILL_BY_KEY[k];
-          const level = TRAINING_LEVELS[trainingIndex(draft.skills[k])];
-          return (
-            <div key={k} className="minigame-skill-row">
-              <span className="minigame-skill-name">
-                {def.name} <span className="faint">({def.attr})</span>
-              </span>
-              <button className="small ghost" onClick={() => lowerSkill(k)}>
-                −
-              </button>
-              <span className="minigame-skill-level">{level.label}</span>
-              <button className="small ghost" onClick={() => bumpSkill(k)}>
-                +
-              </button>
+            <div className="rd-cc-name-fields">
+              <label className="rd-cc-field">
+                <span>Nome</span>
+                <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Nome do agente" />
+              </label>
+              <label className="rd-cc-field">
+                <span>
+                  Aparência <i>(opcional)</i>
+                </span>
+                <input
+                  value={draft.appearance}
+                  onChange={(e) => setDraft((d) => ({ ...d, appearance: e.target.value }))}
+                  placeholder="Ex.: jaqueta rasgada, olhar cansado"
+                />
+              </label>
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      <div className="minigame-create-preview">
-        PV {preview.pvMax} · PE {preview.peMax} · Defesa {preview.defense}
-      </div>
+          <div className="rd-cc-section">
+            <span className="rd-cc-section-label">Classe</span>
+            <div className="rd-cc-class-grid">
+              {CLASSES.map((c) => {
+                const on = draft.classe === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={'rd-cc-class-card' + (on ? ' on' : '')}
+                    aria-pressed={on}
+                    onClick={() => setDraft((d) => ({ ...d, classe: c.key }))}
+                  >
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d={CLASS_ICON[c.key]} />
+                    </svg>
+                    <span className="rd-cc-class-name">{c.name}</span>
+                    <span className="rd-cc-class-desc">{CLASS_DESC[c.key]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-      <button className="primary minigame-start-btn" disabled={!canStart} onClick={() => onConfirm(draft)}>
-        Começar aventura
-      </button>
+          <div className="rd-cc-section">
+            <div className="rd-cc-section-head">
+              <span className="rd-cc-section-label">Atributos</span>
+              <span className={'rd-cc-budget' + (attrLeft === 0 ? ' ok' : '')}>{attrLeft} restante(s)</span>
+            </div>
+            <div className="rd-cc-attr-grid">
+              {ATTRIBUTES.map((a) => (
+                <div key={a.key} className="rd-cc-attr-cell">
+                  <span className="rd-cc-attr-name">{a.short}</span>
+                  <span className={'rd-cc-attr-val' + (draft.attributes[a.key] >= ATTR_MAX ? ' max' : draft.attributes[a.key] === 0 ? ' zero' : '')}>
+                    {draft.attributes[a.key]}
+                  </span>
+                  <div className="rd-cc-stepper">
+                    <button type="button" className="rd-cc-step" onClick={() => decAttr(a.key)} aria-label={`Diminuir ${a.name}`}>
+                      −
+                    </button>
+                    <button type="button" className="rd-cc-step" onClick={() => incAttr(a.key)} aria-label={`Aumentar ${a.name}`}>
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rd-cc-section">
+            <div className="rd-cc-section-head">
+              <span className="rd-cc-section-label">Perícias de combate</span>
+              <span className={'rd-cc-budget' + (skillLeft === 0 ? ' ok' : '')}>{skillLeft} restante(s)</span>
+            </div>
+            <div className="rd-cc-skill-grid">
+              {COMBAT_SKILL_KEYS.map((k) => {
+                const def = SKILL_BY_KEY[k];
+                const idx = trainingIndex(draft.skills[k]);
+                const level = TRAINING_LEVELS[idx];
+                return (
+                  <div key={k} className="rd-cc-skill-row">
+                    <div className="rd-cc-skill-text">
+                      <span className="rd-cc-skill-name">
+                        {def.name} <span className="faint">({def.attr})</span>
+                      </span>
+                      <span className={'rd-cc-skill-grade' + (idx >= 3 ? ' veteran' : idx >= 1 ? ' trained' : '')}>
+                        {level.label}
+                        {idx > 0 ? ` · +${level.value}` : ''}
+                      </span>
+                    </div>
+                    <button type="button" className="rd-cc-step" onClick={() => lowerSkill(k)} aria-label={`Baixar ${def.name}`}>
+                      −
+                    </button>
+                    <button type="button" className="rd-cc-step" onClick={() => bumpSkill(k)} aria-label={`Subir ${def.name}`}>
+                      +
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <aside className="rd-cc-preview">
+          <div className="rd-cc-preview-card">
+            <span className="rd-cc-preview-sheen" aria-hidden />
+            <span className="rd-cc-preview-label">Prévia do agente</span>
+            <div className="rd-cc-preview-portrait">
+              {draft.portrait ? <img src={draft.portrait} alt="" /> : draft.name.trim() ? draft.name.trim()[0].toUpperCase() : <GenericPortrait />}
+            </div>
+            <span className="rd-cc-preview-name">{draft.name.trim() || 'Sem nome'}</span>
+            <span className="rd-cc-preview-sub">
+              {CLASS_BY_KEY[draft.classe].name} · NEX {START_NEX}%
+            </span>
+            <div className="rd-cc-preview-stats">
+              <div className="rd-cc-preview-stat">
+                <span className="rd-cc-preview-stat-val pv">{preview.pvMax}</span>
+                <span className="rd-cc-preview-stat-label">PV</span>
+              </div>
+              <div className="rd-cc-preview-stat">
+                <span className="rd-cc-preview-stat-val pe">{preview.peMax}</span>
+                <span className="rd-cc-preview-stat-label">PE</span>
+              </div>
+              <div className="rd-cc-preview-stat">
+                <span className="rd-cc-preview-stat-val">{preview.defense}</span>
+                <span className="rd-cc-preview-stat-label">DEFESA</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" className={'rd-cc-start-btn' + (canStart ? ' ready' : '')} disabled={!canStart} onClick={() => onConfirm(draft)}>
+            Começar aventura
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
+          <span className="rd-cc-start-hint">
+            {canStart ? 'Tudo pronto. Próximo passo: montar o baralho.' : `Falta: ${missing.join(', ')}.`}
+          </span>
+        </aside>
+      </div>
     </div>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
   );
 }
 
@@ -2249,11 +2592,28 @@ export function MinigameTest() {
   // bônus de Esquiva ativo (carta `dodge`) — soma à Defesa só pro PRÓXIMO
   // ataque do monstro, depois zera (ver `resolveMonsterAttack`).
   const [dodgeBonus, setDodgeBonus] = useState(0);
+  // Dano flutuante (Passo 10B, só visual — não participa de nenhum cálculo):
+  // 1 número de cada vez por lado (inimigo/jogador), reaproveitando o
+  // padrão "dmg" da referência (Jogo-Combate.dc.html). `kind` escolhe a cor
+  // via CSS (`.rd-cb-dmg.crit/.heal/.miss`).
+  const floatSeqRef = useRef(0);
+  const [floatMonster, setFloatMonster] = useState<{ key: number; text: string; kind: string } | null>(null);
+  const [floatPlayer, setFloatPlayer] = useState<{ key: number; text: string; kind: string } | null>(null);
+  const showFloat = (side: 'monster' | 'player', text: string, kind: string) => {
+    const key = ++floatSeqRef.current;
+    const setter = side === 'monster' ? setFloatMonster : setFloatPlayer;
+    setter({ key, text, kind });
+    window.setTimeout(() => setter((f) => (f && f.key === key ? null : f)), 1100);
+  };
   // sorteado de novo a cada "Confirmar baralho" (início de uma luta nova) —
   // ver confirmDeck.
   const [monster, setMonster] = useState<Monster>(MONSTERS[0]);
   const [monsterHp, setMonsterHp] = useState(MONSTERS[0].maxHp);
   const [intent, setIntent] = useState<MonsterAction | null>(null);
+  // Passo 10B (só visual): cenário noturno sorteado a cada luta nova — não
+  // tem relação com tipo de monstro/nó (os 5 cenários não mapeiam limpo
+  // pros 3 tipos de nó que entram em combate), só decoração de fundo.
+  const [scenarioIdx, setScenarioIdx] = useState(0);
   const [log, setLog] = useState<LogLine[]>([]);
   const [initiativeResult, setInitiativeResult] = useState<{ player: number; monster: number } | null>(null);
   // Estado da RUN (mapa) — pedido do usuário: vida não reseta a cada luta,
@@ -2264,6 +2624,10 @@ export function MinigameTest() {
   const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [pendingNodeId, setPendingNodeId] = useState<string | null>(null);
+  // Passo 10B (só visual — não participa da geração/regra do mapa): histórico
+  // dos nós já visitados nesta run, na ordem em que foram resolvidos, pra
+  // desenhar o "rastro vermelho" no mapa (ver render da fase 'map').
+  const [visitedPath, setVisitedPath] = useState<string[]>([]);
   // tier atual de cada arma/ritual evoluível (ver comentário em `TieredCard`)
   const [cardTiers, setCardTiers] = useState<Record<string, number>>({});
   const [treasureOffer, setTreasureOffer] = useState<CombatCard[]>([]);
@@ -2338,6 +2702,7 @@ export function MinigameTest() {
     setDiscardPile(discard);
     setMapNodes(generateMap());
     setCurrentNodeId(null);
+    setVisitedPath([]);
     setCardTiers({});
     setPhase('map');
   };
@@ -2373,6 +2738,7 @@ export function MinigameTest() {
       setCardsPlayedThisTurn(0);
       setIntent(null);
       setInitiativeResult(null);
+      setScenarioIdx(Math.floor(Math.random() * SCENARIOS.length));
       setPhase('intro');
       return;
     }
@@ -2413,7 +2779,10 @@ export function MinigameTest() {
   // ritual, carta escolhida) e volta pro mapa, marcando o nó como o atual
   // (libera os próximos nós conectados a ele).
   const returnToMap = () => {
-    if (pendingNodeId) setCurrentNodeId(pendingNodeId);
+    if (pendingNodeId) {
+      setCurrentNodeId(pendingNodeId);
+      setVisitedPath((p) => [...p, pendingNodeId]);
+    }
     setPendingNodeId(null);
     setPhase('map');
   };
@@ -2552,6 +2921,7 @@ export function MinigameTest() {
     setMapNodes([]);
     setCurrentNodeId(null);
     setPendingNodeId(null);
+    setVisitedPath([]);
     setCardTiers({});
     setTreasureOffer([]);
     setPendingAttrPoint(false);
@@ -2627,6 +2997,7 @@ export function MinigameTest() {
         // `difficultyScaleForRow`) — só o PV máximo do monstro escala.
         const nextHp = Math.max(0, playerHp - totalDmg);
         pushLog(`${monster.name} usou ${action.label} — ${parts.join(' | ')} — total ${totalDmg} de dano ${action.damageType}.`);
+        showFloat('player', `−${totalDmg}`, 'dmg');
         const died = applyPlayerHpLoss(nextHp);
         if (died) {
           setIntent(null);
@@ -2634,6 +3005,7 @@ export function MinigameTest() {
         }
       } else {
         pushLog(`${monster.name} usou ${action.label} — ${parts.join(' | ')}`);
+        showFloat('player', 'ERROU', 'miss');
       }
       setIntent(null);
       setCardsPlayedThisTurn(0);
@@ -2722,6 +3094,7 @@ export function MinigameTest() {
       const healRoll = rollExpression(card.healDice);
       setPlayerHp((hp) => Math.min(playerMaxHp, hp + healRoll.total));
       pushLog(`Você usou ${card.name} (${card.healDice}→${healRoll.total}): recuperou ${healRoll.total} de PV.`);
+      showFloat('player', `+${healRoll.total}`, 'heal');
       maybeEndTurn();
       return;
     }
@@ -2730,6 +3103,7 @@ export function MinigameTest() {
       const dodgeRoll = rollExpression(card.dodgeDice);
       setDodgeBonus((b) => b + dodgeRoll.total);
       pushLog(`Você usou ${card.name} (${card.dodgeDice}→${dodgeRoll.total}): +${dodgeRoll.total} de Defesa até o próximo ataque inimigo.`);
+      showFloat('player', `+${dodgeRoll.total} DEF`, 'heal');
       maybeEndTurn();
       return;
     }
@@ -2759,6 +3133,7 @@ export function MinigameTest() {
       const dmg = save.success ? Math.ceil(dmgRoll.total / 2) : dmgRoll.total;
       const nextHp = Math.max(0, monsterHp - dmg);
       setMonsterHp(nextHp);
+      showFloat('monster', `−${dmg}`, 'dmg');
       if (card.lifestealFraction) {
         const healed = Math.floor(dmg * card.lifestealFraction);
         setPlayerHp((hp) => Math.min(playerMaxHp, hp + healed));
@@ -2792,6 +3167,7 @@ export function MinigameTest() {
       const selfDmg = Math.ceil(dmgRoll.total / 2);
       const nextHp = Math.max(0, playerHp - selfDmg);
       pushLog(`Você tentou ${card.name} e teve uma FALHA CRÍTICA: a arma vira contra você — ${dice}→${dmgRoll.total}, metade (${selfDmg}) de volta em você.`);
+      showFloat('player', `−${selfDmg}`, 'dmg');
       if (applyPlayerHpLoss(nextHp)) return;
       maybeEndTurn();
       return;
@@ -2801,11 +3177,13 @@ export function MinigameTest() {
     if (!res.hit) {
       const fumbleTxt = atk.fumble ? ' — falha crítica!' : '';
       pushLog(`Você tentou ${card.name} (${atk.total} vs Defesa ${monster.defense})${fumbleTxt}: errou!`);
+      showFloat('monster', 'ERROU', 'miss');
       maybeEndTurn();
       return;
     }
     const nextHp = Math.max(0, monsterHp - res.dmg);
     setMonsterHp(nextHp);
+    showFloat('monster', `−${res.dmg}`, res.critical ? 'crit' : 'dmg');
     const critTxt = res.critical ? ' CRÍTICO ×2!' : '';
     // "Armadura de espinhos" do Zumbi Espinhento (pedido do usuário): acertar
     // ele com um tipo de dano específico (ver `monster.thorns`) reflete uma
@@ -2817,6 +3195,7 @@ export function MinigameTest() {
       const reflected = Math.ceil(res.dmg * monster.thorns.fraction);
       playerNextHp = Math.max(0, playerHp - reflected);
       thornsTxt = ` A carapaça de espinhos reflete ${reflected} de volta em você!`;
+      window.setTimeout(() => showFloat('player', `−${reflected}`, 'dmg'), 350);
     }
     pushLog(
       `Você acertou${critTxt} ${card.name} (${atk.total} vs Defesa ${monster.defense}): ${dice}→${res.dmgRoll.total} = ${res.dmg} de dano.${thornsTxt}`,
@@ -2860,61 +3239,107 @@ export function MinigameTest() {
   if (phase === 'map') {
     const currentNode = currentNodeId ? mapNodes.find((n) => n.id === currentNodeId) : null;
     const reachable = new Set<string>(currentNode ? currentNode.next : mapNodes.filter((n) => n.row === 0).map((n) => n.id));
+    const nodeY = (n: MapNode) => 100 - (n.row / MAP_ROWS) * 100;
+    const findNode = (id: string) => mapNodes.find((n) => n.id === id);
+    // rastro vermelho (só visual, ver `visitedPath`): segmento entre cada par
+    // consecutivo de nós já resolvidos nesta run.
+    const trailSegments = visitedPath
+      .slice(1)
+      .map((id, i) => [findNode(visitedPath[i]), findNode(id)] as const)
+      .filter((pair): pair is [MapNode, MapNode] => !!pair[0] && !!pair[1]);
+    const legendKinds: NodeKind[] = ['enemy', 'elite', 'unknown', 'treasure', 'rest', 'boss'];
     return (
       <MinigameMenuShell title="Mapa da Expedição" onBack={() => navigate('/')} wide>
-        <div className="minigame-map-hud">
-          <span>
-            {character.name} <span className="faint">({CLASS_BY_KEY[character.classe].name})</span>
-          </span>
-          <span>NEX {character.nex}%</span>
-          <span>
-            ❤ {playerHp}/{playerMaxHp}
-          </span>
-          <span>🂠 Baralho: {deckPile.length + hand.length + discardPile.length} cartas</span>
-          {relics.length > 0 && (
-            <span className="minigame-relic-row">
-              {relics.map((r) => (
-                <span key={r.id} className="minigame-relic-icon" title={`${r.name} — ${r.description}`}>
-                  {r.icon}
+        <div className="rd-map-hud">
+          <div className="rd-map-hud-player">
+            <span className="rd-map-hud-name">
+              {character.name} <span className="faint">({CLASS_BY_KEY[character.classe].name})</span>
+            </span>
+            <span className="rd-map-hud-nex">NEX {character.nex}%</span>
+          </div>
+          <div className="rd-map-hud-stats">
+            <span className="rd-map-hud-stat">
+              <HeartLineIcon /> {playerHp}/{playerMaxHp}
+            </span>
+            <span className="rd-map-hud-stat">
+              <DeckLineIcon /> {deckPile.length + hand.length + discardPile.length} cartas
+            </span>
+            {relics.length > 0 && (
+              <span className="minigame-relic-row">
+                {relics.map((r) => (
+                  <span key={r.id} className="minigame-relic-icon" title={`${r.name} — ${r.description}`}>
+                    {r.icon}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="rd-map-wrap">
+          <div className="rd-map">
+            <svg className="rd-map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
+              {mapNodes.flatMap((n) =>
+                n.next
+                  .map((toId) => findNode(toId))
+                  .filter((to): to is MapNode => !!to)
+                  .map((to) => {
+                    const isNext = currentNodeId === n.id;
+                    return (
+                      <line
+                        key={`${n.id}-${to.id}`}
+                        className={isNext ? 'rd-map-line-next' : 'rd-map-line'}
+                        x1={n.col}
+                        y1={nodeY(n)}
+                        x2={to.col}
+                        y2={nodeY(to)}
+                      />
+                    );
+                  }),
+              )}
+              {trailSegments.map(([from, to]) => (
+                <line key={`trail-${from.id}-${to.id}`} className="rd-map-line-trail" x1={from.col} y1={nodeY(from)} x2={to.col} y2={nodeY(to)} />
+              ))}
+            </svg>
+            {mapNodes.map((n) => {
+              const isReachable = reachable.has(n.id);
+              const isCurrent = currentNodeId === n.id;
+              const isVisited = visitedPath.includes(n.id);
+              return (
+                <button
+                  key={n.id}
+                  className={
+                    'rd-map-node' +
+                    (isReachable ? ' reachable' : '') +
+                    (isCurrent ? ' current' : '') +
+                    (isVisited ? ' visited' : '') +
+                    (n.kind === 'boss' ? ' boss' : '')
+                  }
+                  style={{ left: `${n.col}%`, top: `${nodeY(n)}%`, '--node-color': NODE_COLOR[n.kind] } as CSSProperties}
+                  disabled={!isReachable}
+                  onClick={() => enterNode(n.id)}
+                  title={NODE_LABEL[n.kind] + (isReachable ? ' (disponível)' : isVisited ? ' (visitado)' : '')}
+                >
+                  {isReachable && <span className="rd-map-node-ring" aria-hidden />}
+                  <NodeIcon kind={n.kind} size={n.kind === 'boss' ? 30 : 22} />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rd-map-legend">
+            <span className="rd-map-legend-label">Legenda</span>
+            <div className="rd-map-legend-list">
+              {legendKinds.map((k) => (
+                <span key={k} className="rd-map-legend-item">
+                  <span className="rd-map-legend-dot" style={{ '--node-color': NODE_COLOR[k] } as CSSProperties}>
+                    <NodeIcon kind={k} size={14} />
+                  </span>
+                  {NODE_LABEL[k]}
                 </span>
               ))}
-            </span>
-          )}
-        </div>
-        <div className="minigame-map">
-          <svg className="minigame-map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {mapNodes.flatMap((n) =>
-              n.next
-                .map((toId) => mapNodes.find((m) => m.id === toId))
-                .filter((to): to is MapNode => !!to)
-                .map((to) => (
-                  <line
-                    key={`${n.id}-${to.id}`}
-                    x1={n.col}
-                    y1={100 - (n.row / MAP_ROWS) * 100}
-                    x2={to.col}
-                    y2={100 - (to.row / MAP_ROWS) * 100}
-                  />
-                )),
-            )}
-          </svg>
-          {mapNodes.map((n) => (
-            <button
-              key={n.id}
-              className={
-                'minigame-map-node' +
-                (reachable.has(n.id) ? ' reachable' : '') +
-                (currentNodeId === n.id ? ' current' : '') +
-                (n.kind === 'boss' ? ' boss' : '')
-              }
-              style={{ left: `${n.col}%`, top: `${100 - (n.row / MAP_ROWS) * 100}%` }}
-              disabled={!reachable.has(n.id)}
-              onClick={() => enterNode(n.id)}
-              title={NODE_LABEL[n.kind]}
-            >
-              {NODE_ICON[n.kind]}
-            </button>
-          ))}
+            </div>
+          </div>
         </div>
       </MinigameMenuShell>
     );
@@ -3063,115 +3488,165 @@ export function MinigameTest() {
     );
   }
 
+  const scenario = SCENARIOS[scenarioIdx];
   return (
-    <div className="minigame-page" style={{ backgroundImage: `url(${'/minigame/bg-floresta.png'})` }}>
-      <button className="small ghost minigame-exit" onClick={() => navigate('/')}>
-        ← Sair
-      </button>
+    <div className="minigame-page rd-cb">
+      <ScenarioBackground idx={scenarioIdx} />
 
-      <div className={'minigame-monster-area' + (dragOverTarget ? ' drop-target' : '')} ref={monsterDropRef}>
-        {intent && (
-          <div className="minigame-intent">
-            <span className="minigame-intent-icon">{intent.icon}</span>
-            <span>{intent.label}</span>
-            <span className="minigame-intent-dice">
-              {intent.attackDiceCount}d20+{intent.attackBonus} atq{intent.attackCount && intent.attackCount > 1 ? ` ×${intent.attackCount}` : ''} · {intent.damageDice} dano
-            </span>
+      <div className="rd-cb-topbar">
+        <div className="rd-cb-topbar-left">
+          <button className="rd-cb-exit" onClick={() => navigate('/')}>
+            <BackChevronIcon /> Sair
+          </button>
+          <div className="rd-cb-scene-chip">
+            <span>{scenario.name}</span>
+            <span className="rd-cb-scene-sub">{scenario.sub}</span>
+          </div>
+        </div>
+        {log[0] && (
+          <div className="rd-cb-banner">
+            <WarnLineIcon />
+            <span>{log[0].text}</span>
           </div>
         )}
-        <div className="minigame-hp-row">
-          <span className="minigame-monster-name">{monster.name}</span>
-          <div className="minigame-hp-bar">
-            <div
-              className="minigame-hp-fill"
-              style={{ width: `${(monsterHp / monster.maxHp) * 100}%` }}
-            />
+      </div>
+
+      <div className={'rd-cb-enemy' + (dragOverTarget ? ' drop-target' : '')} ref={monsterDropRef}>
+        <div className="rd-cb-enemy-top">
+          <div className="rd-cb-enemy-head">
+            <span className="rd-cb-enemy-name">{monster.name}</span>
+            <span className="rd-cb-enemy-hp-num">
+              {monsterHp} / {monster.maxHp}
+            </span>
           </div>
-          <span className="minigame-hp-num">
-            {monsterHp}/{monster.maxHp}
+          <div className="rd-cb-enemy-bar">
+            <div className="rd-cb-enemy-bar-fill" style={{ width: `${(monsterHp / monster.maxHp) * 100}%` }} />
+          </div>
+          <div className="rd-cb-enemy-chips">
+            <span className="rd-cb-chip">Defesa {monster.defense}</span>
+            {intent && (
+              <span className="rd-cb-chip intent">
+                Intenção: {intent.label} — {intent.attackDiceCount}d20+{intent.attackBonus}
+                {intent.attackCount && intent.attackCount > 1 ? ` ×${intent.attackCount}` : ''} · {intent.damageDice}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="rd-cb-enemy-figure">
+          <img className={'rd-cb-enemy-sprite' + (monsterHp <= 0 ? ' down' : '')} src={monster.sprite} alt={monster.name} />
+          {floatMonster && (
+            <span key={floatMonster.key} className={'rd-cb-dmg ' + floatMonster.kind}>
+              {floatMonster.text}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="rd-cb-player">
+        <div className="rd-cb-player-portrait">
+          {character.portrait ? <img src={character.portrait} alt="" /> : <GenericPortrait />}
+          <span className="rd-cb-player-nex">NEX {character.nex}</span>
+        </div>
+        <div className="rd-cb-player-panel">
+          {floatPlayer && (
+            <span key={floatPlayer.key} className={'rd-cb-dmg player ' + floatPlayer.kind}>
+              {floatPlayer.text}
+            </span>
+          )}
+          <span className="rd-cb-player-name">
+            {character.name} <small>{CLASS_BY_KEY[character.classe].name}</small>
           </span>
-        </div>
-        <img className="minigame-monster-sprite" src={monster.sprite} alt={monster.name} />
-      </div>
-
-      {log[0] && <div className="minigame-log">{log[0].text}</div>}
-
-      <div className="minigame-player-hud">
-        <div className="minigame-hud-portrait-wrap">
-          <div className="minigame-hud-portrait">{character.portrait ? <img src={character.portrait} alt="" /> : <GenericPortrait />}</div>
-          <span className="minigame-hud-nex">{character.nex}</span>
-        </div>
-        <div className="minigame-hud-bars">
-          <div className="minigame-hud-bar minigame-hud-bar-hp">
-            <div className="minigame-hud-bar-fill" style={{ width: `${Math.max(0, (playerHp / playerMaxHp) * 100)}%` }} />
-            <span className="minigame-hud-bar-name">
-              {character.name} <span className="faint">({CLASS_BY_KEY[character.classe].name})</span>
-            </span>
-            <span className="minigame-hud-bar-num">
-              {playerHp}/{playerMaxHp}
+          <div className="rd-cb-player-bar hp">
+            <div className="rd-cb-player-bar-fill" style={{ width: `${Math.max(0, (playerHp / playerMaxHp) * 100)}%` }} />
+            <span className="rd-cb-player-bar-label">Vida</span>
+            <span className="rd-cb-player-bar-num">
+              {playerHp} / {playerMaxHp}
             </span>
           </div>
-          <div className="minigame-hud-bar minigame-hud-bar-pe">
-            <div className="minigame-hud-bar-fill" style={{ width: `${Math.max(0, (playerPe / playerMaxPe) * 100)}%` }} />
-            <span className="minigame-hud-bar-num">
-              PE {playerPe}/{playerMaxPe}
+          <div className="rd-cb-player-bar pe">
+            <div className="rd-cb-player-bar-fill" style={{ width: `${Math.max(0, (playerPe / playerMaxPe) * 100)}%` }} />
+            <span className="rd-cb-player-bar-label">Esforço</span>
+            <span className="rd-cb-player-bar-num">
+              {playerPe} / {playerMaxPe}
             </span>
           </div>
+          {dodgeBonus > 0 && (
+            <span className="rd-cb-dodge-note">
+              <ShieldLineIcon /> +{dodgeBonus} na Defesa até o próximo ataque
+            </span>
+          )}
+          {relics.length > 0 && (
+            <span className="minigame-relic-row">
+              {relics.map((r) => (
+                <span key={r.id} className="minigame-relic-icon" title={`${r.name} — ${r.description}`}>
+                  {r.icon}
+                </span>
+              ))}
+            </span>
+          )}
+        </div>
+        <div className="rd-cb-pile deck" title="Baralho de compra">
+          <DeckLineIcon />
+          <span className="rd-cb-pile-count">{deckPile.length}</span>
+          <span className="rd-cb-pile-label">Baralho</span>
         </div>
       </div>
 
-      <div className="minigame-pile minigame-pile-deck" title="Baralho de compra">
-        <span className="minigame-pile-icon">🂠</span>
-        <span className="minigame-pile-count">{deckPile.length}</span>
-      </div>
-      <div className="minigame-pile minigame-pile-discard" title="Pilha de descarte">
-        <span className="minigame-pile-icon">🗑️</span>
-        <span className="minigame-pile-count">{discardPile.length}</span>
+      <div className="rd-cb-right">
+        {(phase === 'player-turn' || phase === 'monster-intent' || phase === 'monster-attack') && (
+          <div className="rd-cb-turn-info">
+            <span className="rd-cb-turn-count">
+              Cartas jogadas: <b>{cardsPlayedThisTurn} / {effectiveMaxCardsPerTurn}</b>
+            </span>
+            <button className="rd-cb-endturn" disabled={phase !== 'player-turn'} onClick={endTurn}>
+              Encerrar turno
+              <ArrowRightLineIcon />
+            </button>
+          </div>
+        )}
+        <div className="rd-cb-pile discard" title="Pilha de descarte">
+          <TrashLineIcon />
+          <span className="rd-cb-pile-count">{discardPile.length}</span>
+          <span className="rd-cb-pile-label">Descarte</span>
+        </div>
       </div>
 
-      <div className="minigame-bottom">
+      <div className="rd-cb-bottom">
         {phase === 'intro' && (
-          <button className="primary minigame-start-btn" onClick={rollInitiative}>
-            🎲 Rolar iniciativa
+          <button className="rd-cb-roll-btn" onClick={rollInitiative}>
+            <DiceGlyphIcon /> Rolar iniciativa
           </button>
         )}
 
         {phase === 'initiative' && initiativeResult && (
-          <div className="minigame-initiative-result">
+          <div className="rd-cb-initiative-result">
             Você {initiativeResult.player} × {monster.name} {initiativeResult.monster}
           </div>
         )}
 
         {(phase === 'player-turn' || phase === 'monster-intent' || phase === 'monster-attack') && (
-          <>
-            <div className="minigame-turn-row">
-              <span className="minigame-turn-count">
-                Cartas jogadas: {cardsPlayedThisTurn}/{effectiveMaxCardsPerTurn}
-              </span>
-              {dodgeBonus > 0 && <span className="minigame-dodge-badge">🛡️ Esquiva +{dodgeBonus}</span>}
-              <button className="small ghost" disabled={phase !== 'player-turn'} onClick={endTurn}>
-                Encerrar turno
-              </button>
-            </div>
-            <div className="minigame-hand">
-              {hand.map((c) => (
-                <button
-                  key={c.id}
-                  className={'minigame-card' + (dragCardId === c.id ? ' dragging' : '')}
-                  disabled={phase !== 'player-turn' || playerPe < effectivePeCost(c, cardTiers) || cardsPlayedThisTurn >= effectiveMaxCardsPerTurn}
-                  onClick={() => (c.kind === 'heal' || c.kind === 'dodge') && playCard(c)}
-                  onPointerDown={(e) => onCardPointerDown(e, c)}
-                >
-                  {/* size="compact" (Passo 10A): o `CardFace` novo é autocontido e
-                      bem maior (220x340) — sem isso não cabe na faixa de combate,
-                      que é tela/fluxo da Parte 2 e não devia precisar de mais
-                      nenhuma mudança aqui além desse 1 prop. */}
-                  <CardFace card={c} cardTiers={cardTiers} size="compact" />
-                  {c.kind !== 'heal' && c.kind !== 'dodge' && <span className="minigame-card-drag-hint">arraste até o inimigo</span>}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className="rd-cb-hand">
+            {hand.map((c, i) => {
+              const rot = (i - (hand.length - 1) / 2) * 6;
+              return (
+                <div key={c.id} className="rd-cb-hand-card" style={{ transform: `rotate(${rot}deg) translateY(${Math.abs(rot) * 2}px)` }}>
+                  <button
+                    className={'minigame-card' + (dragCardId === c.id ? ' dragging' : '')}
+                    disabled={phase !== 'player-turn' || playerPe < effectivePeCost(c, cardTiers) || cardsPlayedThisTurn >= effectiveMaxCardsPerTurn}
+                    onClick={() => (c.kind === 'heal' || c.kind === 'dodge') && playCard(c)}
+                    onPointerDown={(e) => onCardPointerDown(e, c)}
+                  >
+                    {/* size="compact" (Passo 10A): o `CardFace` novo é autocontido e
+                        bem maior (220x340) — sem isso não cabe na faixa de combate,
+                        que é tela/fluxo da Parte 2 e não devia precisar de mais
+                        nenhuma mudança aqui além desse 1 prop. */}
+                    <CardFace card={c} cardTiers={cardTiers} size="compact" />
+                    {c.kind !== 'heal' && c.kind !== 'dodge' && <span className="minigame-card-drag-hint">arraste até o inimigo</span>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
         {dragCardId &&
           dragPos &&
@@ -3186,9 +3661,9 @@ export function MinigameTest() {
           })()}
 
         {(phase === 'victory' || phase === 'defeat') && (
-          <div className="minigame-end">
-            <div className="minigame-end-title">{phase === 'victory' ? 'Vitória!' : 'Você caiu…'}</div>
-            <button className="primary" onClick={phase === 'victory' ? returnToMap : reset}>
+          <div className="rd-cb-end">
+            <div className="rd-cb-end-title">{phase === 'victory' ? 'Vitória!' : 'Você caiu…'}</div>
+            <button className="rd-cc-start-btn ready" onClick={phase === 'victory' ? returnToMap : reset}>
               {phase === 'victory' ? 'Continuar' : 'Jogar de novo'}
             </button>
           </div>

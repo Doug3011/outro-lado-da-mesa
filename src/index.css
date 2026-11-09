@@ -977,37 +977,11 @@ label {
   color: var(--gold);
   border-color: var(--gold);
 }
-.daily-challenge-page .dice-pills {
-  gap: 10px;
-  margin: 4px 0 10px;
-}
-.daily-challenge-page .die {
-  font-family: var(--font-disp);
-  font-size: 20px;
-  font-weight: 700;
-  min-width: 42px;
-  padding: 10px 6px;
-  border-radius: 6px;
-}
-.die.rolling {
-  color: var(--daily-accent-bright);
-  border-color: var(--daily-accent);
-  animation: die-roll-spin 0.5s linear infinite;
-}
-.die.pending {
-  opacity: 0.3;
-}
-@keyframes die-roll-spin {
-  from {
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    transform: rotate(180deg) scale(0.85);
-  }
-  to {
-    transform: rotate(360deg) scale(1);
-  }
-}
+/* `.daily-challenge-page .dice-pills`/`.die.rolling`/`.die.pending`/
+   `die-roll-spin` (dados antigos, quadrados) saíram no Passo 10B — o
+   Desafio Diário agora usa `.dd-die*` (ver seção REDESIGN — Passo 10B, no
+   fim do arquivo). `.die`/`.die.kept`/`.die.max` continuam valendo (usados
+   por RollLog.tsx). */
 .daily-unlock {
   margin-top: 10px;
   padding: 10px 14px;
@@ -3225,12 +3199,15 @@ label {
   display: flex;
   flex-direction: column;
 }
+/* Passo 10B: trocado de --purple (token genérico antigo) pros tokens
+   --rd-energia-* (Passo 1) — mesmo roxo que a Área do Mestre já usa,
+   deixando as duas telas de tema Energia consistentes. */
 .daily-challenge-page {
-  --daily-accent: var(--purple);
-  --daily-accent-bright: #a855f7;
+  --daily-accent: var(--rd-energia-purple-soft);
+  --daily-accent-bright: var(--rd-energia-text);
   --daily-accent-deep: #3d1461;
-  --daily-accent-glow: rgba(123, 44, 191, 0.4);
-  --daily-accent-glow-soft: rgba(123, 44, 191, 0.28);
+  --daily-accent-glow: rgba(155, 92, 255, 0.4);
+  --daily-accent-glow-soft: rgba(155, 92, 255, 0.28);
   --daily-bg-tint: #150a20;
 }
 .daily-topbar {
@@ -3338,22 +3315,6 @@ label {
 }
 .daily-cooldown b {
   color: var(--text);
-}
-.daily-stats-rule {
-  height: 1px;
-  background: var(--line);
-  max-width: 420px;
-  margin: 22px 0 14px;
-}
-.daily-stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-dim);
-  font-size: 14px;
-}
-.daily-stats svg {
-  color: var(--text-faint);
 }
 .daily-sigil-corner {
   position: fixed;
@@ -4350,142 +4311,14 @@ label {
   font-family: var(--font-body);
   overflow: hidden;
 }
-.minigame-exit {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 10;
-}
-.minigame-monster-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  position: relative;
-  min-height: 0;
-  /* espaço de segurança embaixo do log/intent (que são absolute, ancorados
-     no topo) — sem isso o sprite (centralizado no espaço restante, que
-     pode ficar baixo dependendo da altura da janela) empurra a cabeça do
-     monstro pra cima do log/intent e ela fica cortada. */
-  padding-top: 70px;
-}
-.minigame-monster-sprite {
-  max-height: 38vh;
-  max-width: 55%;
-  object-fit: contain;
-  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.6));
-}
-.minigame-intent {
-  /* posição fixa (não participa da centralização vertical do
-     .minigame-monster-area) — sem isso ela e o .minigame-log (que também é
-     absolute, ancorado no topo) podiam acabar na mesma altura e ficar um
-     texto em cima do outro. */
-  position: absolute;
-  top: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(10, 10, 12, 0.82);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  animation: minigame-pop 0.2s ease-out;
-}
-.minigame-intent-icon {
-  font-size: 16px;
-}
-.minigame-intent-dice {
-  font-family: var(--font-mono);
-  color: var(--gold);
-}
-@keyframes minigame-pop {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-.minigame-hp-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(360px, 80%);
-}
-.minigame-monster-name {
-  font-family: var(--font-disp);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex: none;
-}
-.minigame-hp-bar {
-  flex: 1;
-  height: 10px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  overflow: hidden;
-}
-.minigame-hp-fill {
-  height: 100%;
-  background: var(--green);
-  transition: width 0.4s ease;
-}
-.minigame-hp-num {
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  opacity: 0.85;
-}
-.minigame-log {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10, 10, 12, 0.82);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 12px;
-  max-width: 80%;
-  text-align: center;
-}
-.minigame-bottom {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px 20px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
-}
+/* `.minigame-exit`/`.minigame-monster-area*`/`.minigame-monster-sprite`/
+   `.minigame-intent*`/`.minigame-hp-*`/`.minigame-monster-name`/
+   `.minigame-log`/`.minigame-bottom`/`.minigame-initiative-result`/
+   `.minigame-hand` (bare, HUD de combate antiga) saíram no Passo 10B — ver
+   `.rd-cb-*` no fim do arquivo. `.minigame-start-btn` continua (ainda
+   usado em Descanso/Desconhecido/barra do baralho). */
 .minigame-start-btn {
   padding: 10px 22px;
-}
-.minigame-initiative-result {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  background: rgba(10, 10, 12, 0.82);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 16px;
-}
-.minigame-hand {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
 }
 /* pedido do usuário: descrição menor pra diminuir o tamanho das cartas na
    tela — largura/padding também encolhidos junto (ver .minigame-card-text
@@ -4540,11 +4373,6 @@ label {
   border-radius: 9px;
   padding: 8px;
   color: #f1e6c8;
-}
-.minigame-monster-area.drop-target {
-  outline: 3px dashed var(--gold);
-  outline-offset: 10px;
-  border-radius: 16px;
 }
 .minigame-card-head {
   display: flex;
@@ -4610,153 +4438,15 @@ label {
   margin: 0;
   opacity: 0.9;
 }
-.minigame-end {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-.minigame-end-title {
-  font-family: var(--font-disp);
-  font-size: 22px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
+/* `.minigame-end`/`.minigame-end-title` (painel de vitória/derrota antigo)
+   saíram no Passo 10B — ver `.rd-cb-end*` no fim do arquivo. */
 
-/* ---------- criação de personagem do mini-jogo ---------- */
-.minigame-page-plain {
-  background: radial-gradient(1200px 700px at 50% 0%, #1a1610 0%, var(--bg) 60%);
-  align-items: center;
-  /* NÃO 'center' — com overflow-y:auto, `justify-content:center` empurra o
-     conteúdo pra cima quando ele é mais alto que a tela, e o topo fica
-     inacessível por scroll (só dá pra rolar o excesso de baixo, não o de
-     cima). Mesmo bug/fix já aplicado em `.daily-page` antes. */
-  justify-content: flex-start;
-  overflow-y: auto;
-  padding: 40px 16px;
-}
-.minigame-create {
-  width: 100%;
-  max-width: 480px;
-  background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 22px;
-  box-shadow: var(--shadow);
-}
-.minigame-create-title {
-  font-family: var(--font-disp);
-  font-size: 24px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 4px;
-  color: var(--text);
-}
-.minigame-create-row {
-  display: flex;
-  gap: 10px;
-}
-.minigame-create-row .field {
-  flex: 1;
-}
-.minigame-class-row {
-  display: flex;
-  gap: 8px;
-}
-.minigame-class-btn {
-  flex: 1;
-  padding: 8px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  cursor: pointer;
-  font-size: 13px;
-}
-.minigame-class-btn.on {
-  border-color: var(--purple);
-  background: rgba(123, 44, 191, 0.18);
-}
-.minigame-create-section {
-  margin-top: 16px;
-}
-.minigame-create-section-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-disp);
-  text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
-  margin-bottom: 8px;
-}
-.minigame-budget {
-  color: var(--gold);
-  font-family: var(--font-mono);
-  text-transform: none;
-  letter-spacing: normal;
-}
-.minigame-budget-ok {
-  color: var(--green);
-  font-family: var(--font-mono);
-  text-transform: none;
-  letter-spacing: normal;
-}
-.minigame-attr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
-  gap: 8px;
-}
-.minigame-attr-cell {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
-}
-.minigame-attr-name {
-  flex: 1;
-  font-size: 12px;
-  font-weight: 600;
-}
-.minigame-attr-val {
-  width: 18px;
-  text-align: center;
-  font-family: var(--font-mono);
-}
-.minigame-skill-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-}
-.minigame-skill-name {
-  flex: 1;
-  font-size: 13px;
-}
-.minigame-skill-level {
-  width: 74px;
-  text-align: center;
-  font-size: 12px;
-  font-family: var(--font-mono);
-}
-.minigame-create-preview {
-  margin-top: 16px;
-  padding: 8px 10px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  text-align: center;
-}
-.minigame-create .minigame-start-btn {
-  width: 100%;
-  margin-top: 14px;
-}
+/* `.minigame-page-plain`/`.minigame-create*`/`.minigame-class-*`/
+   `.minigame-attr-*`/`.minigame-skill-*`/`.minigame-budget*` (criação de
+   personagem antiga, lista vertical simples) saíram no Passo 10B — ver
+   `.rd-cc-*` na seção REDESIGN — Passo 10B (parte 2/4), no fim do arquivo.
+   `.minigame-deck-grid`/`.minigame-card.selected`/`.minigame-card-tier`
+   continuam (nó de Tesouro/Desconhecido ainda usam a grade antiga). */
 /* `.minigame-deck-select` ganhou visual próprio no Passo 10A (ver seção no
    fim do arquivo) — o max-width antigo de 760px foi substituído por
    width:100% lá (a tela usa a largura cheia do `.minigame-content-wide`
@@ -4785,20 +4475,11 @@ label {
   color: var(--gold);
 }
 
-/* ---------- mapa de progressão (estilo Slay the Spire) ---------- */
-.minigame-map-hud {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  flex-wrap: wrap;
-  align-self: flex-start;
-  background: rgba(10, 8, 6, 0.85);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 6px 16px;
-  font-size: 13px;
-  margin-bottom: 14px;
-}
+/* `.minigame-map-hud`/`.minigame-map`/`.minigame-map-lines`/
+   `.minigame-map-node*` (mapa antigo, círculos lisos + emoji) saíram no
+   Passo 10B — ver `.rd-map-*` na seção REDESIGN — Passo 10B (parte 3/4),
+   no fim do arquivo. `.minigame-relic-row`/`.minigame-relic-icon`/
+   `.minigame-relic-card` continuam (HUD do mapa novo + nó de Tesouro). */
 .minigame-relic-row {
   display: flex;
   gap: 4px;
@@ -4819,239 +4500,22 @@ label {
   border-color: var(--gold) !important;
 }
 
-/* ---------- HUD de combate nova (referência mandada pelo usuário: retrato
-   circular + selo de NEX + barra dupla PV em cima/PE embaixo com o nome
-   por cima) ---------- */
-/* pedido do usuário: HUD de vida tem que ficar ACIMA do baralho da
-   esquerda, não centralizado embaixo da mão — posição fixa própria (igual
-   as pilhas), empilhada logo acima de `.minigame-pile-deck` (que fica em
-   bottom:190px, ~60px de altura → HUD começa em bottom:256px). */
-.minigame-player-hud {
-  position: fixed;
-  left: 20px;
-  bottom: 256px;
-  z-index: 3;
-  width: 270px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.minigame-hud-portrait-wrap {
-  position: relative;
-  flex: none;
-}
-.minigame-hud-portrait {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 3px solid #000;
-  box-shadow: 0 0 0 2px var(--gold);
-  background: #1a1610;
-}
-.minigame-hud-portrait img,
-.minigame-hud-portrait svg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.minigame-hud-nex {
-  position: absolute;
-  left: -6px;
-  bottom: -4px;
-  background: #000;
-  color: var(--gold);
-  font-family: var(--font-disp);
-  font-weight: 700;
-  font-size: 15px;
-  min-width: 24px;
-  text-align: center;
-  padding: 1px 5px;
-  border-radius: 8px;
-  border: 1px solid var(--gold);
-}
-.minigame-hud-bars {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border: 2px solid #000;
-  border-radius: 4px;
-  overflow: hidden;
-  min-width: 0;
-}
-.minigame-hud-bar {
-  position: relative;
-  height: 22px;
-  overflow: hidden;
-}
-.minigame-hud-bar-hp {
-  background: #3a0a0d;
-}
-.minigame-hud-bar-pe {
-  background: #0a1a35;
-  height: 20px;
-}
-.minigame-hud-bar-fill {
-  position: absolute;
-  inset: 0;
-  width: 0%;
-  transition: width 0.3s ease;
-}
-.minigame-hud-bar-hp .minigame-hud-bar-fill {
-  background: linear-gradient(180deg, var(--blood-bright), var(--blood-deep));
-}
-.minigame-hud-bar-pe .minigame-hud-bar-fill {
-  background: linear-gradient(180deg, #4f8fe0, #1c3f7a);
-}
-.minigame-hud-bar-name {
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font-disp);
-  font-weight: 700;
-  font-size: 11px;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 62%;
-}
-.minigame-hud-bar-num {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 10.5px;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-}
+/* `.minigame-player-hud`/`.minigame-hud-*`/`.minigame-pile*` (HUD de
+   combate "Passo anterior" — retrato circular + barra dupla PV/PE,
+   pilhas de baralho/descarte soltas) saíram no Passo 10B — ver
+   `.rd-cb-player*`/`.rd-cb-pile*` no fim do arquivo. */
 
-/* ---------- pilha de compra (esquerda) / descarte (direita) ---------- */
-.minigame-pile {
-  position: fixed;
-  bottom: 190px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  z-index: 3;
-  color: #f1e6c8;
-  pointer-events: none;
-}
-.minigame-pile-deck {
-  left: 20px;
-}
-.minigame-pile-discard {
-  right: 20px;
-}
-.minigame-pile-icon {
-  font-size: 34px;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
-}
-.minigame-pile-count {
-  font-family: var(--font-disp);
-  font-weight: 700;
-  font-size: 15px;
-  background: rgba(10, 8, 6, 0.85);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 1px 10px;
-}
-
-/* ---------- retrato na criação de personagem ---------- */
-.minigame-create-row-portrait {
-  align-items: flex-start;
-}
-.minigame-portrait-picker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-}
-.minigame-portrait-preview {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid var(--gold);
-  background: var(--bg-2);
-}
-.minigame-portrait-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+/* `.minigame-create-row-portrait`/`.minigame-portrait-picker`/
+   `.minigame-portrait-preview`/`.minigame-portrait-btn` (retrato antigo da
+   criação de personagem) saíram no Passo 10B — ver `.rd-cc-portrait-*`.
+   `.minigame-generic-portrait` continua (o SVG `<GenericPortrait>` ainda é
+   usado em vários lugares: prévia da criação, mapa, HUD de combate). */
 .minigame-generic-portrait {
   width: 100%;
   height: 100%;
   display: block;
 }
-.minigame-portrait-btn {
-  display: inline-block;
-  cursor: pointer;
-  text-align: center;
-  font-size: 11px;
-  white-space: nowrap;
-}
 
-.minigame-map {
-  position: relative;
-  width: 100%;
-  max-width: 900px;
-  height: min(640px, 70vh);
-  background: radial-gradient(900px 500px at 50% 100%, #241c12 0%, var(--bg) 65%);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-.minigame-map-lines {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.minigame-map-lines line {
-  stroke: var(--line);
-  stroke-width: 0.4;
-  stroke-dasharray: 2 2;
-}
-.minigame-map-node {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 2px solid var(--line);
-  background: var(--bg-2);
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-.minigame-map-node.reachable {
-  cursor: pointer;
-  opacity: 1;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(212, 168, 60, 0.35);
-}
-/* BUG achado (usuário: "o botão fica mole em vez de fixo no lugar"): a
-   regra genérica `button:active { transform: translateY(1px) }` tem mais
-   especificidade que `.minigame-map-node { transform: translate(-50%,-50%) }`
-   (elemento+pseudo-classe > só classe) — ao clicar, o nó perdia a
-   centralização por um instante e "pulava" de lugar, parecendo que o
-   clique travou/não registrou. Precisa reafirmar os dois transforms juntos. */
-.minigame-map-node:active {
-  transform: translate(-50%, calc(-50% + 1px));
-}
 /* ---------- transição de mesa 2D/3D (pedido do usuário: trocar de cenário
    hoje é um corte seco) — tela cheia preta com os 5 sigilos do loading
    apagando/acendendo conforme `SceneTransition.tsx` confirma carregamento
@@ -5132,16 +4596,6 @@ label {
   color: var(--text-dim);
 }
 
-.minigame-map-node.current {
-  border-color: var(--green);
-}
-.minigame-map-node.boss {
-  width: 56px;
-  height: 56px;
-  font-size: 26px;
-  border-color: #8a2020;
-}
-
 /* ---------- painéis de nó (Descanso / Tesouro / Desconhecido) ---------- */
 .minigame-upgrade-list {
   display: flex;
@@ -5178,26 +4632,8 @@ label {
 .minigame-levelup-row:last-child {
   margin-bottom: 0;
 }
-.minigame-turn-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.minigame-turn-count {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  opacity: 0.85;
-}
-.minigame-dodge-badge {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #7fb8ff;
-  background: rgba(79, 143, 224, 0.18);
-  border: 1px solid #4f8fe0;
-  border-radius: 999px;
-  padding: 2px 8px;
-}
+/* `.minigame-turn-row`/`.minigame-turn-count`/`.minigame-dodge-badge`
+   saíram no Passo 10B — ver `.rd-cb-turn-info`/`.rd-cb-dodge-note`. */
 
 /* QR code no rodapé da ficha (ver FichaQr.tsx) — abre a mesma ficha no
    celular, pela rede local. */
@@ -10381,4 +9817,1415 @@ label {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+/* =====================================================================
+   REDESIGN — Passo 10B (parte 1/4): Desafio Diário (DailyChallengePanel.tsx)
+   Continua usando a casca `.daily-page`/`.daily-challenge-page` (tema
+   Energia, roxo — ver tokens ajustados acima) e o sigilo de canto, mas
+   ganha o fundo animado da Área do Mestre (`.rd-gm-bg` e companhia,
+   Passo 8 — reaproveitado 1:1, nenhuma classe nova de fundo), um layout
+   de 2 colunas (texto+estatísticas / mesa de dados) como a referência
+   (Jogo-Desafio.dc.html) e dados em losango (SVG) com anel dourado
+   pulsante no 20 natural, no lugar do `<span>` quadrado antigo.
+   ===================================================================== */
+.dd-layout {
+  max-width: 1180px;
+  width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 40px;
+  justify-content: flex-start;
+}
+.dd-text {
+  flex: 1 1 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rd-rise 0.5s ease-out both;
+}
+.dd-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+.dd-stat-chip {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--rd-energia-line);
+  background: rgba(17, 12, 30, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dd-stat-label {
+  font-family: var(--rd-font-disp);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9c8fc4;
+}
+.dd-stat-value {
+  font-family: var(--rd-font-mono);
+  font-size: 19px;
+  font-weight: 600;
+  color: #f4eeff;
+}
+.dd-stat-value-sub {
+  font-size: 12.5px;
+  color: #8a7bae;
+}
+.dd-table {
+  flex: 1 1 440px;
+  min-width: 0;
+  border-radius: 24px;
+  border: 1px solid var(--rd-energia-line);
+  background: linear-gradient(180deg, rgba(26, 16, 48, 0.85), rgba(12, 8, 22, 0.9));
+  padding: 32px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  box-shadow: var(--rd-shadow-panel);
+  animation: rd-rise 0.5s 0.1s ease-out both;
+}
+.dd-dice-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.dd-die-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.dd-die-wrap {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 10px rgba(123, 69, 224, 0.25));
+  opacity: 0.55;
+}
+.dd-die-wrap.next {
+  animation: rd-float 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(123, 69, 224, 0.5));
+  opacity: 1;
+}
+.dd-die-wrap.rolling {
+  animation: rd-die-drop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  filter: drop-shadow(0 0 14px rgba(181, 124, 255, 0.6));
+  opacity: 1;
+}
+.dd-die-wrap:not(.next):not(.rolling) {
+  animation: rd-die-drop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  opacity: 1;
+}
+.dd-die-wrap.max {
+  filter: drop-shadow(0 0 20px rgba(255, 209, 102, 0.8));
+}
+.dd-die-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid #ffd166;
+  animation: rd-pulse-ring 1.2s ease-out infinite;
+}
+.dd-die-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.dd-die-num {
+  position: relative;
+  font-family: var(--rd-font-disp);
+  font-size: 38px;
+  font-weight: 700;
+  color: #fff;
+}
+.dd-die-num.max {
+  color: #ffd166;
+}
+.dd-die-num.pending {
+  color: #8a7bae;
+  animation: rd-blink 1.6s ease-in-out infinite;
+}
+.dd-die-label {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #8a7bae;
+}
+.dd-message-wrap {
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+.dd-message {
+  font-family: var(--rd-font-disp);
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+}
+.dd-message.win {
+  color: #ffd166;
+  text-shadow: 0 0 20px rgba(255, 209, 102, 0.6);
+  animation: rd-pop 0.6s ease-out both;
+}
+.dd-submessage {
+  font-size: 14px;
+  color: #a89cc4;
+}
+.dd-unlock {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+.dd-cta {
+  justify-content: center;
+}
+.dd-cooldown-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--rd-energia-line);
+  background: rgba(17, 12, 30, 0.8);
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  color: #c9bde6;
+}
+.dd-cooldown-chip b {
+  color: #fff;
+}
+@media (max-width: 760px) {
+  .dd-layout {
+    flex-direction: column;
+  }
+  .dd-table {
+    padding: 24px 16px;
+  }
+  .dd-die-wrap {
+    width: 84px;
+    height: 84px;
+  }
+  .dd-die-num {
+    font-size: 30px;
+  }
+}
+
+/* =====================================================================
+   REDESIGN — Passo 10B (parte 2/4): Criar Personagem (MinigameTest.tsx,
+   `CharacterCreate`). Continua dentro de `MinigameMenuShell` (casca
+   `.daily-page` tema Sangue/vermelho padrão) — só o conteúdo interno
+   trocou de `.minigame-create-*` (lista vertical simples) pro layout de
+   2 colunas da referência (Jogo-Criar.dc.html): formulário + prévia viva
+   do agente fixada ao lado.
+   ===================================================================== */
+.rd-cc {
+  width: 100%;
+  max-width: 1040px;
+}
+.rd-cc-note-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.rd-cc-note {
+  font-size: 12.5px;
+  margin: 0;
+  max-width: 56ch;
+}
+.rd-cc-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  align-items: flex-start;
+}
+.rd-cc-form {
+  flex: 1 1 540px;
+  min-width: 0;
+  border-radius: 18px;
+  border: 1px solid var(--rd-sangue-line);
+  background: var(--rd-sangue-panel);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.rd-cc-portrait-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+.rd-cc-portrait-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.rd-cc-portrait-btn {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: 2px dashed #5a2a30;
+  background: #160e12;
+  color: #b9aeb3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  overflow: hidden;
+  padding: 0;
+}
+.rd-cc-portrait-btn svg {
+  color: var(--rd-sangue-soft);
+}
+.rd-cc-portrait-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.rd-cc-portrait-remove {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.rd-cc-portrait-remove:hover {
+  background: none;
+  color: var(--rd-sangue-soft);
+}
+.rd-cc-name-fields {
+  flex: 1 1 260px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.rd-cc-field {
+  flex: 1 1 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-cc-field span {
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b9aeb3;
+}
+.rd-cc-field span i {
+  font-style: normal;
+  color: #6e6670;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.rd-cc-field input {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #0e0a0d;
+  color: #f4eef0;
+  padding: 0 12px;
+  font-size: 15px;
+}
+.rd-cc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rd-cc-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.rd-cc-section-label {
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c9363c;
+}
+.rd-cc-budget {
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: #ffb547;
+}
+.rd-cc-budget.ok {
+  color: #5bd48a;
+}
+.rd-cc-class-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.rd-cc-class-card {
+  min-height: 120px;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  color: #f4eef0;
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.rd-cc-class-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--rd-sangue);
+}
+.rd-cc-class-card svg {
+  color: #b9aeb3;
+}
+.rd-cc-class-card.on {
+  border: 1.5px solid var(--rd-sangue);
+  background: linear-gradient(160deg, rgba(224, 22, 30, 0.22), #160e12);
+  box-shadow: 0 0 22px rgba(224, 22, 30, 0.25);
+}
+.rd-cc-class-card.on svg {
+  color: var(--rd-sangue-bright);
+}
+.rd-cc-class-name {
+  font-family: var(--rd-font-disp);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.rd-cc-class-desc {
+  font-size: 11.5px;
+  color: #a89ea3;
+  line-height: 1.35;
+}
+.rd-cc-attr-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.rd-cc-attr-cell {
+  border-radius: 14px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.rd-cc-attr-name {
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: #e9a0a4;
+}
+.rd-cc-attr-val {
+  font-family: var(--rd-font-disp);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+.rd-cc-attr-val.zero {
+  color: #7e7078;
+}
+.rd-cc-attr-val.max {
+  color: var(--rd-sangue-bright);
+}
+.rd-cc-stepper {
+  display: flex;
+  gap: 6px;
+}
+.rd-cc-step {
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 9px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #1a1216;
+  color: #f4eef0;
+  font-size: 17px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rd-cc-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.rd-cc-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 12px;
+  border: 1px solid #2e2228;
+  background: #120d11;
+}
+.rd-cc-skill-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rd-cc-skill-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.rd-cc-skill-grade {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #7e7078;
+}
+.rd-cc-skill-grade.trained {
+  color: #5bd48a;
+}
+.rd-cc-skill-grade.veteran {
+  color: #6fa8ff;
+}
+.rd-cc-preview {
+  flex: 0 1 320px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+}
+.rd-cc-preview-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 2px solid var(--rd-sangue);
+  background: linear-gradient(165deg, rgba(224, 22, 30, 0.22), #120d11 45%);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(224, 22, 30, 0.15);
+}
+.rd-cc-preview-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: rd-shimmer 5s ease-in-out infinite;
+}
+.rd-cc-preview-label {
+  position: relative;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: #ff8a8e;
+}
+.rd-cc-preview-portrait {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 2px solid var(--rd-sangue);
+  background: radial-gradient(circle at 50% 35%, #3a1418, #140a0e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--rd-font-disp);
+  font-size: 40px;
+  font-weight: 700;
+  color: #ff8a8e;
+  overflow: hidden;
+}
+.rd-cc-preview-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.rd-cc-preview-portrait svg {
+  width: 100%;
+  height: 100%;
+}
+.rd-cc-preview-name {
+  position: relative;
+  font-family: var(--rd-font-disp);
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+}
+.rd-cc-preview-sub {
+  position: relative;
+  font-size: 13px;
+  color: #b9aeb3;
+}
+.rd-cc-preview-stats {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.rd-cc-preview-stat {
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--rd-sangue-line);
+  padding: 10px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.rd-cc-preview-stat-val {
+  font-family: var(--rd-font-disp);
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+.rd-cc-preview-stat-val.pv {
+  color: var(--rd-sangue-bright);
+}
+.rd-cc-preview-stat-val.pe {
+  color: #ffa040;
+}
+.rd-cc-preview-stat-label {
+  font-family: var(--rd-font-disp);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: #9e9298;
+}
+.rd-cc-start-btn {
+  height: 58px;
+  border-radius: 14px;
+  border: 0;
+  font-family: var(--rd-font-disp);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #2a1418;
+  color: #7e6a70;
+  cursor: not-allowed;
+}
+.rd-cc-start-btn.ready {
+  background: linear-gradient(180deg, var(--rd-sangue-bright), var(--rd-sangue-deep));
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(224, 22, 30, 0.4);
+}
+.rd-cc-start-hint {
+  font-size: 12px;
+  color: #8e8088;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .rd-cc-class-grid {
+    grid-template-columns: 1fr;
+  }
+  .rd-cc-attr-grid {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  }
+  .rd-cc-skill-grid {
+    grid-template-columns: 1fr;
+  }
+  .rd-cc-preview {
+    position: static;
+  }
+}
+
+/* =====================================================================
+   REDESIGN — Passo 10B (parte 3/4): Mapa da Expedição (MinigameTest.tsx,
+   fase 'map'). O mapa continua gerado por `generateMap()` — isso aqui só
+   troca o visual: nó com ícone por tipo (`NodeIcon`) e anel dourado
+   pulsante quando disponível, rastro vermelho sólido pros nós já
+   visitados (`visitedPath`, estado só-visual novo) e legenda.
+   ===================================================================== */
+.rd-map-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-self: stretch;
+  background: rgba(10, 8, 6, 0.85);
+  border: 1px solid var(--rd-sangue-line);
+  border-radius: var(--rd-radius-sm);
+  padding: 10px 16px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.rd-map-hud-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rd-map-hud-name {
+  font-family: var(--rd-font-disp);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+.rd-map-hud-nex {
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: var(--rd-sangue-soft);
+  border: 1px solid var(--rd-sangue-line);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.rd-map-hud-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+}
+.rd-map-hud-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--rd-sangue-soft);
+}
+.rd-map-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-start;
+}
+.rd-map {
+  position: relative;
+  flex: 1 1 560px;
+  min-width: 0;
+  width: 100%;
+  max-width: 900px;
+  height: min(640px, 70vh);
+  background: radial-gradient(900px 500px at 50% 100%, rgba(120, 60, 10, 0.18), transparent 60%), rgba(14, 10, 13, 0.92);
+  border: 1px solid var(--rd-sangue-line);
+  border-radius: var(--rd-radius);
+  box-shadow: var(--rd-shadow-panel);
+}
+.rd-map-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.rd-map-lines .rd-map-line {
+  stroke: var(--rd-sangue-line);
+  stroke-width: 0.5;
+  stroke-dasharray: 1.4 1.4;
+}
+.rd-map-lines .rd-map-line-next {
+  stroke: #ffd166;
+  stroke-width: 0.6;
+  stroke-dasharray: 1.4 1.4;
+  opacity: 0.85;
+}
+.rd-map-lines .rd-map-line-trail {
+  stroke: var(--rd-sangue);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2px var(--rd-sangue));
+}
+.rd-map-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid #3a2a2e;
+  background: #141012;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: not-allowed;
+  opacity: 0.75;
+  transition: transform 0.15s;
+}
+.rd-map-node:active {
+  transform: translate(-50%, calc(-50% + 1px));
+}
+.rd-map-node.visited:not(.reachable):not(.current) {
+  border-color: color-mix(in srgb, var(--node-color) 50%, transparent);
+  background: #1a0e12;
+  opacity: 0.65;
+}
+.rd-map-node.reachable {
+  cursor: pointer;
+  opacity: 1;
+  border: 2px solid #ffd166;
+  background: #1e1610;
+  box-shadow: 0 0 16px rgba(255, 209, 102, 0.45);
+}
+.rd-map-node.reachable:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.rd-map-node.current {
+  border: 3px solid var(--rd-sangue);
+  background: #3a1014;
+  box-shadow: 0 0 22px rgba(224, 22, 30, 0.8);
+  opacity: 1;
+}
+.rd-map-node.boss {
+  width: 68px;
+  height: 68px;
+  border-color: var(--rd-sangue);
+  background: radial-gradient(circle, #3a1014, #140a0c);
+  animation: rd-pulse-glow 2.4s ease-in-out infinite;
+}
+.rd-map-node-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid #ffd166;
+  animation: rd-pulse-ring 1.4s ease-out infinite;
+  --rd-pulse-rgb: 255, 209, 102;
+}
+.rd-map-legend {
+  flex: 0 1 220px;
+  min-width: 180px;
+  border-radius: var(--rd-radius-sm);
+  border: 1px solid var(--rd-sangue-line);
+  background: rgba(18, 13, 17, 0.9);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rd-map-legend-label {
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c9363c;
+}
+.rd-map-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rd-map-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #d9cfd3;
+}
+.rd-map-legend-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--node-color) 40%, transparent);
+  background: #141012;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+@media (max-width: 760px) {
+  .rd-map-wrap {
+    flex-direction: column;
+  }
+  .rd-map {
+    height: min(520px, 60vh);
+  }
+}
+
+/* =====================================================================
+   REDESIGN — Passo 10B (parte 4/4): Combate (MinigameTest.tsx, HUD de
+   combate — `.minigame-page` continua a casca fixa de tela cheia, agora
+   com classe extra `.rd-cb`). 5 cenários noturnos sorteados por luta
+   (`ScenarioBackground`/`scenarioIdx`) + HUD novo: barra do inimigo, aviso
+   de turno (reaproveita o log já existente), painel do jogador, baralho/
+   descarte, mão em leque e dano flutuante. Zumbi de Sangue usa os sprites
+   reais já existentes (`monster.sprite`, `/minigame/zumbi-sangue-*.png`) —
+   nenhum asset novo.
+   ===================================================================== */
+.rd-cb {
+  background: #05060a;
+}
+.rd-cb-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.rd-cb-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.rd-cb-anim-moon {
+  animation: rd-pulse-glow 6s ease-in-out infinite;
+}
+.rd-cb-anim-flicker {
+  animation: rd-flicker 4.5s infinite;
+}
+.rd-cb-anim-flicker-slow {
+  animation: rd-flicker 7s infinite;
+}
+.rd-cb-anim-lamp {
+  animation: rd-flicker 5s infinite;
+}
+.rd-cb-rain {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(115deg, rgba(175, 196, 255, 0.35) 0 2px, transparent 2px 46px);
+  background-size: 60px 900px;
+  animation: rd-cb-rain-fall 0.5s linear infinite;
+  opacity: 0.6;
+}
+.rd-cb-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rd-cb-ripple-anim 2.8s ease-out infinite;
+}
+.rd-cb-drip {
+  animation: rd-cb-drip-fall 2.4s linear infinite;
+}
+.rd-cb-dust circle {
+  animation: rd-cb-dust-drift 6s ease-in-out infinite;
+}
+.rd-cb-fog {
+  animation: rd-fog-drift 14s ease-in-out infinite alternate;
+}
+.rd-cb-firefly {
+  animation: rd-cb-firefly-move 7s ease-in-out infinite;
+}
+.rd-cb-train-light {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: rd-cb-train-grow 9s ease-in infinite;
+}
+@keyframes rd-cb-rain-fall {
+  from { background-position: 0 0; }
+  to { background-position: 60px 900px; }
+}
+@keyframes rd-cb-ripple-anim {
+  0% { transform: scale(0.2); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes rd-cb-drip-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(520px); opacity: 0; }
+}
+@keyframes rd-cb-dust-drift {
+  0%, 100% { transform: translate(0, 0); opacity: 0.2; }
+  50% { transform: translate(14px, -10px); opacity: 0.5; }
+}
+@keyframes rd-cb-firefly-move {
+  0%, 100% { transform: translate(0, 0); opacity: 0.2; }
+  25% { opacity: 1; }
+  50% { transform: translate(24px, -16px); opacity: 0.4; }
+  75% { transform: translate(-10px, -30px); opacity: 1; }
+}
+@keyframes rd-cb-train-grow {
+  0%, 70% { transform: scale(0.1); opacity: 0; }
+  85% { opacity: 1; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes rd-cb-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-6px) scale(1.015); }
+}
+@keyframes rd-cb-float-up {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+  100% { transform: translateY(-90px) scale(1); opacity: 0; }
+}
+
+/* ---------- topo ---------- */
+.rd-cb-topbar {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 20px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.rd-cb-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rd-cb-exit {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(5, 6, 10, 0.6);
+  color: #eee8ec;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(6px);
+}
+.rd-cb-scene-chip {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(5, 6, 10, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  backdrop-filter: blur(6px);
+  font-family: var(--rd-font-disp);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+.rd-cb-scene-sub {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #9e9aa8;
+}
+.rd-cb-banner {
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  background: rgba(10, 8, 6, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 44ch;
+  font-size: 14px;
+  color: #ffd166;
+  animation: rd-rise 0.3s ease-out both;
+}
+.rd-cb-banner span {
+  color: #eee8ec;
+}
+
+/* ---------- inimigo ---------- */
+.rd-cb-enemy {
+  position: absolute;
+  left: 50%;
+  top: 110px;
+  width: 420px;
+  margin-left: -210px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.rd-cb-enemy.drop-target .rd-cb-enemy-figure {
+  outline: 2px dashed #ffd166;
+  outline-offset: 10px;
+  border-radius: 24px;
+}
+.rd-cb-enemy-top {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rd-cb-enemy-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.rd-cb-enemy-name {
+  font-family: var(--rd-font-disp);
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px #000;
+}
+.rd-cb-enemy-hp-num {
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  text-shadow: 0 2px 8px #000;
+}
+.rd-cb-enemy-bar {
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+.rd-cb-enemy-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8c0a12, #ff3b42);
+  box-shadow: 0 0 12px rgba(255, 59, 66, 0.7);
+  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rd-cb-enemy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+}
+.rd-cb-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(224, 22, 30, 0.25);
+  border: 1px solid #5a1a20;
+}
+.rd-cb-chip.intent {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #3a3a44;
+}
+.rd-cb-enemy-figure {
+  position: relative;
+  margin-top: 8px;
+}
+.rd-cb-enemy-sprite {
+  max-height: 34vh;
+  max-width: 320px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 30px rgba(224, 22, 30, 0.35));
+  animation: rd-cb-breathe 3.2s ease-in-out infinite;
+  transition: opacity 1s, filter 1s;
+}
+.rd-cb-enemy-sprite.down {
+  opacity: 0.2;
+  filter: grayscale(1);
+  animation: none;
+}
+.rd-cb-dmg {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translateX(-50%);
+  font-family: var(--rd-font-disp);
+  font-size: 48px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: rd-cb-float-up 1.1s ease-out both;
+  white-space: nowrap;
+}
+.rd-cb-dmg.dmg {
+  color: #ff3b42;
+  text-shadow: 0 0 20px #ff3b42, 0 4px 10px #000;
+}
+.rd-cb-dmg.crit {
+  color: #ffd166;
+  font-size: 56px;
+  text-shadow: 0 0 24px #ffd166, 0 4px 10px #000;
+}
+.rd-cb-dmg.heal {
+  color: #6fa8ff;
+  text-shadow: 0 0 20px #6fa8ff, 0 4px 10px #000;
+}
+.rd-cb-dmg.miss {
+  color: #d9cfd3;
+  font-size: 30px;
+  text-shadow: 0 2px 8px #000;
+}
+.rd-cb-dmg.player {
+  top: -34px;
+  font-size: 28px;
+}
+
+/* ---------- jogador / baralho ---------- */
+.rd-cb-player {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.rd-cb-player-portrait {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 3px solid #ffd166;
+  background: radial-gradient(circle at 50% 35%, #3a2a10, #120c06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 22px rgba(255, 209, 102, 0.35);
+  overflow: hidden;
+  flex: none;
+}
+.rd-cb-player-portrait img,
+.rd-cb-player-portrait svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rd-cb-player-nex {
+  position: absolute;
+  left: -6px;
+  bottom: -6px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 7px;
+  background: #ffd166;
+  color: #1a1206;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.rd-cb-player-panel {
+  position: relative;
+  width: 250px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 6, 10, 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.rd-cb-player-name {
+  font-family: var(--rd-font-disp);
+  font-size: 16px;
+}
+.rd-cb-player-name small {
+  font-size: 12px;
+  color: #9e9aa8;
+  font-family: var(--rd-font-body);
+  margin-left: 4px;
+}
+.rd-cb-player-bar {
+  position: relative;
+  height: 20px;
+  border-radius: 6px;
+  background: #241417;
+  overflow: hidden;
+}
+.rd-cb-player-bar.pe {
+  background: #121a2a;
+}
+.rd-cb-player-bar-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+.rd-cb-player-bar.hp .rd-cb-player-bar-fill {
+  background: linear-gradient(90deg, #8c0a12, #ff3b42);
+  box-shadow: 0 0 10px rgba(255, 59, 66, 0.6);
+}
+.rd-cb-player-bar.pe .rd-cb-player-bar-fill {
+  background: linear-gradient(90deg, #1e4aa8, #6fa8ff);
+  box-shadow: 0 0 10px rgba(111, 168, 255, 0.6);
+}
+.rd-cb-player-bar-label {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.rd-cb-player-bar-num {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--rd-font-mono);
+  font-size: 10.5px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.rd-cb-dodge-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #6fa8ff;
+}
+.rd-cb-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: #c9c3d0;
+}
+.rd-cb-pile svg {
+  color: #ffd166;
+}
+.rd-cb-pile-count {
+  font-family: var(--rd-font-disp);
+  font-size: 20px;
+  font-weight: 700;
+}
+.rd-cb-pile-label {
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+  color: #9e9aa8;
+}
+
+/* ---------- lado direito: turno + descarte ---------- */
+.rd-cb-right {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.rd-cb-turn-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.rd-cb-turn-count {
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  color: #c9c3d0;
+}
+.rd-cb-turn-count b {
+  color: #ffd166;
+}
+.rd-cb-endturn {
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid #ffd166;
+  background: rgba(40, 28, 8, 0.75);
+  color: #ffd166;
+  font-family: var(--rd-font-disp);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- fundo (iniciar luta / mão / fim) ---------- */
+.rd-cb-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 96vw;
+}
+.rd-cb-roll-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 28px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, var(--rd-sangue-bright), var(--rd-sangue-deep));
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 12px 30px rgba(224, 22, 30, 0.4);
+}
+.rd-cb-initiative-result {
+  font-family: var(--rd-font-mono);
+  font-size: 14px;
+  background: rgba(10, 10, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+.rd-cb-hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.rd-cb-hand-card {
+  margin: 0 -18px;
+  transform-origin: 50% 100%;
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.rd-cb-hand-card:hover {
+  transform: translateY(-24px) scale(1.04) !important;
+  z-index: 5;
+}
+.rd-cb-end {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.rd-cb-end .rd-cc-start-btn {
+  width: auto;
+  padding: 0 32px;
+}
+.rd-cb-end-title {
+  font-family: var(--rd-font-disp);
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+@media (max-width: 700px) {
+  .rd-cb-topbar {
+    flex-wrap: wrap;
+  }
+  .rd-cb-banner {
+    max-width: 100%;
+  }
+  .rd-cb-enemy {
+    width: 92vw;
+    margin-left: -46vw;
+    top: 90px;
+  }
+  .rd-cb-player-panel {
+    width: 190px;
+  }
 }
