@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -15,19 +16,53 @@ import { ORIGIN_BY_NAME, ORIGINS } from '../data/origins';
 import { createCharacter, suggestedStats, type Character } from '../domain/character';
 import { fileToDownscaledDataURL } from '../lib/image';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
+import {
+  ArrowRightIcon,
+  BackChevronIcon,
+  BrandEyeIcon,
+  CheckIcon,
+  ClassIcon,
+  LockIcon,
+  OriginPowerIcon,
+  PortraitIcon,
+  UploadIcon,
+} from './icons';
 
 const STEPS = ['Conceito', 'Atributos', 'Classe', 'Trilha', 'Perícias', 'Revisão'];
 
-const CLASS_ICON: Record<ClassKey, string> = {
-  combatente: '⚔️',
-  especialista: '🧠',
-  ocultista: '🔮',
-};
+// Subtítulo fixo de cada etapa — o conteúdo que depende de estado (NEX,
+// perícias etc.) é renderizado dentro do próprio corpo da etapa, não aqui.
+const STEP_SUB = [
+  'Quem é esse agente — nome, retrato e de onde ele veio.',
+  'Todos começam em 1. Distribua até a soma dos cinco chegar a 9. Máx 3; um pode ficar em 0 (dá +1 ponto).',
+  'O papel do agente na equipe.',
+  'Escolhida em NEX 10%; ganha um novo poder da trilha em NEX 40%, 65% e 99%.',
+  'Escolha as perícias treinadas iniciais — o limite depende da classe, do Intelecto e da origem.',
+  'Confira e crie o agente. Tudo pode ser ajustado na ficha depois.',
+];
+
 const CLASS_NOTE: Record<ClassKey, string> = {
   combatente: 'Foco em combate; armas simples e táticas, proteções leves e pesadas.',
   especialista: 'O mais versátil — muitas perícias treinadas.',
   ocultista: 'Conjura rituais; afinidade a um elemento e 3 rituais de 1º círculo.',
 };
+
+// Brasas subindo no canto do fundo — mesma fórmula já usada em Minhas
+// Fichas (CharacterLibrary.tsx, `LIBRARY_EMBERS`): posição/tamanho/duração
+// derivados só do índice, nada aleatório (evita re-sortear a cada render).
+const WIZARD_EMBERS: CSSProperties[] = Array.from({ length: 12 }, (_, i) => {
+  const left = (i * 31 + 6) % 100;
+  const size = 2 + (i % 3);
+  const dur = 11 + (i % 4) * 3;
+  const delay = -((i * 2.3) % dur);
+  return {
+    left: `${left}%`,
+    width: size,
+    height: size,
+    animationDuration: `${dur}s`,
+    animationDelay: `${delay.toFixed(1)}s`,
+  };
+});
 
 interface Props {
   ownerId: string;
@@ -118,6 +153,15 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
     true,
   ][step];
 
+  const stepHint = [
+    nome.trim().length > 0 ? '' : 'Dê um nome ao agente pra continuar.',
+    attrsValid ? '' : attrPointsLeft > 0 ? `Faltam ${attrPointsLeft} ponto(s) pra distribuir.` : 'Pontos além do limite.',
+    '',
+    !needsTrilha || trilha !== '' ? '' : 'Escolha uma trilha.',
+    trained.length <= skillBudget ? '' : `Perícias além do limite (${trained.length}/${skillBudget}).`,
+    '',
+  ][step];
+
   const build = (): Character => {
     const c = createCharacter(ownerId, nome.trim() || 'Novo Agente');
     c.player = jogador.trim();
@@ -163,53 +207,82 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
     void fileToDownscaledDataURL(file, 512).then((u) => u && setImage(u));
   };
 
-  // Portal pro <body>: sem isso, `.hud` (position:fixed, z-index:200) fica
+  const initial = (nome.trim()[0] || '?').toUpperCase();
+
+  // Portal pro <body>: sem isso, `.rd-cw` (position:fixed, z-index:200) fica
   // preso no contexto de empilhamento do próprio Home — perde na hora de
   // sobrepor outros elementos fixos que já vivem direto no <body> (a
   // engrenagem de configurações, os diálogos de prompt), mesmo tendo um
   // z-index maior. Foi isso que causava o botão "Continuar" (canto inferior
   // do wizard) roubando clique pra engrenagem, que fica no mesmo canto.
   return createPortal(
-    <div className="hud">
-      <div className="hud-top">
-        <span className="brand">◈ Criar Agente</span>
-        <div className="hud-rail">
-          {STEPS.map((s, i) => (
-            <span
-              key={s}
-              className={'hud-step ' + (i === step ? 'on' : i < step ? 'done' : '')}
-              onClick={() => i < step && go(i)}
-            >
-              <span className="hud-step-num">{i < step ? '✓' : i + 1}</span>
-              <span className="hud-step-label">{s}</span>
-            </span>
+    <div className="rd-cw">
+      <div className="rd-cw-bg" aria-hidden="true">
+        <div className="rd-cw-glow" />
+        <div className="rd-cw-sigil-spin">
+          <img className="rd-cw-sigil-img" src="/sigils/sigilo-original.svg" alt="" />
+        </div>
+        <div className="rd-cw-embers">
+          {WIZARD_EMBERS.map((style, i) => (
+            <span key={i} className="rd-cw-ember" style={style} />
           ))}
         </div>
-        <button className="small ghost" onClick={onCancel}>
+      </div>
+
+      <div className="rd-cw-top">
+        <span className="rd-cw-brand">
+          <BrandEyeIcon /> Criar Agente
+        </span>
+        <ol className="rd-cw-rail" aria-label="Etapas">
+          {STEPS.map((s, i) => {
+            const done = i < step;
+            const current = i === step;
+            return (
+              <li key={s}>
+                <button
+                  type="button"
+                  className={'rd-cw-step' + (current ? ' on' : done ? ' done' : '')}
+                  disabled={!done}
+                  aria-current={current ? 'step' : undefined}
+                  onClick={() => done && go(i)}
+                >
+                  <span className="rd-cw-step-head">
+                    <span className="rd-cw-step-dot">{done ? <CheckIcon size={11} /> : i + 1}</span>
+                    <span className="rd-cw-step-label">{s}</span>
+                  </span>
+                  <span className="rd-cw-step-bar">
+                    <span />
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        <button type="button" className="rd-cw-cancel" onClick={onCancel}>
           Cancelar
         </button>
       </div>
 
-      <div className="hud-cols">
-        <div className={'hud-main ' + (dir === 1 ? 'slide-fwd' : 'slide-back')} key={step}>
+      <div className="rd-cw-body">
+        <div className={'rd-cw-main ' + (dir === 1 ? 'slide-fwd' : 'slide-back')} key={step}>
+          <span className="rd-cw-kicker">{`// ETAPA ${step + 1} DE ${STEPS.length}`}</span>
+          <h2 className="rd-cw-title">{STEPS[step]}</h2>
+          <p className="rd-cw-sub">{STEP_SUB[step]}</p>
+
           {step === 0 && (
             <>
-              <h2>Conceito</h2>
-              <p className="sub">Quem é esse agente — nome, retrato e de onde veio.</p>
-
-              <div className="wiz-card">
-              <div className="field">
-                <label>Retrato</label>
-                <div className="portrait-row">
+              <div className="rd-cw-card">
+                <div className="rd-cw-portrait-row">
                   <div
-                    className="portrait"
+                    className="rd-cw-portrait-btn"
+                    aria-hidden="true"
                     style={image ? { backgroundImage: `url(${image})` } : undefined}
                   >
-                    {!image && '?'}
+                    {!image && <PortraitIcon />}
                   </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <label className="file-btn" style={{ textAlign: 'center', cursor: 'pointer' }}>
-                      🖼 Do computador
+                  <div className="rd-cw-upload-col">
+                    <label className="rd-cw-upload-btn">
+                      <UploadIcon /> Do computador
                       <input
                         type="file"
                         accept="image/*"
@@ -222,214 +295,249 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                     </label>
                     <input
                       value={image}
-                      placeholder="…ou cole uma URL"
+                      placeholder="…ou cole o link de uma imagem"
                       onChange={(e) => setImage(e.target.value)}
                     />
                     {image && (
-                      <button className="small ghost" onClick={() => setImage('')}>
+                      <button type="button" className="rd-cw-remove-link" onClick={() => setImage('')}>
                         remover
                       </button>
                     )}
                   </div>
                 </div>
+
+                <div className="rd-cw-field-grid2">
+                  <label className="rd-cw-field">
+                    <span className="req">Nome do agente</span>
+                    <input
+                      className={nome.trim() ? undefined : 'invalid'}
+                      value={nome}
+                      autoFocus
+                      placeholder="Como os outros vão chamar seu agente"
+                      onChange={(e) => setNome(e.target.value)}
+                    />
+                  </label>
+                  <label className="rd-cw-field">
+                    <span>NEX inicial</span>
+                    <input
+                      type="number"
+                      min={5}
+                      max={99}
+                      step={5}
+                      value={nex}
+                      onChange={(e) => setNex(Math.max(5, Math.min(99, Number(e.target.value))))}
+                    />
+                  </label>
+                </div>
+                <div className="rd-cw-field-grid2b">
+                  <label className="rd-cw-field">
+                    <span>Jogador</span>
+                    <input value={jogador} onChange={(e) => setJogador(e.target.value)} />
+                  </label>
+                  <label className="rd-cw-field">
+                    <span>Origem</span>
+                    <input
+                      list="rd-cw-origins"
+                      value={origem}
+                      placeholder="ex.: Militar"
+                      onChange={(e) => setOrigem(e.target.value)}
+                    />
+                    <datalist id="rd-cw-origins">
+                      {ORIGINS.map((o) => (
+                        <option key={o} value={o} />
+                      ))}
+                    </datalist>
+                  </label>
+                </div>
+
+                <div className="rd-cw-origin-note">
+                  <OriginPowerIcon />
+                  <div className="rd-cw-origin-note-text">
+                    <span className="rd-cw-origin-note-title">
+                      {originDef ? `Poder de origem: ${originDef.power}` : 'Escolha uma origem da lista'}
+                    </span>
+                    <span className="rd-cw-origin-note-body">
+                      {originDef
+                        ? originDef.skills === 'choice'
+                          ? 'Amnésico: 2 perícias à escolha do mestre (marque na etapa Perícias).'
+                          : `Já treina ${originSkills
+                              .map((k) => SKILL_BY_KEY[k]?.name)
+                              .join(' e ')}. As 2 perícias (🔒 na etapa Perícias) e o poder entram sozinhos na ficha.`
+                        : 'A origem preenche 2 perícias treinadas e um poder automaticamente.'}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="row">
-                <div className="field" style={{ flex: 2 }}>
-                  <label>Nome do agente *</label>
-                  <input value={nome} autoFocus onChange={(e) => setNome(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>NEX %</label>
-                  <input
-                    type="number"
-                    min={5}
-                    max={99}
-                    step={5}
-                    value={nex}
-                    onChange={(e) => setNex(Math.max(5, Math.min(99, Number(e.target.value))))}
-                  />
-                </div>
-              </div>
-              <div className="row">
-                <div className="field">
-                  <label>Jogador</label>
-                  <input value={jogador} onChange={(e) => setJogador(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label>Origem</label>
-                  <input
-                    list="wiz-origins"
-                    value={origem}
-                    placeholder="ex.: Militar"
-                    onChange={(e) => setOrigem(e.target.value)}
-                  />
-                  <datalist id="wiz-origins">
-                    {ORIGINS.map((o) => (
-                      <option key={o} value={o} />
-                    ))}
-                  </datalist>
-                </div>
-              </div>
-              <p className="faint" style={{ fontSize: 12 }}>
-                {originDef
-                  ? (originDef.skills === 'choice'
-                      ? 'Amnésico: 2 perícias à escolha do mestre (marque no passo 4). '
-                      : `Perícias: ${originSkills
-                          .map((k) => SKILL_BY_KEY[k]?.name)
-                          .join(' e ')} (marcadas). `) + `Poder: ${originDef.power}.`
-                  : 'Escolha uma origem da lista para preencher as 2 perícias e o poder automaticamente.'}
-              </p>
-              </div>
               {nex > 5 && (
-                <p className="faint" style={{ fontSize: 12, color: 'var(--gold)' }}>
-                  NEX acima de 5%: os Poderes de Classe (15/30/45/60/75/90%), Aumentos de
-                  Atributo (20/50/80/95%) e evoluções de perícia (35/70%) já disponíveis vão
-                  aparecer como pendentes na aba <b>Progressão</b> da ficha assim que você criar
-                  o agente — é só escolher lá.
+                <p className="rd-cw-nex-note">
+                  NEX acima de 5%: os Poderes de Classe (15/30/45/60/75/90%), Aumentos de Atributo
+                  (20/50/80/95%) e evoluções de perícia (35/70%) já disponíveis vão aparecer como
+                  pendentes na aba <b>Progressão</b> da ficha assim que você criar o agente — é só
+                  escolher lá.
                 </p>
               )}
             </>
           )}
 
           {step === 1 && (
-            <>
-              <h2>Atributos</h2>
-              <p className="sub">
-                Todos começam em 1. Distribua até a soma dos cinco chegar a <b>9</b>. Máx 3; um pode
-                ficar em 0 (dá +1 ponto).
-              </p>
-              <div className="wiz-card">
-                <p style={{ margin: '0 0 14px' }}>
-                  <span
-                    className="points-pill"
-                    style={{
-                      color:
-                        attrPointsLeft === 0
-                          ? 'var(--green)'
-                          : attrPointsLeft < 0
-                            ? 'var(--blood-bright)'
-                            : 'var(--gold)',
-                    }}
-                  >
-                    {attrPointsLeft > 0 ? `+${attrPointsLeft}` : attrPointsLeft}
-                  </span>
-                  <span className="faint" style={{ marginLeft: 10, fontSize: 12 }}>
-                    {attrPointsLeft === 0
-                      ? 'distribuição completa'
-                      : attrPointsLeft < 0
-                        ? 'pontos além do limite'
-                        : 'pontos restantes'}
-                  </span>
-                </p>
-                <div className="hud-attrs">
-                  {ATTRIBUTES.map((a) => (
-                    <div className="hud-attr" key={a.key}>
-                      <span className="ha-name">{a.name}</span>
-                      <div className="hex">
-                        <div className="hex-in">
-                          <span className="ha-val">{attrs[a.key]}</span>
+            <div className="rd-cw-card">
+              <div className="rd-cw-points-row">
+                <span
+                  className={
+                    'rd-cw-points-pill' +
+                    (attrPointsLeft === 0 ? ' ok' : attrPointsLeft < 0 ? ' over' : '')
+                  }
+                >
+                  {attrPointsLeft > 0 ? `+${attrPointsLeft}` : attrPointsLeft}
+                </span>
+                <span className="rd-cw-points-hint">
+                  {attrPointsLeft === 0
+                    ? 'distribuição completa'
+                    : attrPointsLeft < 0
+                      ? 'pontos além do limite'
+                      : 'pontos restantes'}
+                </span>
+              </div>
+              <div className="rd-cw-attr-grid">
+                {ATTRIBUTES.map((a) => {
+                  const v = attrs[a.key];
+                  return (
+                    <div className="rd-cw-attr-cell" key={a.key}>
+                      <span className="rd-cw-attr-name">{a.name}</span>
+                      <div className={'rd-cw-hex' + (v === 0 ? ' zero' : v >= 3 ? ' max' : '')}>
+                        <div className="rd-cw-hex-in">
+                          <span className={'rd-cw-hex-val' + (v === 0 ? ' zero' : '')}>{v}</span>
                         </div>
                       </div>
-                      <div className="ha-key">{a.short}</div>
-                      <div className="ha-ctl">
-                        <button onClick={() => dec(a.key)}>−</button>
-                        <button onClick={() => inc(a.key)}>+</button>
+                      <span className="rd-cw-attr-short">{a.short}</span>
+                      <div className="rd-cw-attr-ctl">
+                        <button type="button" aria-label={`Diminuir ${a.name}`} onClick={() => dec(a.key)}>
+                          −
+                        </button>
+                        <button type="button" aria-label={`Aumentar ${a.name}`} onClick={() => inc(a.key)}>
+                          +
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            </>
+            </div>
           )}
 
           {step === 2 && (
             <>
-              <h2>Classe</h2>
-              <p className="sub">O papel do agente na equipe.</p>
-              <div className="wiz-card">
-                <div className="hud-class">
-                  {CLASSES.map((c) => (
-                    <div
+              <div className="rd-cw-class-list">
+                {CLASSES.map((c) => {
+                  const on = classe === c.key;
+                  return (
+                    <button
+                      type="button"
                       key={c.key}
-                      className={'hud-class-card ' + (classe === c.key ? 'on' : '')}
+                      className={'rd-cw-class-card' + (on ? ' on' : '')}
+                      aria-pressed={on}
                       onClick={() => setClasse(c.key)}
                     >
-                      <div className="cc-ico">{CLASS_ICON[c.key]}</div>
-                      <div>
-                        <strong>{c.name}</strong>
-                        <div className="faint" style={{ fontSize: 12, margin: '3px 0' }}>
-                          {CLASS_NOTE[c.key]}
-                        </div>
-                        <div style={{ fontSize: 12 }}>
-                          PV {c.pvBase}+VIG · PE {c.peBase}+PRE · Sanidade {c.sanBase} ·{' '}
-                          {c.skillsTrained}+Int perícias
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {classe === 'ocultista' && (
-                  <div className="field" style={{ maxWidth: 240, marginTop: 12 }}>
-                    <label>Afinidade elemental</label>
-                    <select value={element} onChange={(e) => setElement(e.target.value as Element)}>
-                      {ELEMENTS.map((el) => (
-                        <option key={el.key} value={el.key}>
-                          {el.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      <span className="rd-cw-class-icon">
+                        <ClassIcon classKey={c.key} />
+                      </span>
+                      <span className="rd-cw-class-body">
+                        <span className="rd-cw-class-name">{c.name}</span>
+                        <span className="rd-cw-class-desc">{CLASS_NOTE[c.key]}</span>
+                        <span className="rd-cw-class-tags">
+                          <span className="rd-cw-class-tag">PV {c.pvBase}+VIG</span>
+                          <span className="rd-cw-class-tag">PE {c.peBase}+PRE</span>
+                          <span className="rd-cw-class-tag">Sanidade {c.sanBase}</span>
+                          <span className="rd-cw-class-tag">{c.skillsTrained}+Int perícias</span>
+                        </span>
+                      </span>
+                      {on && (
+                        <span className="rd-cw-class-check">
+                          <CheckIcon size={16} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+
+              {classe === 'ocultista' && (
+                <div className="rd-cw-element-panel">
+                  <span className="rd-cw-element-label">Afinidade elemental</span>
+                  <div className="rd-cw-element-grid">
+                    {ELEMENTS.map((el) => {
+                      const on = element === el.key;
+                      return (
+                        <button
+                          type="button"
+                          key={el.key}
+                          className={'rd-cw-element-chip' + (on ? ' on' : '')}
+                          aria-pressed={on}
+                          onClick={() => setElement(el.key)}
+                          style={
+                            on
+                              ? {
+                                  borderColor: el.color,
+                                  background: `${el.color}22`,
+                                  boxShadow: `0 0 10px ${el.color}55`,
+                                }
+                              : undefined
+                          }
+                        >
+                          <span
+                            className="rd-cw-element-dot"
+                            style={{ background: el.color, boxShadow: `0 0 8px ${el.color}` }}
+                          />
+                          {el.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
           {step === 3 && (
             <>
-              <h2>Trilha</h2>
               {needsTrilha ? (
-                <>
-                  <p className="sub">
-                    Escolhida em NEX 10%; ganha um novo poder da trilha em NEX 40%, 65% e 99%.
-                  </p>
-                  <div className="wiz-card">
-                    <div className="hud-class">
-                      {trilhaOptions.map((t) => (
-                        <div
-                          key={t.name}
-                          className={'hud-class-card ' + (trilha === t.name ? 'on' : '')}
-                          onClick={() => setTrilha(t.name)}
-                        >
-                          <div style={{ width: '100%' }}>
-                            <strong>{t.name}</strong>
-                            <div className="faint" style={{ fontSize: 12, margin: '3px 0' }}>
-                              {t.flavor}
-                            </div>
-                            {t.powers.map((p) => (
-                              <div
-                                key={p.nex}
-                                style={{
-                                  fontSize: 12,
-                                  marginTop: 4,
-                                  opacity: p.nex <= nex ? 1 : 0.45,
-                                }}
-                              >
-                                <b>NEX {p.nex}% · {p.name}</b> — {p.summary}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
+                <div className="rd-cw-trail-list">
+                  {trilhaOptions.map((t) => {
+                    const on = trilha === t.name;
+                    return (
+                      <button
+                        type="button"
+                        key={t.name}
+                        className={'rd-cw-trail-card' + (on ? ' on' : '')}
+                        aria-pressed={on}
+                        onClick={() => setTrilha(t.name)}
+                      >
+                        <span className="rd-cw-trail-head">
+                          <span className="rd-cw-trail-name">{t.name}</span>
+                          {on && <span className="rd-cw-trail-badge">Escolhida</span>}
+                        </span>
+                        <span className="rd-cw-trail-desc">{t.flavor}</span>
+                        <span className="rd-cw-trail-powers">
+                          {t.powers.map((p) => (
+                            <span key={p.nex} className={'rd-cw-trail-power' + (p.nex > nex ? ' locked' : '')}>
+                              <span className="rd-cw-trail-power-badge">NEX {p.nex}%</span>
+                              <span>
+                                <b>{p.name}</b> — {p.summary}
+                              </span>
+                            </span>
+                          ))}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               ) : (
-                <div className="wiz-card">
-                  <p className="sub" style={{ margin: 0 }}>
+                <div className="rd-cw-card">
+                  <p className="rd-cw-review-foot" style={{ padding: 0 }}>
                     Trilha só é escolhida a partir de NEX 10%. Este agente começa em NEX {nex}% —
-                    volte ao passo 1 e aumente o NEX se quiser escolher a trilha já na criação, ou
-                    deixe para quando o personagem evoluir.
+                    volte à etapa Conceito e aumente o NEX se quiser escolher a trilha já na criação,
+                    ou deixe para quando o personagem evoluir.
                   </p>
                 </div>
               )}
@@ -437,142 +545,189 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
           )}
 
           {step === 4 && (
-            <>
-              <h2>Perícias treinadas</h2>
-              <p className="sub">
-                Escolha até <b>{skillBudget}</b> — {classBase} da classe + {attrs.INT} de Intelecto +
-                2 da origem. 🔒 vem da origem.
-              </p>
-              <div className="wiz-card">
-                <p
-                  style={{
-                    margin: '0 0 12px',
-                    fontWeight: 600,
-                    color: trained.length > skillBudget ? 'var(--blood-bright)' : 'var(--text)',
-                  }}
-                >
+            <div className="rd-cw-card">
+              <div className="rd-cw-skill-head">
+                <span className={'rd-cw-skill-count' + (trained.length > skillBudget ? ' over' : '')}>
                   {trained.length} / {skillBudget} selecionadas
-                </p>
-                <div className="wiz-skills">
-                  {SKILLS.map((s) => {
-                    const on = trained.includes(s.key);
-                    const fromOrigin = originSkills.includes(s.key);
-                    return (
-                      <span
-                        key={s.key}
-                        className={'chip ' + (on ? 'on' : '')}
-                        style={fromOrigin ? { opacity: 0.85, cursor: 'default' } : undefined}
-                        onClick={() => toggleSkill(s.key)}
-                      >
-                        {fromOrigin && '🔒 '}
-                        {s.name} <small>{s.attr}</small>
-                      </span>
-                    );
-                  })}
+                </span>
+                <div className="rd-cw-skill-bar-track">
+                  <span
+                    className={'rd-cw-skill-bar-fill' + (trained.length >= skillBudget ? ' over' : '')}
+                    style={{ width: `${Math.min(100, (trained.length / Math.max(1, skillBudget)) * 100)}%` }}
+                  />
                 </div>
-                <p className="faint" style={{ fontSize: 12, margin: '8px 0 0' }}>
-                  Todas entram como Treinado (+5); ajuste para Veterano/Expert na ficha.
-                </p>
+                <span className="rd-cw-skill-legend">
+                  <LockIcon /> vem da origem
+                </span>
               </div>
-            </>
+              <div className="rd-cw-skill-grid">
+                {SKILLS.map((s) => {
+                  const on = trained.includes(s.key);
+                  const fromOrigin = originSkills.includes(s.key);
+                  return (
+                    <button
+                      type="button"
+                      key={s.key}
+                      className={'rd-cw-skill-chip' + (fromOrigin ? ' locked' : on ? ' on' : '')}
+                      aria-pressed={on}
+                      disabled={fromOrigin}
+                      onClick={() => toggleSkill(s.key)}
+                    >
+                      {fromOrigin && <LockIcon />}
+                      <span className="rd-cw-skill-chip-name">{s.name}</span>
+                      <span className="rd-cw-skill-chip-attr">{s.attr}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="rd-cw-skill-foot">
+                Todas entram como Treinado (+5); ajuste para Veterano/Expert na ficha.
+              </span>
+            </div>
           )}
 
           {step === 5 && (
-            <>
-              <h2>Revisão</h2>
-              <p className="sub">Confira e crie o agente. Tudo pode ser ajustado na ficha depois.</p>
-              <div className="wiz-card wiz-review">
-                <div className="wiz-review-head">
-                  <strong>{nome || 'Novo Agente'}</strong>
-                  <span className="faint">
-                    {origem || 'sem origem'} · {CLASSES.find((c) => c.key === classe)?.name} · NEX {nex}%
-                  </span>
+            <div className="rd-cw-review-card">
+              <div className="rd-cw-review-head">
+                <div
+                  className="rd-cw-review-initial"
+                  style={image ? { backgroundImage: `url(${image})` } : undefined}
+                >
+                  {!image && initial}
                 </div>
-                <div className="wiz-review-facts">
-                  {originDef && (
-                    <div className="wiz-review-fact">
-                      <span className="faint">Poder de origem</span>
-                      <b>{originDef.power}</b>
-                    </div>
-                  )}
-                  {classe === 'ocultista' && (
-                    <div className="wiz-review-fact">
-                      <span className="faint">Afinidade elemental</span>
-                      <b>{ELEMENTS.find((e) => e.key === element)?.name} · 3 rituais de 1º círculo</b>
-                    </div>
-                  )}
-                  {trilha && (
-                    <div className="wiz-review-fact">
-                      <span className="faint">Trilha</span>
-                      <b>
-                        {trilha} ({unlockedPowers.length} poder
-                        {unlockedPowers.length === 1 ? '' : 'es'} já desbloqueado
-                        {unlockedPowers.length === 1 ? '' : 's'})
-                      </b>
-                    </div>
-                  )}
-                  <div className="wiz-review-fact">
-                    <span className="faint">Perícias treinadas ({trained.length})</span>
-                    <b>{trained.map((k) => SKILL_BY_KEY[k]?.name).join(', ') || '—'}</b>
+                <div>
+                  <div className="rd-cw-review-name">{nome || 'Novo Agente'}</div>
+                  <div className="rd-cw-review-sub">
+                    {origem || 'sem origem'} · {CLASS_BY_KEY[classe].name} · NEX {nex}%
                   </div>
                 </div>
               </div>
-            </>
+
+              <div className="rd-cw-review-row">
+                <span className="rd-cw-review-label">Atributos</span>
+                <span className="rd-cw-review-value">
+                  {ATTRIBUTES.map((a) => `${a.short} ${attrs[a.key]}`).join(' · ')}
+                </span>
+                <button type="button" className="rd-cw-review-edit" onClick={() => go(1)}>
+                  Editar
+                </button>
+              </div>
+
+              <div className="rd-cw-review-row">
+                <span className="rd-cw-review-label">Classe</span>
+                <span className="rd-cw-review-value">
+                  {CLASS_BY_KEY[classe].name}
+                  {classe === 'ocultista' && element
+                    ? ` · afinidade ${ELEMENTS.find((e) => e.key === element)?.name}`
+                    : ''}{' '}
+                  · PV {derived.pvMax} · PE {derived.peMax} · SAN {derived.sanMax}
+                </span>
+                <button type="button" className="rd-cw-review-edit" onClick={() => go(2)}>
+                  Editar
+                </button>
+              </div>
+
+              {originDef && (
+                <div className="rd-cw-review-row">
+                  <span className="rd-cw-review-label">Poder de origem</span>
+                  <span className="rd-cw-review-value">{originDef.power}</span>
+                  <button type="button" className="rd-cw-review-edit" onClick={() => go(0)}>
+                    Editar
+                  </button>
+                </div>
+              )}
+
+              <div className="rd-cw-review-row">
+                <span className="rd-cw-review-label">Trilha</span>
+                <span className="rd-cw-review-value">
+                  {trilha
+                    ? `${trilha} (${unlockedPowers.length} poder${unlockedPowers.length === 1 ? '' : 'es'} já desbloqueado${unlockedPowers.length === 1 ? '' : 's'})`
+                    : '—'}
+                </span>
+                <button type="button" className="rd-cw-review-edit" onClick={() => go(3)}>
+                  Editar
+                </button>
+              </div>
+
+              <div className="rd-cw-review-row">
+                <span className="rd-cw-review-label">Perícias ({trained.length})</span>
+                <span className="rd-cw-review-value">
+                  {trained.map((k) => SKILL_BY_KEY[k]?.name).join(', ') || '—'}
+                </span>
+                <button type="button" className="rd-cw-review-edit" onClick={() => go(4)}>
+                  Editar
+                </button>
+              </div>
+
+              <span className="rd-cw-review-foot">Tudo pode ser ajustado depois na ficha.</span>
+            </div>
           )}
         </div>
 
-        <div className="hud-side">
+        <aside className="rd-cw-aside" aria-label="Prévia do agente">
           <div
-            className="hud-portrait"
+            className="rd-cw-aside-portrait"
             style={image ? { backgroundImage: `url(${image})` } : undefined}
           >
-            {!image && '?'}
+            {!image && (
+              <>
+                <span className="rd-cw-aside-sheen" aria-hidden="true" />
+                {initial}
+              </>
+            )}
           </div>
-          <div className="hud-name">{nome || 'Novo Agente'}</div>
-          <div className="hud-tagline">
-            {origem || 'sem origem'} · {CLASS_BY_KEY[classe].name}
+          <div>
+            <div className="rd-cw-aside-name">{nome || 'Novo Agente'}</div>
+            <div className="rd-cw-aside-tagline">
+              {origem || 'sem origem'} · {CLASS_BY_KEY[classe].name}
+            </div>
           </div>
           <NexRing pct={nex} onChange={setNex} />
-          <p className="faint" style={{ fontSize: 10, textAlign: 'center', marginTop: -4 }}>
-            arraste a roda pra ajustar
-          </p>
-          <div className="mini-attrs">
+          <p className="rd-cw-aside-hint">arraste a roda pra ajustar</p>
+          <div className="rd-cw-mini-attrs">
             {ATTRIBUTES.map((a) => (
-              <div className="mini-attr" key={a.key}>
+              <div className="rd-cw-mini-attr" key={a.key}>
                 <span>{a.short}</span>
                 <b>{attrs[a.key]}</b>
               </div>
             ))}
           </div>
-          <MiniBar name="Vida" val={derived.pvMax} color="var(--blood)" />
-          <MiniBar name="Esforço" val={derived.peMax} color="var(--gold)" />
-          <MiniBar name="Sanidade" val={derived.sanMax} color="var(--blue)" />
-          <div className="faint" style={{ fontSize: 11, marginTop: 6 }}>
-            Defesa {10 + attrs.AGI} · Deslocamento 9 m
+          <div className="rd-cw-bars">
+            <MiniBar name="Vida" val={derived.pvMax} color="var(--rd-sangue-bright)" />
+            <MiniBar name="Esforço" val={derived.peMax} color="#ffa040" />
+            <MiniBar name="Sanidade" val={derived.sanMax} color="#a974ff" />
           </div>
-          <div
-            style={{
-              fontSize: 11,
-              marginTop: 3,
-              color: trained.length > skillBudget ? 'var(--blood-bright)' : 'var(--text-faint)',
-            }}
-          >
-            Perícias treinadas: {trained.length} / {skillBudget}
+          <div className="rd-cw-extra">
+            <div className="rd-cw-extra-cell">
+              <span className="rd-cw-extra-val">{10 + attrs.AGI}</span>
+              <span className="rd-cw-extra-label">DEFESA</span>
+            </div>
+            <div className="rd-cw-extra-cell">
+              <span className="rd-cw-extra-val">9 m</span>
+              <span className="rd-cw-extra-label">DESLOC.</span>
+            </div>
+            <div className="rd-cw-extra-cell">
+              <span className={'rd-cw-extra-val' + (trained.length > skillBudget ? ' over' : '')}>
+                {trained.length}/{skillBudget}
+              </span>
+              <span className="rd-cw-extra-label">PERÍCIAS</span>
+            </div>
           </div>
-        </div>
+        </aside>
       </div>
 
-      <div className="hud-foot">
-        <button className="ghost" disabled={step === 0} onClick={() => go(step - 1)}>
-          ◂ Voltar
+      <div className="rd-cw-foot">
+        <button className="rd-cw-foot-back" disabled={step === 0} onClick={() => go(step - 1)}>
+          <BackChevronIcon /> Voltar
         </button>
+        <span className="rd-cw-foot-hint">{!stepValid ? stepHint : ''}</span>
         {step < STEPS.length - 1 ? (
-          <button className="primary" disabled={!stepValid} onClick={() => go(step + 1)}>
-            Continuar ▸
+          <button className="rd-cw-foot-next" disabled={!stepValid} onClick={() => go(step + 1)}>
+            Continuar <ArrowRightIcon />
           </button>
         ) : (
-          <button className="primary" onClick={() => onDone(build())}>
-            ✓ Criar agente
+          <button className="rd-cw-foot-next" onClick={() => onDone(build())}>
+            <CheckIcon size={16} /> Criar agente
           </button>
         )}
       </div>
@@ -596,7 +751,7 @@ function angleToNex(clientX: number, clientY: number, rect: DOMRect): number {
 }
 
 function NexRing({ pct, onChange }: { pct: number; onChange?: (n: number) => void }) {
-  const r = 34;
+  const r = 42;
   const c = 2 * Math.PI * r;
   const target = c * (1 - pct / 100);
   // começa "vazio" e preenche até o valor ao montar / quando pct muda
@@ -632,9 +787,9 @@ function NexRing({ pct, onChange }: { pct: number; onChange?: (n: number) => voi
     <svg
       ref={svgRef}
       className={'nex-ring' + (onChange ? ' interactive' : '') + (dragging ? ' dragging' : '')}
-      width="88"
-      height="88"
-      viewBox="0 0 88 88"
+      width="110"
+      height="110"
+      viewBox="0 0 110 110"
       onPointerDown={(e) => {
         if (!onChange) return;
         draggingRef.current = true;
@@ -642,24 +797,24 @@ function NexRing({ pct, onChange }: { pct: number; onChange?: (n: number) => voi
         onChange(angleToNex(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect()));
       }}
     >
-      <circle cx="44" cy="44" r={r} fill="none" stroke="#2c2d34" strokeWidth="7" />
+      <circle cx="55" cy="55" r={r} fill="none" stroke="var(--rd-sangue-line)" strokeWidth="8" />
       <circle
         className="fg"
-        cx="44"
-        cy="44"
+        cx="55"
+        cy="55"
         r={r}
         fill="none"
-        stroke="#e01e2b"
-        strokeWidth="7"
+        stroke="var(--rd-sangue)"
+        strokeWidth="8"
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={off}
-        transform="rotate(-90 44 44)"
+        transform="rotate(-90 55 55)"
       />
-      <text x="44" y="41" textAnchor="middle" fill="#fff" fontFamily="Oswald, sans-serif" fontSize="18">
+      <text x="55" y="51" textAnchor="middle" fill="#fff" fontFamily="var(--rd-font-disp)" fontSize="22" fontWeight={700}>
         {pct}%
       </text>
-      <text x="44" y="55" textAnchor="middle" fill="#9a9ba3" fontSize="8" letterSpacing="1.5">
+      <text x="55" y="68" textAnchor="middle" fill="#8e8088" fontSize="9" letterSpacing="1.5">
         NEX
       </text>
     </svg>
@@ -668,13 +823,13 @@ function NexRing({ pct, onChange }: { pct: number; onChange?: (n: number) => voi
 
 function MiniBar({ name, val, color }: { name: string; val: number; color: string }) {
   return (
-    <div className="mini-bar">
-      <div className="mb-head">
+    <div>
+      <div className="rd-cw-bar-head">
         <span>{name}</span>
         <span>{val}</span>
       </div>
-      <div className="mb-track">
-        <span style={{ width: '100%', background: color }} />
+      <div className="rd-cw-bar-track">
+        <span className="rd-cw-bar-fill" style={{ width: '100%', background: color }} />
       </div>
     </div>
   );

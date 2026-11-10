@@ -509,3 +509,59 @@ export function Scenery2DIcon() {
     </svg>
   );
 }
+
+// ---------- REDESIGN: Wizard de criação de ficha (6 etapas, CharacterWizard.tsx) ----------
+// Ícones novos pra última tela do redesign — chegou depois das 17
+// referências originais. Traços mesma família fina das demais; os 3
+// pictogramas de classe reaproveitam os caminhos já estabelecidos pra
+// Combatente/Especialista/Ocultista em MinigameTest.tsx (CLASS_ICON,
+// Passo 10B) — mesmo pictograma, componente próprio aqui pra não acoplar
+// os dois fluxos de criação de personagem.
+
+export function ClassIcon({ classKey }: { classKey: 'combatente' | 'especialista' | 'ocultista' }) {
+  const paths: Record<string, string> = {
+    combatente: 'M5 19 19 5M15 5h4v4M9 19H5v-4M14 14l5 5M10 10 5 5',
+    especialista: 'M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z',
+    ocultista: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM5 12q7-6 14 0q-7 6-14 0zM12 12h.01',
+  };
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={paths[classKey]} />
+    </svg>
+  );
+}
+
+// "Retrato" (etapa Conceito do wizard) — câmera simples, substitui o 🖼 cru.
+export function PortraitIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <circle cx="12" cy="13" r="3.4" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+// Estrela do destaque "poder de origem" (etapa Conceito) — contorno, maior
+// que o selo preenchido de GmBadgeIcon (mesmo glifo da classe Especialista).
+export function OriginPowerIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Checkmark genérico (selo de etapa concluída, badge de classe/trilha
+// selecionada, botão final "Criar agente").
+export function CheckIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
