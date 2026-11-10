@@ -1,7 +1,7 @@
 {
   "name": "outro-lado-desktop",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "O Outro Lado da Mesa — tabletop de Ordem Paranormal (app de mesa/rede local)",
   "main": "main.js",
   "scripts": {
