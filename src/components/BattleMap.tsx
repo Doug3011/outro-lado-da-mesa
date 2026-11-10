@@ -7,6 +7,11 @@ import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
 import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
 import { keyLabel, useKeybinds } from '../lib/keybinds';
+// SliderField é um componente puro (sem three.js) que mora em lib/scene3d.tsx
+// por ter nascido lá (ElevationSlider) — reaproveitado aqui pro slider de
+// TAMANHO do token (pedido do usuário: trocar o seletor 1x/2x/3x/4x por uma
+// barra contínua, mesmo padrão visual usado na mesa 3D).
+import { SliderField } from '../lib/scene3d';
 import { hasLan } from '../lib/lan';
 import { MapPickerDialog } from './MapPickerDialog';
 import { PlacePickerDialog } from './PlacePickerDialog';
@@ -865,33 +870,29 @@ export function BattleMap() {
             Atalhos do token funcionam mesmo com a ficha fechada — configure em ⚙ Configurações
             → Controles.
           </p>
-          <div className="row" style={{ marginTop: 6 }}>
-            <div>
-              <label>Tamanho</label>
-              <select
-                value={selected.size}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  patchToken({ size: n, sizePx: n * map.cellSize - 6 });
-                }}
+          <div style={{ marginTop: 6 }}>
+            <SliderField
+              value={selected.size}
+              onChange={(n) => patchToken({ size: n, sizePx: n * map.cellSize - 6 })}
+              min={1}
+              max={4}
+              step={0.1}
+              label="Tamanho"
+              unit="×"
+              decimals={1}
+            />
+            {selected.sizePx != null && selected.sizePx !== selected.size * map.cellSize - 6 && (
+              <button
+                className="small ghost"
+                style={{ marginTop: 4 }}
+                title="Volta pro tamanho padrão dessa célula"
+                onClick={() => patchToken({ sizePx: undefined })}
               >
-                {[1, 2, 3, 4].map((n) => (
-                  <option key={n} value={n}>
-                    {n}×{n}
-                  </option>
-                ))}
-              </select>
-              {selected.sizePx != null && selected.sizePx !== selected.size * map.cellSize - 6 && (
-                <button
-                  className="small ghost"
-                  style={{ marginTop: 4 }}
-                  title="Volta pro tamanho padrão dessa célula"
-                  onClick={() => patchToken({ sizePx: undefined })}
-                >
-                  resetar tamanho
-                </button>
-              )}
-            </div>
+                resetar tamanho
+              </button>
+            )}
+          </div>
+          <div className="row" style={{ marginTop: 6 }}>
             <div>
               <label>PV atual</label>
               <input

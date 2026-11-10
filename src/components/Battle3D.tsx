@@ -17,6 +17,10 @@ import {
   MODEL_FILE_ACCEPT,
   SceneObject,
   SceneSky,
+  SliderField,
+  TOKEN_SIZE_MAX,
+  TOKEN_SIZE_MIN,
+  TOKEN_SIZE_STEP,
   groundPointFromPointer,
   makeLightObject,
   modelFormatFromFileName,
@@ -1513,17 +1517,19 @@ export function Battle3D() {
               onChange={(e) => patchToken({ color: e.target.value })}
             />
           </div>
+          <div style={{ marginTop: 6 }}>
+            <SliderField
+              value={selectedToken.size}
+              onChange={(v) => patchToken({ size: v })}
+              min={TOKEN_SIZE_MIN}
+              max={TOKEN_SIZE_MAX}
+              step={TOKEN_SIZE_STEP}
+              label="Tamanho"
+              unit="×"
+              decimals={1}
+            />
+          </div>
           <div className="row" style={{ marginTop: 6 }}>
-            <div>
-              <label>Tamanho</label>
-              <select value={selectedToken.size} onChange={(e) => patchToken({ size: Number(e.target.value) })}>
-                {[1, 2, 3, 4].map((n) => (
-                  <option key={n} value={n}>
-                    {n}×
-                  </option>
-                ))}
-              </select>
-            </div>
             <div>
               <label>PV atual</label>
               <input
@@ -1815,12 +1821,36 @@ export function Battle3D() {
               </p>
             </>
           )}
-          <button className="small" onClick={() => toggleAnchor(selectedObj.id)}>
+          <button
+            className="small"
+            style={
+              selectedObj.anchored
+                ? { borderColor: 'var(--gold)', color: 'var(--gold)', fontWeight: 700 }
+                : undefined
+            }
+            onClick={() => toggleAnchor(selectedObj.id)}
+          >
             {selectedObj.anchored ? '⚓ Ancorado — clique pra soltar' : '↔ Livre — clique pra ancorar'}
           </button>
-          <button className="small ghost" onClick={() => removeObject(selectedObj.id)}>
-            Remover
-          </button>
+          {selectedObj.anchored && (
+            <p className="faint" style={{ fontSize: 11, margin: '4px 0 0', color: 'var(--gold)' }}>
+              Objeto ancorado não se move — clique em &quot;Ancorado&quot; acima pra soltar antes de arrastar.
+            </p>
+          )}
+          <div className="row" style={{ marginTop: 6 }}>
+            <button
+              className="small"
+              onClick={() => {
+                setSelKind(null);
+                setSelId(null);
+              }}
+            >
+              Fechar
+            </button>
+            <button className="small ghost" onClick={() => removeObject(selectedObj.id)}>
+              Remover
+            </button>
+          </div>
         </div>
       )}
 

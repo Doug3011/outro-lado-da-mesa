@@ -630,12 +630,83 @@ export const ELEVATION_MIN = -3;
 export const ELEVATION_MAX = 5;
 export const ELEVATION_STEP = 0.05;
 
-// Controle de elevação compartilhado — barra deslizante (pedido explícito do
-// usuário: "uma barra") + botões ▲▼ nas pontas pra ajuste fino sem precisar
-// acertar o pixel certo no slider, + número ao lado mostrando o valor atual.
-// Usado pelo editor de place E pela mesa 3D de verdade, pros 3 tipos de
-// objeto (standing/model/light) e pro token — um componente só em vez de
-// duplicar esse bloco de JSX em cada lugar/tipo.
+// Barra deslizante genérica — botões ▼/▲ nas pontas pra ajuste fino sem
+// precisar acertar o pixel certo no slider, + número ao lado mostrando o
+// valor atual. Nasceu só pra elevação (`ElevationSlider` abaixo, que
+// continua existindo como atalho com os limites de elevação já prontos —
+// não muda nenhum dos lugares que já chamam ela) e foi generalizada pra
+// aceitar min/max/step/unidade diferentes (pedido do usuário: trocar o
+// seletor 1x/2x/3x/4x de TAMANHO de token por uma barra igual a essa, tanto
+// na mesa 3D quanto no mapa 2D — ver `SizeSlider` nos dois
+// BattleMap.tsx/Battle3D.tsx). Componente puro em React/HTML (não depende de
+// three.js), por isso serve em qualquer tela, 2D ou 3D.
+export function SliderField({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  bigStep,
+  label,
+  hint,
+  unit = '',
+  decimals = 2,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  // incremento dos botões ▼/▲ — pode ser mais grosso que o passo do slider
+  // (caso da elevação: passo 0.05 no arrasto, 0.1 no clique do botão).
+  // Padrão: igual ao passo do slider.
+  bigStep?: number;
+  label: string;
+  hint?: string;
+  unit?: string;
+  decimals?: number;
+}) {
+  const clamp = (v: number) => Math.max(min, Math.min(max, v));
+  const set = (v: number) => onChange(+clamp(v).toFixed(decimals));
+  const step2 = bigStep ?? step;
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+        <button className="small ghost" title="Diminuir" onClick={() => set(value - step2)}>
+          ▼
+        </button>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => set(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <button className="small ghost" title="Aumentar" onClick={() => set(value + step2)}>
+          ▲
+        </button>
+        <span className="faint" style={{ fontSize: 11, minWidth: 44, textAlign: 'right' }}>
+          {value.toFixed(decimals)}
+          {unit}
+        </span>
+      </div>
+      {hint && (
+        <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Controle de elevação compartilhado — atalho em cima do `SliderField` já
+// com os limites de elevação prontos, pra não precisar repetir
+// min/max/step/unidade em cada um dos ~8 lugares que já chamavam essa
+// função antes dela virar genérica. Usado pelo editor de place E pela mesa
+// 3D de verdade, pros 3 tipos de objeto (standing/model/light) e pro token.
 export function ElevationSlider({
   value,
   onChange,
@@ -647,36 +718,29 @@ export function ElevationSlider({
   label?: string;
   hint?: string;
 }) {
-  const clamp = (v: number) => Math.max(ELEVATION_MIN, Math.min(ELEVATION_MAX, v));
-  const set = (v: number) => onChange(+clamp(v).toFixed(2));
   return (
-    <div className="field">
-      <label>{label}</label>
-      <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-        <button className="small ghost" title="Descer" onClick={() => set(value - 0.1)}>
-          ▼
-        </button>
-        <input
-          type="range"
-          min={ELEVATION_MIN}
-          max={ELEVATION_MAX}
-          step={ELEVATION_STEP}
-          value={value}
-          onChange={(e) => set(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
-        <button className="small ghost" title="Subir" onClick={() => set(value + 0.1)}>
-          ▲
-        </button>
-        <span className="faint" style={{ fontSize: 11, minWidth: 44, textAlign: 'right' }}>
-          {value.toFixed(2)} m
-        </span>
-      </div>
-      {hint && (
-        <p className="faint" style={{ fontSize: 11, margin: '4px 0 0' }}>
-          {hint}
-        </p>
-      )}
-    </div>
+    <SliderField
+      value={value}
+      onChange={onChange}
+      min={ELEVATION_MIN}
+      max={ELEVATION_MAX}
+      step={ELEVATION_STEP}
+      bigStep={0.1}
+      label={label}
+      hint={hint}
+      unit=" m"
+      decimals={2}
+    />
   );
 }
+
+// Faixa do slider de TAMANHO de token (pedido do usuário: "esse negócio de
+// 1x 2x fica muito ruim pq eu tenho que definir a altura dos personagens" —
+// controle fino/contínuo em vez de só 4 degraus) — usada só na mesa 3D
+// (Battle3D.tsx), onde `token.size` só afeta render (altura/raio do
+// cilindro ou da imagem, sem nenhum significado de grade). 0.3 cobre
+// miniaturas bem pequenas (familiar, criatura minúscula); 4 é o mesmo teto
+// que já existia no seletor antigo.
+export const TOKEN_SIZE_MIN = 0.3;
+export const TOKEN_SIZE_MAX = 4;
+export const TOKEN_SIZE_STEP = 0.1;
