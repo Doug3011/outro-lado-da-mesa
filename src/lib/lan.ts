@@ -4,7 +4,12 @@
 
 declare global {
   interface Window {
-    __ORDEM_LAN__?: { available: boolean; localIp: string; port: number };
+    // `phoneIp` (opcional — servidores antigos/build não atualizada não mandam):
+    // IP só de adaptador físico (Wi-Fi/Ethernet), SEM preferir VPN de LAN
+    // virtual (Radmin etc.) como `localIp` prefere — ver getPhoneLanIp em
+    // server/main.cjs. Usado pela QR/link "ficha no celular" (FichaQr.tsx),
+    // que é sempre escaneada na mesma rede física, nunca pela VPN.
+    __ORDEM_LAN__?: { available: boolean; localIp: string; phoneIp?: string; port: number };
   }
 }
 

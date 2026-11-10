@@ -333,6 +333,18 @@ textarea {
   padding: 7px 9px;
   width: 100%;
 }
+/* O popup nativo do <select> (lista de <option> aberta) não herda o
+   background/color do elemento fechado — Chromium/Electron renderiza a
+   lista com fundo branco do sistema por padrão, então sem isso qualquer
+   <select> do app (tema sempre escuro, ver var(--text) acima = cor clara)
+   mostra texto claro sobre fundo branco, ilegível. Fix global aqui (raiz
+   do problema, não só o caso isolado da Trilha) — áreas com paleta própria
+   (ex. .rd-sheet, tema "Energia" da Área do mestre) podem sobrescrever com
+   uma regra "<escopo> option" mais específica, como `.rd-sheet option` abaixo. */
+option {
+  background: var(--bg-1);
+  color: var(--text);
+}
 input:focus,
 select:focus,
 textarea:focus {
@@ -6181,7 +6193,7 @@ label {
   min-width: var(--rd-tap-min);
   min-height: var(--rd-tap-min);
   border-radius: 14px;
-  border: 1px solid transparent;
+  border: 1px solid var(--rd-sangue-line);
   background: transparent;
   backdrop-filter: none;
   box-shadow: none;
@@ -6734,6 +6746,14 @@ label {
   background: #120d11;
   color: #eee8ec;
   border-radius: var(--rd-radius-sm);
+}
+/* O popup nativo do <select> (lista de <option> aberta) não herda o fundo
+   escuro do elemento fechado — sem isso fica branco com texto quase
+   invisível (texto claro em cima de branco). Chromium/Electron respeita
+   background/color em <option> individual, diferente de outros navegadores. */
+.rd-sheet option {
+  background: #120d11;
+  color: #eee8ec;
 }
 .rd-sheet input::placeholder,
 .rd-sheet textarea::placeholder {
@@ -7700,6 +7720,15 @@ label {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* BUG achado (usuário: retrato não aparece mesmo quando a ficha TEM
+     imagem salva) — `.rd-library-card` é um `<button>`; o stylesheet padrão
+     do navegador dá a elementos de formulário usados como flex container
+     `align-items: flex-start` em vez do `stretch` normal de qualquer outro
+     elemento. Sem o `stretch` explícito aqui, `.rd-library-card-portrait`
+     (que quando tem retrato não sobra nenhum conteúdo em fluxo dentro dele
+     — só um badge `position:absolute`) encolhe pra largura 0 em vez de
+     esticar a largura toda do cartão, e o retrato não aparece. */
+  align-items: stretch;
   text-align: left;
   border: 0;
   padding: 0;

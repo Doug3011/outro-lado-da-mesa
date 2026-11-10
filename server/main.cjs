@@ -59,10 +59,39 @@ function getLocalIp() {
   return (radmin || all[0] || { address: '127.0.0.1' }).address;
 }
 
+// BUG achado (usuário: "ficha pelo celular não carrega de jeito nenhum" — ver
+// FichaQr.tsx, botão "No celular" na ficha, Passo 5 do redesign): o QR/link
+// dessa tela usava `getLocalIp()` acima, que de propósito PRIORIZA a VPN de
+// LAN virtual (Radmin) — certo pra "endereço da mesa" mostrado ao hospedar
+// (Home.tsx; jogador remoto conectado pela mesma Radmin), mas errado aqui,
+// porque "ficha pelo celular" é sempre escaneado "na mesma rede" (mesmo
+// Wi-Fi/roteador físico do PC) — o celular comum não tá na Radmin, então o
+// endereço 26.x.x.x dela é simplesmente inalcançável pra ele (a página nem
+// chega a carregar, exatamente o sintoma relatado). Função própria, só pra
+// esse uso, que IGNORA adaptadores de VPN (Radmin/Hamachi/ZeroTier/
+// Tailscale/WireGuard) e prefere um adaptador físico (Wi-Fi/Ethernet) — não
+// mexe em `getLocalIp()` nem em quem já depende dela (endereço de mesa
+// hospedada, beacon UDP de descoberta).
+function getPhoneLanIp() {
+  const ifaces = os.networkInterfaces();
+  const all = [];
+  for (const name of Object.keys(ifaces)) {
+    for (const i of ifaces[name] || []) {
+      if (i.family === 'IPv4' && !i.internal) all.push({ name, address: i.address });
+    }
+  }
+  const isVpnish = (name) => /radmin|hamachi|zerotier|tailscale|wireguard|\bvpn\b|\btap\b|\btun\b/i.test(name);
+  const physical = all.find((x) => !isVpnish(x.name));
+  return (physical || all[0] || { address: getLocalIp() }).address;
+}
+
 /* ---------------- servidor HTTP (arquivos + injeção do modo LAN) ---------------- */
 
 function injectLanFlag(html) {
-  const info = { available: true, localIp: getLocalIp(), port: HTTP_PORT };
+  // `phoneIp` é aditivo (ver getPhoneLanIp acima) — `localIp` continua
+  // exatamente igual, pra não mudar nada de quem já usa (Home.tsx mostra o
+  // endereço da mesa hospedada com esse campo).
+  const info = { available: true, localIp: getLocalIp(), phoneIp: getPhoneLanIp(), port: HTTP_PORT };
   const tag = `<script>window.__ORDEM_LAN__=${JSON.stringify(info)};</script>`;
   return html.includes('</head>') ? html.replace('</head>', tag + '</head>') : tag + html;
 }

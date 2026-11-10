@@ -12,7 +12,13 @@ import { hasLan, LAN_INFO } from '../lib/lan';
 export function FichaQr({ characterId }: { characterId: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
-  const url = hasLan && LAN_INFO ? `http://${LAN_INFO.localIp}:${LAN_INFO.port}/ficha/${characterId}` : null;
+  // `phoneIp` (não `localIp`) de propósito — ver comentário em lib/lan.ts.
+  // `localIp` prefere a VPN Radmin quando presente (certo pro endereço da
+  // mesa hospedada em Home.tsx), mas o celular que escaneia esse QR tá na
+  // rede física normal, não na Radmin — usar `localIp` aqui fazia a página
+  // simplesmente não carregar pra ninguém com a Radmin ativa no PC.
+  const ip = LAN_INFO?.phoneIp || LAN_INFO?.localIp;
+  const url = hasLan && LAN_INFO && ip ? `http://${ip}:${LAN_INFO.port}/ficha/${characterId}` : null;
 
   useEffect(() => {
     if (!url) {
