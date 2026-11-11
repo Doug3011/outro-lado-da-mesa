@@ -2466,6 +2466,7 @@ label {
 .rd-cw-main {
   flex: 999 1 640px;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px 30px 28px;
   display: flex;
@@ -2628,6 +2629,56 @@ label {
 .rd-cw-field input.invalid {
   border-color: #7a1c22;
 }
+.rd-search-select {
+  position: relative;
+}
+.rd-search-select-menu {
+  position: fixed;
+  z-index: 300;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #150f12;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rd-search-select-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #f4eef0;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: var(--rd-tap-min);
+}
+.rd-search-select-opt.hl,
+.rd-search-select-opt:hover {
+  background: rgba(224, 22, 30, 0.16);
+  color: var(--rd-sangue-soft);
+}
+.rd-search-select-opt.on {
+  color: var(--rd-sangue-bright);
+  font-weight: 600;
+}
+.rd-search-select-menu::-webkit-scrollbar {
+  width: 8px;
+}
+.rd-search-select-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rd-search-select-menu::-webkit-scrollbar-thumb {
+  background: var(--rd-sangue-line);
+  border-radius: 4px;
+}
+
 .rd-cw-origin-note {
   display: flex;
   gap: 12px;

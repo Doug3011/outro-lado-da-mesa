@@ -17,6 +17,7 @@ import { createCharacter, suggestedStats, type Character, type InventoryItem } f
 import { fileToDownscaledDataURL } from '../lib/image';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
 import { InventoryEditor } from './InventoryEditor';
+import { SearchSelect } from './SearchSelect';
 import {
   ArrowRightIcon,
   BackChevronIcon,
@@ -342,17 +343,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                   </label>
                   <label className="rd-cw-field">
                     <span>Origem</span>
-                    <input
-                      list="rd-cw-origins"
-                      value={origem}
-                      placeholder="ex.: Militar"
-                      onChange={(e) => setOrigem(e.target.value)}
-                    />
-                    <datalist id="rd-cw-origins">
-                      {ORIGINS.map((o) => (
-                        <option key={o} value={o} />
-                      ))}
-                    </datalist>
+                    <SearchSelect value={origem} onChange={setOrigem} options={ORIGINS} placeholder="ex.: Militar" />
                   </label>
                 </div>
 
