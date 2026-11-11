@@ -154,6 +154,71 @@ export const CLASS_POWERS: Record<ClassKey, ClassPowerDef[]> = {
     TRANSCENDER,
     TREINAMENTO_PERICIA,
     VERSATILIDADE,
+    {
+      key: 'paranoia-defensiva',
+      name: 'Paranoia Defensiva',
+      summary:
+        '1x/cena, gasta 1 rodada + 3 PE para você e cada aliado presente escolherem entre +5 na Defesa contra o próximo ataque na cena ou +5 num teste de perícia até o fim da cena.',
+    },
+    {
+      key: 'sacrificar-joelhos',
+      name: 'Sacrificar os Joelhos',
+      summary: 'Em cena de perseguição, ao fazer esforço extra, gasta 2 PE pra passar automaticamente no teste.',
+      prereq: 'Treinado em Atletismo',
+    },
+    {
+      key: 'sem-tempo-irmao',
+      name: 'Sem Tempo, Irmão',
+      summary:
+        '1x/cena de investigação, ao usar facilitar investigação, passa automaticamente no teste de ajudar, mas faz uma rolagem adicional na tabela de eventos de investigação.',
+    },
+    {
+      key: 'valentao',
+      name: 'Valentão',
+      summary:
+        'Pode usar Força no lugar de Presença para Intimidação; 1x/cena, gasta 1 PE pra testar Intimidação pra assustar como ação livre.',
+    },
+    {
+      key: 'apego-angustiado',
+      name: 'Apego Angustiado',
+      summary:
+        'Não fica inconsciente por estar morrendo; sempre que termina uma rodada nessa condição e consciente, perde 2 pontos de Sanidade.',
+    },
+    {
+      key: 'caminho-forca',
+      name: 'Caminho para Força',
+      summary:
+        'Ao usar a ação sacrifício numa cena de perseguição, gasta 1 PE pra fornecer +O extra (total +2O) nos testes dos outros personagens; ao usar chamar atenção numa cena de furtividade, gasta 1 PE pra diminuir a visibilidade dos aliados próximos em –2 (em vez de –1).',
+    },
+    {
+      key: 'ciente-cicatrizes',
+      name: 'Ciente das Cicatrizes',
+      summary:
+        'Em teste pra encontrar uma pista relacionada a armas ou ferimentos (ex. necropsia, identificar arma amaldiçoada), pode usar Luta ou Pontaria no lugar da perícia original.',
+      prereq: 'Treinado em Luta ou Pontaria',
+    },
+    {
+      key: 'correria-desesperada',
+      name: 'Correria Desesperada',
+      summary: 'Deslocamento +3m e +O em testes de perícia pra fugir numa perseguição.',
+    },
+    {
+      key: 'engolir-choro',
+      name: 'Engolir o Choro',
+      summary: 'Não sofre penalidades por condições em testes de perícia pra fugir e em testes de Furtividade.',
+    },
+    {
+      key: 'instinto-fuga',
+      name: 'Instinto de Fuga',
+      summary: 'Quando uma cena de perseguição (ou semelhante) começa, +2 em todos os testes de perícia que fizer durante ela.',
+      prereq: 'Treinado em Intuição',
+    },
+    {
+      key: 'mochileiro',
+      name: 'Mochileiro',
+      summary: 'Limite de carga +5 espaços; pode se beneficiar de uma vestimenta adicional ao mesmo tempo.',
+      prereq: 'Vigor 2',
+    },
   ],
   especialista: [
     {
@@ -231,6 +296,73 @@ export const CLASS_POWERS: Record<ClassKey, ClassPowerDef[]> = {
     TRANSCENDER,
     TREINAMENTO_PERICIA,
     VERSATILIDADE,
+    {
+      key: 'esconderijo-desesperado',
+      name: 'Esconderijo Desesperado',
+      summary:
+        'Sem penalidade de Furtividade ao se mover no deslocamento normal; em cena de furtividade, ao passar num teste pra se esconder, a visibilidade cai –2 em vez de –1.',
+    },
+    {
+      key: 'especialista-diletante',
+      name: 'Especialista Diletante',
+      summary: 'Aprende um poder que não seja da própria classe (exceto trilha/paranormal) à escolha, cumprindo pré-requisitos.',
+      prereq: 'NEX 30%',
+    },
+    {
+      key: 'flashback',
+      name: 'Flashback',
+      summary: 'Escolhe uma origem que não é a sua e ganha o poder dela.',
+    },
+    {
+      key: 'leitura-fria',
+      name: 'Leitura Fria',
+      summary:
+        '1x por interlúdio, interagindo alguns minutos com alguém, faz 3 perguntas pessoais; cada pergunta não respondida pelo mestre dá 2 PE temporários até o fim da missão (só funciona 1x por NPC).',
+      prereq: 'Treinado em Intuição',
+    },
+    {
+      key: 'maos-firmes',
+      name: 'Mãos Firmes',
+      summary: 'Em teste de Furtividade pra se esconder ou ação discreta manipulando objeto, gasta 2 PE pra +O no teste.',
+      prereq: 'Treinado em Furtividade',
+    },
+    {
+      key: 'acolher-terror',
+      name: 'Acolher o Terror',
+      summary: 'Pode se entregar ao medo uma vez por sessão adicional.',
+    },
+    {
+      key: 'contatos-oportunos',
+      name: 'Contatos Oportunos',
+      summary:
+        'Ação de interlúdio pra acionar um contato e ganhar um aliado à escolha (1 por vez), até ser dispensado ou fim da missão.',
+      prereq: 'Treinado em Crime',
+    },
+    {
+      key: 'disfarce-sutil',
+      name: 'Disfarce Sutil',
+      summary: 'Ao se disfarçar com Enganação, gasta 1 PE pra fazer como ação completa sem kit (com kit, +5 no teste).',
+      prereq: 'Presença 2, treinado em Enganação',
+    },
+    {
+      key: 'plano-fuga',
+      name: 'Plano de Fuga',
+      summary:
+        'Usa Intelecto no lugar de Força pra criar obstáculos numa perseguição; 1x/cena, gasta 2 PE pra passar automaticamente nessa ação sem testar.',
+    },
+    {
+      key: 'remoer-memorias',
+      name: 'Remoer Memórias',
+      summary: '1x/cena, em teste de perícia baseado em Intelecto ou Presença, gasta 2 PE pra substituir por um teste de Intelecto DT 15.',
+      prereq: 'Intelecto 1',
+    },
+    {
+      key: 'resistir-pressao',
+      name: 'Resistir à Pressão',
+      summary:
+        '1x/cena de investigação, gasta 5 PE pra aumentar a urgência em 1 rodada; nessa rodada todos (incluindo você) recebem +2 em perícia.',
+      prereq: 'Treinado em Investigação',
+    },
   ],
   ocultista: [
     {
@@ -312,5 +444,58 @@ export const CLASS_POWERS: Record<ClassKey, ClassPowerDef[]> = {
     TRANSCENDER,
     TREINAMENTO_PERICIA,
     VERSATILIDADE,
+    {
+      key: 'sussurros-guiam',
+      name: 'Deixe os Sussurros Guiarem',
+      summary:
+        '1x/cena, gasta 2 PE + 1 rodada pra +2 em perícias de investigação até o fim da cena; enquanto ativo, cada falha em teste de perícia custa 1 de Sanidade.',
+    },
+    {
+      key: 'dominio-esoterico',
+      name: 'Domínio Esotérico',
+      summary: 'Ao conjurar um ritual, pode combinar os efeitos de até 2 catalisadores ritualísticos diferentes ao mesmo tempo.',
+      prereq: 'Intelecto 3',
+    },
+    {
+      key: 'estalos-macabros',
+      name: 'Estalos Macabros',
+      summary: 'Em ação pra distrair ou fintar, gasta 1 PE pra usar Ocultismo no lugar da perícia original; +5 se o alvo é pessoa ou animal.',
+    },
+    {
+      key: 'minha-dor-impulsiona',
+      name: 'Minha Dor me Impulsiona',
+      summary: 'Em teste de Acrobacia, Atletismo ou Furtividade tendo sofrido ao menos 5 de dano, gasta 1 PE pra +1d6 no teste.',
+      prereq: 'Vigor 2',
+    },
+    {
+      key: 'olhos-monstro',
+      name: 'Nos Olhos do Monstro',
+      summary: 'Gasta 1 rodada + 3 PE encarando os olhos de uma criatura paranormal visível pra +5 em testes contra ela (exceto ataque) até o fim da cena.',
+    },
+    {
+      key: 'olhar-sinistro',
+      name: 'Olhar Sinistro',
+      summary: 'Usa Presença no lugar de Intelecto para Ocultismo; pode usar Ocultismo pra coagir, como Intimidação.',
+      prereq: 'Presença 1',
+    },
+    {
+      key: 'sentido-premonitorio',
+      name: 'Sentido Premonitório',
+      summary:
+        'Gasta 3 PE pra ativar um sentido que dá déjà vu de 1 rodada no futuro próximo (eventos de investigação, ações inimigas em furtividade/perseguição); não funciona em combate; custa 1 PE por rodada pra manter.',
+    },
+    {
+      key: 'sincronia-paranormal',
+      name: 'Sincronia Paranormal',
+      summary:
+        'Gasta ação padrão + 2 PE pra sincronizar mentalmente com aliados em alcance médio que já sobreviveram a um encontro paranormal com você; no início de cada rodada distribui O de bônus (igual à Presença) entre eles pra testes de Intelecto/Presença; custa 1 PE por rodada pra manter.',
+      prereq: 'Presença 2',
+    },
+    {
+      key: 'tracado-conjuratorio',
+      name: 'Traçado Conjuratório',
+      summary:
+        'Gasta 1 PE + ação completa pra traçar um símbolo de 1,5m no chão; dentro dele, +2 em Ocultismo e testes de resistência, e a DT dos seus rituais aumenta em +2; dura até o fim da cena.',
+    },
   ],
 };
