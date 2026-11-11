@@ -167,6 +167,130 @@ export const ORIGIN_LIST: OriginDef[] = [
     power: 'Cicatrizes Psicológicas',
     powerNote: 'Recebe +1 de Sanidade máxima e resiste melhor ao medo.',
   },
+  // --- Suplemento "Sobrevivendo ao Horror" (Tabela de novas origens) ---
+  // Para estas 20 origens só temos o NOME do poder (não a descrição completa
+  // do livro) — powerNote fica como resumo genérico plausível a partir do
+  // nome, sem inventar mecânica numérica específica.
+  {
+    name: 'Amigo dos Animais',
+    skills: ['adestramento', 'percepcao'],
+    power: 'Companheiro Animal',
+    powerNote: 'Poder de origem: Companheiro Animal — tem um animal aliado ao seu lado.',
+  },
+  {
+    name: 'Astronauta',
+    skills: ['ciencias', 'fortitude'],
+    power: 'Acostumado ao Extremo',
+    powerNote: 'Poder de origem: Acostumado ao Extremo — resiste melhor a condições ambientais extremas.',
+  },
+  {
+    name: 'Chef do Outro Lado',
+    skills: ['ocultismo', 'profissao'],
+    power: 'Fome do Outro Lado',
+    powerNote: 'Poder de origem: Fome do Outro Lado — pratos com um toque paranormal.',
+  },
+  {
+    name: 'Colegial',
+    skills: ['atualidades', 'tecnologia'],
+    power: 'Poder da Amizade',
+    powerNote: 'Poder de origem: Poder da Amizade — bônus ligado a agir junto de aliados/amigos.',
+  },
+  {
+    name: 'Cosplayer',
+    skills: ['artes', 'vontade'],
+    power: 'Não é fantasia, é cosplay!',
+    powerNote: 'Poder de origem: Não é fantasia, é cosplay! — ganha algo do personagem que está interpretando.',
+  },
+  {
+    name: 'Diplomata',
+    skills: ['atualidades', 'diplomacia'],
+    power: 'Conexões',
+    powerNote: 'Poder de origem: Conexões — tem contatos úteis a quem recorrer.',
+  },
+  {
+    name: 'Explorador',
+    skills: ['fortitude', 'sobrevivencia'],
+    power: 'Manual do Sobrevivente',
+    powerNote: 'Poder de origem: Manual do Sobrevivente — bônus pra lidar com o ermo e situações de sobrevivência.',
+  },
+  {
+    name: 'Experimento',
+    skills: ['atletismo', 'fortitude'],
+    power: 'Mutação',
+    powerNote: 'Poder de origem: Mutação — sofreu uma alteração física/biológica que lhe dá uma vantagem.',
+  },
+  {
+    name: 'Fanático por Criaturas',
+    skills: ['investigacao', 'ocultismo'],
+    power: 'Conhecimento Oculto',
+    powerNote: 'Poder de origem: Conhecimento Oculto — sabe mais sobre criaturas e fenômenos paranormais.',
+  },
+  {
+    name: 'Fotógrafo',
+    skills: ['artes', 'percepcao'],
+    power: 'Através da Lente',
+    powerNote: 'Poder de origem: Através da Lente — vê/registra detalhes que passariam desapercebidos através de uma câmera.',
+  },
+  {
+    name: 'Inventor Paranormal',
+    skills: ['profissao', 'vontade'],
+    power: 'Invenção Paranormal',
+    powerNote: 'Poder de origem: Invenção Paranormal — constrói um dispositivo próprio com um efeito paranormal.',
+  },
+  {
+    name: 'Jovem Místico',
+    skills: ['ocultismo', 'religiao'],
+    power: 'A Culpa é das Estrelas',
+    powerNote: 'Poder de origem: A Culpa é das Estrelas — usa astrologia/misticismo pra prever ou influenciar algo.',
+  },
+  {
+    name: 'Legista do Turno da Noite',
+    skills: ['ciencias', 'medicina'],
+    power: 'Luto Habitual',
+    powerNote: 'Poder de origem: Luto Habitual — lida melhor com corpos e cenas de morte, ficando menos abalado.',
+  },
+  {
+    name: 'Mateiro',
+    skills: ['percepcao', 'sobrevivencia'],
+    power: 'Mapa Celeste',
+    powerNote: 'Poder de origem: Mapa Celeste — se orienta por céu/natureza, evitando se perder.',
+  },
+  {
+    name: 'Mergulhador',
+    skills: ['atletismo', 'fortitude'],
+    power: 'Fôlego de Nadador',
+    powerNote: 'Poder de origem: Fôlego de Nadador — aguenta mais tempo embaixo d’água e nada melhor.',
+  },
+  {
+    name: 'Motorista',
+    skills: ['pilotagem', 'reflexos'],
+    power: 'Mãos no Volante',
+    powerNote: 'Poder de origem: Mãos no Volante — bônus ao dirigir/pilotar veículos.',
+  },
+  {
+    name: 'Nerd Entusiasta',
+    skills: ['ciencias', 'tecnologia'],
+    power: 'O Inteligentão',
+    powerNote: 'Poder de origem: O Inteligentão — bônus relacionado a conhecimento técnico/científico.',
+  },
+  {
+    name: 'Profetizado',
+    skills: 'choice',
+    power: 'Luta ou Fuga',
+    powerNote: 'Poder de origem: Luta ou Fuga — reage com mais eficácia num momento decisivo de perigo. Perícias: Vontade + 1 livre à escolha.',
+  },
+  {
+    name: 'Psicólogo',
+    skills: ['intuicao', 'profissao'],
+    power: 'Terapia',
+    powerNote: 'Poder de origem: Terapia — ajuda alguém a lidar com trauma/condição mental.',
+  },
+  {
+    name: 'Repórter Investigativo',
+    skills: ['atualidades', 'investigacao'],
+    power: 'Encontrar a Verdade',
+    powerNote: 'Poder de origem: Encontrar a Verdade — bônus pra descobrir informações escondidas.',
+  },
 ];
 
 export const ORIGIN_BY_NAME: Record<string, OriginDef> = Object.fromEntries(

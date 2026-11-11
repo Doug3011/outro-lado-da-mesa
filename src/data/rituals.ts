@@ -520,6 +520,104 @@ export const RITUALS: RitualDef[] = [
     trilhaOnly: true,
     summary: 'Você assume uma forma impossível dentro da Realidade.',
   },
+
+  /* ---------------- Suplemento "Sobrevivendo ao Horror" ---------------- */
+  {
+    name: 'Esfolar',
+    circle: 1,
+    elements: ['sangue'],
+    summary: '3d4+3 de dano de corte + sangrando (Reflexos DT Agi reduz à metade e evita a condição). Versões mais fortes aumentam alcance/dano/área.',
+  },
+  {
+    name: 'Sede de Adrenalina',
+    circle: 2,
+    elements: ['sangue'],
+    summary: 'Reação: repete um teste falho de Acrobacia/Atletismo usando Presença, ou reduz dano de impacto sofrido em 20 (1x/rodada). Deixa atordoado 1 rodada se usado pra reduzir dano a 0.',
+  },
+  {
+    name: 'Odor da Caçada',
+    circle: 3,
+    elements: ['sangue'],
+    summary: 'Ganha faro. Em perseguição: +5 em Atletismo sem perder PV por esforço extra (se o alvo/caçador emitir odor). Próxima cena: fome e sede.',
+  },
+  {
+    name: 'Martírio de Sangue',
+    circle: 4,
+    elements: ['sangue'],
+    summary: 'Transforma-se numa fera de Sangue: faro, visão no escuro, cura acelerada 10, +10 em ataque/dano corpo a corpo/Defesa, 30 PV temp. Ao fim da cena vira criatura de Sangue permanentemente (perde o personagem).',
+  },
+  {
+    name: 'Apagar as Luzes',
+    circle: 1,
+    elements: ['morte'],
+    summary: 'Apaga fontes de luz em alcance curto (penumbra/escuridão) e dá visão no escuro até o fim da cena.',
+  },
+  {
+    name: 'Língua Morta',
+    circle: 2,
+    elements: ['morte'],
+    summary: 'Reanima um cadáver preparado pra responder até 3 perguntas (1 por rodada sustentada); ao final vira um esqueleto de Lodo.',
+  },
+  {
+    name: 'Fedor Pútrido',
+    circle: 3,
+    elements: ['morte'],
+    summary: 'Finge-se de morto: funções biológicas param, +5 Furtividade, +10 Enganação pra fingir morto, mas sofre 1d4 de dano de Morte por rodada sustentada.',
+  },
+  {
+    name: 'Singularidade Temporal',
+    circle: 4,
+    elements: ['morte'],
+    summary: 'Avança um objeto Médio não paranormal pro estado de decomposição mais avançado possível (pode danificar ou destruir).',
+  },
+  {
+    name: 'Desfazer Sinapses',
+    circle: 1,
+    elements: ['conhecimento'],
+    summary: '2d6+2 de dano de Conhecimento + frustrado 1 rodada (Vontade parcial reduz à metade e evita a condição).',
+  },
+  {
+    name: 'Aurora da Verdade',
+    circle: 2,
+    elements: ['conhecimento'],
+    summary: 'Área de 3m onde todos (inclusive o conjurador) só podem falar a verdade e não conseguem se esconder/camuflar/invisibilidade.',
+  },
+  {
+    name: 'Relembrar Fragmento',
+    circle: 3,
+    elements: ['conhecimento'],
+    summary: 'Restaura um objeto de conhecimento escrito danificado enquanto o conjurador o tocar.',
+  },
+  {
+    name: 'Pronunciar Sigilo',
+    circle: 4,
+    elements: ['conhecimento'],
+    summary: 'Escolhe entre: esquecer (atordoado), cegar, ou inexistir brevemente o alvo (Vontade parcial).',
+  },
+  {
+    name: 'Overclock',
+    circle: 1,
+    elements: ['energia'],
+    summary: 'Reação após um teste de Tecnologia com objeto eletrônico: joga um "minigame" (jogo de estátua) pra obter a informação de outro jeito; o aparelho fica inutilizável depois.',
+  },
+  {
+    name: 'Tremeluzir',
+    circle: 2,
+    elements: ['energia'],
+    summary: 'Permite atravessar objetos sólidos (25% de chance de não atravessar por movimento), com dano de Energia por rodada sustentada.',
+  },
+  {
+    name: 'Mutar',
+    circle: 3,
+    elements: ['energia'],
+    summary: 'Isola você de som: +10 Furtividade, reduz ganho de visibilidade em cenas de furtividade, mas só pode falar na mesa com permissão do mestre.',
+  },
+  {
+    name: 'Milagre Ionizante',
+    circle: 3,
+    elements: ['energia'],
+    summary: 'Cura uma condição mental/doença/veneno de um alvo tocado; ele deve passar em Fortitude DT 30 ou pega infectcídio.',
+  },
 ];
 
 export const RITUALS_BY_CIRCLE: Record<RitualCircle, RitualDef[]> = {

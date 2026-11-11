@@ -186,6 +186,65 @@ export const PARANORMAL_POWERS: ParanormalPowerDef[] = [
     affinitySummary: 'A cura acelerada sobe para 5.',
     prereq: 'Sangue 1',
   },
+  // ---- Suplemento "Sobrevivendo ao Horror" ----
+  {
+    key: 'espreitar-besta',
+    name: 'Espreitar da Besta',
+    element: 'sangue',
+    summary: '+5 em Furtividade. Em perseguição (caçador): pode usar Furtividade em vez de Atletismo. Em cenas de furtividade: ações discretas sem penalidade de –O.',
+    affinitySummary: 'O bônus em Furtividade aumenta para +10.',
+  },
+  {
+    key: 'instintos-sanguinarios',
+    name: 'Instintos Sanguinários',
+    element: 'sangue',
+    summary: 'Recebe visão no escuro e faro.',
+    affinitySummary: 'Não pode mais ser flanqueado, não fica desprevenido e +5 contra armadilhas da realidade/paranormais.',
+  },
+  {
+    key: 'antecipar-vitalidade',
+    name: 'Antecipar Vitalidade',
+    element: 'morte',
+    summary: 'Acumula cargas de antecipação (máx. = Vigor) pra +O num teste; perde uma carga se dormir em vez de recuperar PV com carga ativa.',
+    affinitySummary: 'Limite de cargas +2; perde 2 cargas por ação dormir.',
+  },
+  {
+    key: 'aura-pavor',
+    name: 'Aura de Pavor',
+    element: 'morte',
+    summary: '2 PE + ação de movimento: deixa alguém em alcance médio apavorado (Vontade DT Pre reduz pra abalado). 1x/dia por alvo.',
+    affinitySummary: 'DT +5 e pode afetar qualquer pessoa/animal escolhido no alcance.',
+  },
+  {
+    key: 'absorver-conhecimento',
+    name: 'Absorver Conhecimento',
+    element: 'conhecimento',
+    summary: 'Empunhando uma fonte de conhecimento escrito: 1 PE + ação completa pra obter uma resposta automática. Com a ação de interlúdio ler: sobe o dado de bônus um passo.',
+    affinitySummary: 'Ritual de Conhecimento contra 1 pessoa tocada: custa –1 PE.',
+  },
+  {
+    key: 'apatia-herege',
+    name: 'Apatia Herege',
+    element: 'conhecimento',
+    summary: 'Contra condição de medo: 2 PE pra rolar de novo o teste (deve aceitar o segundo resultado).',
+    affinitySummary: 'Pode usar depois de saber o primeiro resultado e escolher o melhor dos dois.',
+    prereq: 'Conhecimento 1',
+  },
+  {
+    key: 'conexao-empatica',
+    name: 'Conexão Empática',
+    element: 'energia',
+    summary: '2 PE + ação completa: conversa com um objeto elétrico ligado como se fosse senciente até o fim da cena.',
+    affinitySummary: '+5 em perícias de Intelecto/Presença com o item.',
+    prereq: 'Energia 1',
+  },
+  {
+    key: 'valer-se-caos',
+    name: 'Valer-se do Caos',
+    element: 'energia',
+    summary: 'Pode tentar controlar o caos num teste pra +O; se falhar (ou d20 extra ≤5), perde 1d4 de Sanidade.',
+    affinitySummary: 'Perde Sanidade só em falha ou se o extra for 1 ou 2.',
+  },
 ];
 
 export const PARANORMAL_BY_KEY: Record<string, ParanormalPowerDef> = Object.fromEntries(
