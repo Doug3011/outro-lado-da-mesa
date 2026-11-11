@@ -87,10 +87,15 @@ function CameraBroadcaster({
   const { camera } = useThree();
   const lastSent = useRef(0);
   const lastPos = useRef(new THREE.Vector3(Infinity, Infinity, Infinity));
+  // No modo órbita, girar perto do alvo move pouco a POSIÇÃO da câmera (o
+  // raio da órbita é pequeno) mesmo a direção tendo virado de verdade — só
+  // olhar `lastPos` deixava esse giro sem disparar atualização nenhuma pro
+  // jogador. `lastTarget` cobre esse caso sem mexer no caminho de voo (que
+  // continua só com `lastPos`, igual sempre foi).
+  const lastTarget = useRef(new THREE.Vector3(Infinity, Infinity, Infinity));
   useFrame(() => {
     const now = performance.now();
     if (now - lastSent.current < SEND_EVERY_MS) return;
-    if (camera.position.distanceTo(lastPos.current) < 0.01) return;
     let t: THREE.Vector3;
     if (cameraMode === 'orbit') {
       const controls = controlsRef.current;
@@ -101,8 +106,12 @@ function CameraBroadcaster({
       camera.getWorldDirection(dir);
       t = camera.position.clone().addScaledVector(dir, 5);
     }
+    const posMoved = camera.position.distanceTo(lastPos.current) >= 0.01;
+    const targetMoved = cameraMode === 'orbit' && t.distanceTo(lastTarget.current) >= 0.01;
+    if (!posMoved && !targetMoved) return;
     lastSent.current = now;
     lastPos.current.copy(camera.position);
+    lastTarget.current.copy(t);
     setCamera3d([camera.position.x, camera.position.y, camera.position.z], [t.x, t.y, t.z]);
   });
   return null;

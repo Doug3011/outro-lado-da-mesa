@@ -2,6 +2,23 @@ import { useTableStore } from '../store/useTableStore';
 import { CharacterCard } from './CharacterCard';
 import { CharacterSheet } from './CharacterSheet';
 
+// Ícone de lixeira pro "Remover" — só usado aqui, mesmo padrão de outros
+// ícones soltos locais no projeto (ex. Home.tsx) em vez de centralizar em
+// icons.tsx pra algo tão específico de um lugar só.
+function RemoveLinkIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path
+        d="M4 6h12M8 6V4.5A1.5 1.5 0 0 1 9.5 3h1A1.5 1.5 0 0 1 12 4.5V6M6 6l.6 9.4A1.6 1.6 0 0 0 8.2 17h3.6a1.6 1.6 0 0 0 1.6-1.6L14 6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // Aba "Ficha" do mestre: lista as fichas vinculadas a esta mesa; clicar em
 // "Abrir ficha" só avisa quem chama (`onOpen`) — o estado de quais estão
 // abertas (`openIds`/`activeId`) e ONDE a ficha aberta aparece vivem em
@@ -39,6 +56,7 @@ export function GmCharacterTabs({
   floatingPicker?: boolean;
 }) {
   const characters = useTableStore((s) => s.characters);
+  const deleteCharacter = useTableStore((s) => s.deleteCharacter);
   const list = Object.values(characters).sort((a, b) => a.name.localeCompare(b.name));
   const activeChar = activeId ? characters[activeId] : null;
   const openTabs = openIds.map((id) => characters[id]).filter((c): c is (typeof characters)[string] => !!c);
@@ -55,7 +73,30 @@ export function GmCharacterTabs({
       {list.length > 0 && (
         <div className="char-card-list" style={{ marginBottom: 14 }}>
           {list.map((c) => (
-            <CharacterCard key={c.id} character={c} onClick={() => onOpen(c.id)} cta="Abrir ficha" />
+            <div key={c.id} style={{ display: 'flex', alignItems: 'stretch', gap: 6 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <CharacterCard character={c} onClick={() => onOpen(c.id)} cta="Abrir ficha" />
+              </div>
+              <button
+                className="small ghost"
+                title="Remover ficha desta mesa"
+                aria-label={`Remover ficha de ${c.name} desta mesa`}
+                style={{ flex: 'none', color: 'var(--rd-sangue-bright, var(--blood-bright))' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (
+                    confirm(
+                      `Remover a ficha de ${c.name} desta mesa? A ficha continua salva na biblioteca do jogador — isso só tira ela daqui.`,
+                    )
+                  ) {
+                    if (activeId === c.id) onClose(c.id);
+                    deleteCharacter(c.id);
+                  }
+                }}
+              >
+                <RemoveLinkIcon />
+              </button>
+            </div>
           ))}
         </div>
       )}
