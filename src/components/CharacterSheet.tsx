@@ -1483,6 +1483,8 @@ function ClassPowerPicker({
     (p) => !p.onlyAtNex || p.onlyAtNex === nex,
   );
   const [key, setKey] = useState('');
+  const [powerFilter, setPowerFilter] = useState('');
+  const [transFilter, setTransFilter] = useState('');
   const [element, setElement] = useState<Element>('sangue');
   const [skillA, setSkillA] = useState('');
   const [skillB, setSkillB] = useState('');
@@ -1494,6 +1496,12 @@ function ClassPowerPicker({
   const def = options.find((p) => p.key === key);
   const pdef = paranormalKey ? PARANORMAL_BY_KEY[paranormalKey] : undefined;
   const trilhaOptions = TRILHAS_BY_CLASS[classe];
+  const powerMatches = options.filter(
+    (p) => !powerFilter.trim() || p.name.toLowerCase().includes(powerFilter.trim().toLowerCase()),
+  );
+  const paranormalMatches = PARANORMAL_POWERS.filter(
+    (p) => !transFilter.trim() || p.name.toLowerCase().includes(transFilter.trim().toLowerCase()),
+  );
 
   const canConfirm =
     !!def &&
@@ -1522,20 +1530,31 @@ function ClassPowerPicker({
       <div className="li-head">
         <strong>Poder de Classe — NEX {nex}%</strong>
       </div>
-      <select value={key} onChange={(e) => setKey(e.target.value)}>
-        <option value="">— escolha —</option>
-        {options.map((p) => (
-          <option key={p.key} value={p.key}>
-            {p.name}
-          </option>
+      <input
+        placeholder="Filtrar por nome…"
+        value={powerFilter}
+        onChange={(e) => setPowerFilter(e.target.value)}
+        style={{ marginBottom: 6 }}
+      />
+      <div className="rd-power-pick-list" role="listbox">
+        {powerMatches.map((p) => (
+          <button
+            type="button"
+            key={p.key}
+            role="option"
+            aria-selected={key === p.key}
+            className={'rd-power-pick-row' + (key === p.key ? ' on' : '')}
+            onClick={() => setKey(p.key)}
+          >
+            <span className="rd-power-pick-name">{p.name}</span>
+            <span className="rd-power-pick-summary">
+              {p.summary}
+              {p.prereq ? ` (pré-requisito: ${p.prereq})` : ''}
+            </span>
+          </button>
         ))}
-      </select>
-      {def && (
-        <p className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-          {def.summary}
-          {def.prereq ? ` (pré-requisito: ${def.prereq})` : ''}
-        </p>
-      )}
+        {powerMatches.length === 0 && <p className="faint" style={{ fontSize: 12, padding: 8 }}>Nenhum poder encontrado.</p>}
+      </div>
 
       {def?.needsElement && (
         <select
@@ -1573,41 +1592,55 @@ function ClassPowerPicker({
       )}
 
       {def?.key === 'versatilidade' && (
-        <select
-          value={trilhaPick}
-          onChange={(e) => setTrilhaPick(e.target.value)}
-          style={{ marginTop: 6 }}
-        >
-          <option value="">— trilha (diferente da sua) —</option>
+        <div className="rd-power-pick-list" role="listbox" style={{ marginTop: 6 }}>
           {trilhaOptions.map((t) => (
-            <option key={t.name} value={t.name}>
-              {t.name}
-            </option>
+            <button
+              type="button"
+              key={t.name}
+              role="option"
+              aria-selected={trilhaPick === t.name}
+              className={'rd-power-pick-row' + (trilhaPick === t.name ? ' on' : '')}
+              onClick={() => setTrilhaPick(t.name)}
+            >
+              <span className="rd-power-pick-name">{t.name}</span>
+              <span className="rd-power-pick-summary">{t.flavor}</span>
+            </button>
           ))}
-        </select>
+        </div>
       )}
 
       {def?.key === 'transcender' && (
         <>
-          <select
-            value={paranormalKey}
-            onChange={(e) => setParanormalKey(e.target.value)}
+          <input
+            placeholder="Filtrar por nome…"
+            value={transFilter}
+            onChange={(e) => setTransFilter(e.target.value)}
             style={{ marginTop: 6 }}
-          >
-            <option value="">— poder paranormal —</option>
-            {PARANORMAL_POWERS.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.name}
-                {p.element !== 'geral' ? ` (${p.element})` : ''}
-              </option>
+          />
+          <div className="rd-power-pick-list" role="listbox">
+            {paranormalMatches.map((p) => (
+              <button
+                type="button"
+                key={p.key}
+                role="option"
+                aria-selected={paranormalKey === p.key}
+                className={'rd-power-pick-row' + (paranormalKey === p.key ? ' on' : '')}
+                onClick={() => setParanormalKey(p.key)}
+              >
+                <span className="rd-power-pick-name">
+                  {p.name}
+                  {p.element !== 'geral' ? ` (${p.element})` : ''}
+                </span>
+                <span className="rd-power-pick-summary">
+                  {p.summary}
+                  {p.prereq ? ` (pré-requisito: ${p.prereq})` : ''}
+                </span>
+              </button>
             ))}
-          </select>
-          {pdef && (
-            <p className="faint" style={{ fontSize: 12, marginTop: 6 }}>
-              {pdef.summary}
-              {pdef.prereq ? ` (pré-requisito: ${pdef.prereq})` : ''}
-            </p>
-          )}
+            {paranormalMatches.length === 0 && (
+              <p className="faint" style={{ fontSize: 12, padding: 8 }}>Nenhum poder encontrado.</p>
+            )}
+          </div>
           {pdef?.needsElement && (
             <select
               value={paranormalElement}
