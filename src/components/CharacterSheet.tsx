@@ -152,9 +152,23 @@ export function CharacterSheet({
   const timer = useRef<number | undefined>(undefined);
   const portraitInputRef = useRef<HTMLInputElement>(null);
 
+  // Só adia a atualização remota (ex.: vinda do celular) se o jogador estiver
+  // DE VERDADE digitando num campo de texto agora — antes isso checava só
+  // "o foco está em algum lugar dentro da janela", o que travava pra sempre
+  // (a atualização nunca chegava) sempre que a última coisa clicada tivesse
+  // sido um botão/aba dentro da ficha (clicar numa aba deixa ela como
+  // document.activeElement até outro clique acontecer — muito comum: abre a
+  // ficha, clica numa aba, deixa aberta). Bug relatado pelo usuário: "mudei
+  // na ficha do celular mas não mudou na ficha da mesa".
+  const isTypingInContainer = () => {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el || !containerRef.current?.contains(el)) return false;
+    return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+  };
+
   useEffect(() => {
     if (character.updatedAt <= draft.updatedAt) return;
-    if (containerRef.current?.contains(document.activeElement)) {
+    if (isTypingInContainer()) {
       pendingRemote.current = character;
     } else {
       setDraft(character);
@@ -203,7 +217,7 @@ export function CharacterSheet({
   const onBlurCapture = () => {
     // espera o foco assentar no proximo elemento antes de decidir adotar o estado remoto
     window.setTimeout(() => {
-      if (pendingRemote.current && !containerRef.current?.contains(document.activeElement)) {
+      if (pendingRemote.current && !isTypingInContainer()) {
         setDraft(pendingRemote.current);
         pendingRemote.current = null;
       }

@@ -1031,9 +1031,43 @@ function broadcastPresence() {
   for (const c of roomClients) if (c.ws.readyState === c.ws.OPEN) c.ws.send(payload);
 }
 
+// Ping/pong de verificação (bug relatado: celular mostrava "ao vivo" mas
+// edições/rolagens feitas nele não chegavam na mesa — um WebSocket pode
+// ficar preso em readyState OPEN mesmo com a conexão TCP já morta por
+// baixo, comum em wifi de celular que suspende a aba/rede em segundo
+// plano; sem isso, o socket zumbi nunca sai de `roomClients` e ninguém
+// percebe que aquele cliente parou de falar com o servidor). Ping nativo
+// do protocolo WebSocket — o navegador responde o pong sozinho, não
+// precisa de nenhuma mudança no lado do celular/página.
+const ROOM_HEARTBEAT_MS = 25000;
+function startRoomHeartbeat() {
+  setInterval(() => {
+    for (const c of roomClients) {
+      if (c.isAlive === false) {
+        try {
+          c.ws.terminate();
+        } catch {
+          /* já deve estar fechando */
+        }
+        continue;
+      }
+      c.isAlive = false;
+      try {
+        c.ws.ping();
+      } catch {
+        /* ignora - on('close')/on('error') cuidam da limpeza */
+      }
+    }
+  }, ROOM_HEARTBEAT_MS).unref();
+}
+startRoomHeartbeat();
+
 function handleRoomConn(ws) {
-  const client = { ws, me: null };
+  const client = { ws, me: null, isAlive: true };
   roomClients.add(client);
+  ws.on('pong', () => {
+    client.isAlive = true;
+  });
   // rede de segurança: mesmo com `maxPayload` configurado certo, qualquer
   // outro erro de socket (conexão resetada, frame corrompido etc.) subindo
   // sem handler derrubava o processo principal do Electron inteiro — agora
