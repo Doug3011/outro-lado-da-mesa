@@ -12,6 +12,7 @@ import {
 import { unlockedTrilhaPowers, trilhaByName } from '../data/trilhas';
 import { CLASS_POWERS, CLASS_POWER_NEX_SLOTS } from '../data/classPowers';
 import { PARANORMAL_BY_KEY } from '../data/paranormalPowers';
+import { EQUIPMENT_EFFECTS, type EquipEffect } from '../data/equipmentEffects';
 import { uid } from '../lib/ids';
 
 const ELEMENT_NAME: Record<Element, string> = Object.fromEntries(
@@ -25,6 +26,9 @@ export interface InventoryItem {
   qty: number;
   slots: number; // espacos ocupados
   notes: string;
+  catalogId?: string; // id do catálogo (equipmentCatalog.ts) quando adicionado de lá — permite calcular bônus automático
+  equipped?: boolean; // "vestido/empunhado agora" — só itens com efeito conhecido (ver EQUIPMENT_EFFECTS) mostram a opção
+  boostSkill?: string; // pra itens tipo Utensílio/Vestimenta que dão bônus numa perícia à escolha
 }
 
 export interface Ritual {
@@ -164,7 +168,8 @@ export interface DerivedStats {
   pvMax: number;
   peMax: number;
   sanMax: number;
-  defense: number; // 10 + AGI + defenseBonus
+  defense: number; // 10 + AGI + defenseBonus + bônus de itens equipados
+  protectionTotal: number; // char.protection (manual) + bônus de itens equipados
   loadLimit: number; // Forca + 5
   trainedBudget: number; // pericias treinadas: base da classe + Intelecto (+2 origem)
   pePerTurn: number; // limite de PE por turno pelo NEX
@@ -187,7 +192,8 @@ export function deriveStats(char: Character): DerivedStats {
     pvMax: c.pvBase + a.VIG + c.pvPerNex * steps + cascaGrossa,
     peMax: char.pdMode ? pdMax(char) : c.peBase + a.PRE + c.pePerNex * steps,
     sanMax: Math.max(1, c.sanBase + c.sanPerNex * steps - c.sanPerNex * transcendCount),
-    defense: 10 + a.AGI + (char.defenseBonus || 0),
+    defense: 10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char),
+    protectionTotal: (char.protection || 0) + equipmentProtectionBonus(char),
     loadLimit: a.FOR + 5 + inventarioOtimizado,
     trainedBudget: c.skillsTrained + a.INT + 2,
     pePerTurn: pePerTurn(char.nex),
@@ -215,6 +221,39 @@ export function countTrained(char: Character): number {
 // Espacos de inventario usados.
 export function loadUsed(char: Character): number {
   return char.inventory.reduce((a, it) => a + it.slots * it.qty, 0);
+}
+
+// Itens do inventário marcados como "equipado" que têm efeito automático
+// conhecido (ver data/equipmentEffects.ts) — base de equipmentDefenseBonus/
+// equipmentProtectionBonus/equipmentSkillBonus abaixo.
+function equippedEffects(char: Character): { item: InventoryItem; effect: EquipEffect }[] {
+  const out: { item: InventoryItem; effect: EquipEffect }[] = [];
+  for (const it of char.inventory) {
+    if (!it.equipped || !it.catalogId) continue;
+    const effect = EQUIPMENT_EFFECTS[it.catalogId];
+    if (effect) out.push({ item: it, effect });
+  }
+  return out;
+}
+
+// Bônus de Defesa só de itens equipados (proteções, escudo...). Somado à
+// Defesa calculada em deriveStats — não mexe no campo manual `defenseBonus`.
+export function equipmentDefenseBonus(char: Character): number {
+  return equippedEffects(char).reduce((a, { effect }) => a + (effect.defenseBonus ?? 0), 0);
+}
+
+// Bônus de Proteção só de itens equipados.
+export function equipmentProtectionBonus(char: Character): number {
+  return equippedEffects(char).reduce((a, { effect }) => a + (effect.protection ?? 0), 0);
+}
+
+// Bônus de perícia só de itens equipados que escolheram essa perícia
+// (Utensílio/Vestimenta — ver `InventoryItem.boostSkill`).
+export function equipmentSkillBonus(char: Character, skillKey: string): number {
+  return equippedEffects(char).reduce((a, { item, effect }) => {
+    if (effect.skillBonus && item.boostSkill === skillKey) return a + effect.skillBonus;
+    return a;
+  }, 0);
 }
 
 export function createCharacter(ownerId: string, name = 'Novo Agente'): Character {
@@ -514,5 +553,6 @@ export function skillBonus(char: Character, skillKey: string): number {
   if (skillKey === 'iniciativa' && char.trilha === 'Operações Especiais' && char.nex >= 10) {
     bonus += 5;
   }
+  bonus += equipmentSkillBonus(char, skillKey);
   return bonus;
 }

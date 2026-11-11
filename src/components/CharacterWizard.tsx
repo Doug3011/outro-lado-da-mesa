@@ -13,9 +13,10 @@ import {
   type Element,
 } from '../data/ordem';
 import { ORIGIN_BY_NAME, ORIGINS } from '../data/origins';
-import { createCharacter, suggestedStats, type Character } from '../domain/character';
+import { createCharacter, suggestedStats, type Character, type InventoryItem } from '../domain/character';
 import { fileToDownscaledDataURL } from '../lib/image';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
+import { InventoryEditor } from './InventoryEditor';
 import {
   ArrowRightIcon,
   BackChevronIcon,
@@ -28,7 +29,7 @@ import {
   UploadIcon,
 } from './icons';
 
-const STEPS = ['Conceito', 'Atributos', 'Classe', 'Trilha', 'Perícias', 'Revisão'];
+const STEPS = ['Conceito', 'Atributos', 'Classe', 'Trilha', 'Perícias', 'Inventário', 'Revisão'];
 
 // Subtítulo fixo de cada etapa — o conteúdo que depende de estado (NEX,
 // perícias etc.) é renderizado dentro do próprio corpo da etapa, não aqui.
@@ -38,6 +39,7 @@ const STEP_SUB = [
   'O papel do agente na equipe.',
   'Escolhida em NEX 10%; ganha um novo poder da trilha em NEX 40%, 65% e 99%.',
   'Escolha as perícias treinadas iniciais — o limite depende da classe, do Intelecto e da origem.',
+  'Sem limite de itens. Use o catálogo do livro ou adicione itens livres — dá pra ajustar tudo na ficha depois também.',
   'Confira e crie o agente. Tudo pode ser ajustado na ficha depois.',
 ];
 
@@ -94,6 +96,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
   const [element, setElement] = useState<Element>('medo');
   const [trilha, setTrilha] = useState('');
   const [trained, setTrained] = useState<string[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   const needsTrilha = nex >= 10;
   const trilhaOptions = TRILHAS_BY_CLASS[classe];
@@ -151,6 +154,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
     !needsTrilha || trilha !== '',
     trained.length <= skillBudget,
     true,
+    true,
   ][step];
 
   const stepHint = [
@@ -159,6 +163,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
     '',
     !needsTrilha || trilha !== '' ? '' : 'Escolha uma trilha.',
     trained.length <= skillBudget ? '' : `Perícias além do limite (${trained.length}/${skillBudget}).`,
+    '',
     '',
   ][step];
 
@@ -177,6 +182,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
     c.nex = nex;
     c.trilha = trilha;
     for (const k of trained) c.skills[k] = { training: 5, bonus: 0 };
+    c.inventory = inventory;
     if (originDef) {
       c.abilities.push({
         id: Math.random().toString(36).slice(2, 10),
@@ -587,6 +593,12 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
           )}
 
           {step === 5 && (
+            <div className="rd-cw-card">
+              <InventoryEditor inventory={inventory} onChange={setInventory} />
+            </div>
+          )}
+
+          {step === 6 && (
             <div className="rd-cw-review-card">
               <div className="rd-cw-review-head">
                 <div
@@ -655,6 +667,16 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                   {trained.map((k) => SKILL_BY_KEY[k]?.name).join(', ') || '—'}
                 </span>
                 <button type="button" className="rd-cw-review-edit" onClick={() => go(4)}>
+                  Editar
+                </button>
+              </div>
+
+              <div className="rd-cw-review-row">
+                <span className="rd-cw-review-label">Inventário ({inventory.length})</span>
+                <span className="rd-cw-review-value">
+                  {inventory.map((it) => it.name).filter(Boolean).join(', ') || '—'}
+                </span>
+                <button type="button" className="rd-cw-review-edit" onClick={() => go(5)}>
                   Editar
                 </button>
               </div>

@@ -22,6 +22,7 @@ import {
   countTrained,
   describeNexGain,
   deriveStats,
+  equipmentDefenseBonus,
   loadUsed,
   pendingAttributeBumpSlots,
   pendingClassPowerSlots,
@@ -35,7 +36,6 @@ import {
   trainingBumpBudget,
   type Attack,
   type Character,
-  type InventoryItem,
   type Ritual,
 } from '../domain/character';
 import { uid } from '../lib/ids';
@@ -44,8 +44,8 @@ import { RITUALS, type RitualDef } from '../data/rituals';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
 import { CLASS_POWERS, type ClassPowerDef } from '../data/classPowers';
 import { PARANORMAL_BY_KEY, PARANORMAL_POWERS } from '../data/paranormalPowers';
-import type { CatalogItem } from '../data/equipmentCatalog';
-import { EquipmentCatalogDialog } from './EquipmentCatalogDialog';
+import { GENERAL_POWERS } from '../data/generalPowers';
+import { InventoryEditor } from './InventoryEditor';
 import { FichaQr } from './FichaQr';
 import { TokenLinkDialog } from './TokenLinkDialog';
 import { GearIcon, LinkTokenIcon, PdIcon, PhoneIcon } from './icons';
@@ -128,7 +128,7 @@ export function CharacterSheet({
   }, [scenes, activeSceneId, draft.id]);
   const [tab, setTab] = useState<SheetTab>('combate');
   const [ritualFilter, setRitualFilter] = useState('');
-  const [showEquipCatalog, setShowEquipCatalog] = useState(false);
+  const [generalPowerFilter, setGeneralPowerFilter] = useState('');
   // Pentágono de atributos: por padrão clique = rolar teste (igual à
   // referência); esse botão alterna pro modo edição (os mesmos círculos
   // virando campos numéricos) — os atributos continuam editáveis à mão,
@@ -244,6 +244,11 @@ export function CharacterSheet({
       (r) => !q || r.name.toLowerCase().includes(q) || r.elements.some((e) => e.includes(q)),
     );
   }, [ritualFilter]);
+
+  const generalPowerMatches = useMemo(() => {
+    const q = generalPowerFilter.trim().toLowerCase();
+    return GENERAL_POWERS.filter((p) => !q || p.name.toLowerCase().includes(q));
+  }, [generalPowerFilter]);
 
   const slotsUsed = useMemo(() => loadUsed(draft), [draft]);
   const derived = useMemo(() => deriveStats(draft), [draft]);
@@ -672,6 +677,7 @@ export function CharacterSheet({
                 <>
                   <span className="rd-sheet-defense-formula">
                     10 + AGI {draft.attributes.AGI} + bônus {draft.defenseBonus}
+                    {equipmentDefenseBonus(draft) > 0 ? ` + equipamento ${equipmentDefenseBonus(draft)}` : ''}
                   </span>
                   <label className="rd-sheet-field" style={{ border: 0, paddingBottom: 0, maxWidth: 160 }}>
                     <span className="rd-sheet-field-label">Bônus</span>
@@ -697,7 +703,10 @@ export function CharacterSheet({
 
           <div className="rd-sheet-traits">
             <label className="rd-sheet-field">
-              <span className="rd-sheet-field-label">Proteção</span>
+              <span className="rd-sheet-field-label">
+                Proteção
+                {derived.protectionTotal > draft.protection ? ` (total c/ equipamento: ${derived.protectionTotal})` : ''}
+              </span>
               <input
                 type="number"
                 value={draft.protection}
@@ -1015,6 +1024,45 @@ export function CharacterSheet({
                   })}
                 </div>
               ))}
+              <details className="ritual-picker">
+                <summary>+ Adicionar poder geral do livro</summary>
+                <input
+                  placeholder="Filtrar por nome…"
+                  value={generalPowerFilter}
+                  onChange={(e) => setGeneralPowerFilter(e.target.value)}
+                  style={{ margin: '8px 0' }}
+                />
+                {generalPowerMatches.map((p) => (
+                  <div className="ritual-row" key={p.key}>
+                    <button
+                      className="small"
+                      title="Adicionar à ficha"
+                      onClick={() =>
+                        patch({
+                          abilities: [
+                            ...draft.abilities,
+                            {
+                              id: uid(),
+                              name: p.name,
+                              source: 'Poder Geral',
+                              description: `${p.prereq !== '—' ? `Pré-requisito: ${p.prereq}. ` : ''}${p.summary}`,
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      +
+                    </button>
+                    <span>
+                      <strong>{p.name}</strong>{' '}
+                      <small className="faint">{p.prereq !== '—' ? p.prereq : 'sem pré-requisito'}</small>
+                      <br />
+                      <small className="faint">{p.summary}</small>
+                    </span>
+                  </div>
+                ))}
+              </details>
+
               <button
                 className="small"
                 onClick={() => patch({ abilities: [...draft.abilities, emptyAbility()] })}
@@ -1159,81 +1207,13 @@ export function CharacterSheet({
           )}
 
           {tab === 'inventario' && (
-            <div className="rd-sheet-tabpanel">
-              <p className="faint rd-sheet-inv-head">
-                Espaços usados: <strong>{slotsUsed}</strong> · Limite (Força + 5
-                {draft.trilha === 'Técnico' && draft.nex >= 10 ? ' + Intelecto (Inventário Otimizado)' : ''}
-                ): <strong>{derived.loadLimit}</strong>
-              </p>
-              {draft.inventory.map((it) => (
-                <div className="list-item" key={it.id}>
-                  <div className="li-head">
-                    <input
-                      value={it.name}
-                      placeholder="Item"
-                      onChange={(e) => updateItem(draft, patch, it.id, { name: e.target.value })}
-                    />
-                    <button
-                      className="small ghost"
-                      onClick={() => patch({ inventory: draft.inventory.filter((x) => x.id !== it.id) })}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="row" style={{ marginTop: 6 }}>
-                    <div>
-                      <label>Qtd</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={it.qty}
-                        onChange={(e) =>
-                          updateItem(draft, patch, it.id, { qty: Math.max(1, Number(e.target.value)) })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <label>Espaços</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        value={it.slots}
-                        onChange={(e) => updateItem(draft, patch, it.id, { slots: Number(e.target.value) })}
-                      />
-                    </div>
-                    <div>
-                      <label>Categoria</label>
-                      <input
-                        value={it.category}
-                        placeholder="I / II / III"
-                        onChange={(e) => updateItem(draft, patch, it.id, { category: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <input
-                    style={{ marginTop: 6 }}
-                    value={it.notes}
-                    placeholder="Observações"
-                    onChange={(e) => updateItem(draft, patch, it.id, { notes: e.target.value })}
-                  />
-                </div>
-              ))}
-              <div className="row" style={{ marginTop: 4 }}>
-                <button className="small" onClick={() => patch({ inventory: [...draft.inventory, emptyItem()] })}>
-                  + Adicionar item
-                </button>
-                <button className="small" onClick={() => setShowEquipCatalog(true)}>
-                  <BookIcon /> Catálogo do livro
-                </button>
-              </div>
-              {showEquipCatalog && (
-                <EquipmentCatalogDialog
-                  onAdd={(entry) => patch({ inventory: [...draft.inventory, itemFromCatalog(entry)] })}
-                  onClose={() => setShowEquipCatalog(false)}
-                />
-              )}
-            </div>
+            <InventoryEditor
+              inventory={draft.inventory}
+              onChange={(inventory) => patch({ inventory })}
+              loadHint={`Espaços usados: ${slotsUsed} · Limite (Força + 5${
+                draft.trilha === 'Técnico' && draft.nex >= 10 ? ' + Intelecto (Inventário Otimizado)' : ''
+              }): ${derived.loadLimit}`}
+            />
           )}
 
           {tab === 'progressao' && (
@@ -1471,20 +1451,6 @@ function D20Icon({ className }: { className?: string }) {
         d="M12 2 7.5 9.5h9zM7.5 9.5 3 17M16.5 9.5 21 17M7.5 9.5 12 22l4.5-12.5"
         stroke="currentColor"
         strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// Ícone do botão "Catálogo do livro" (aba Inventário) — substitui o emoji 📖.
-function BookIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden style={{ marginRight: 4 }}>
-      <path
-        d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13ZM20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5c.8 0 1.5-.7 1.5-1.5v-13Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
         strokeLinejoin="round"
       />
     </svg>
@@ -1772,9 +1738,6 @@ function updateAttack(c: Character, patch: Patch, id: string, p: Partial<Attack>
 function updateAbility(c: Character, patch: Patch, id: string, p: Partial<Character['abilities'][number]>) {
   patch({ abilities: c.abilities.map((a) => (a.id === id ? { ...a, ...p } : a)) });
 }
-function updateItem(c: Character, patch: Patch, id: string, p: Partial<InventoryItem>) {
-  patch({ inventory: c.inventory.map((a) => (a.id === id ? { ...a, ...p } : a)) });
-}
 function updateRitual(c: Character, patch: Patch, id: string, p: Partial<Ritual>) {
   patch({ rituals: c.rituals.map((a) => (a.id === id ? { ...a, ...p } : a)) });
 }
@@ -1784,18 +1747,6 @@ function emptyAttack(): Attack {
 }
 function emptyAbility(): Character['abilities'][number] {
   return { id: uid(), name: '', source: '', description: '' };
-}
-function emptyItem(): InventoryItem {
-  return { id: uid(), name: '', category: '', qty: 1, slots: 1, notes: '' };
-}
-// Converte uma entrada do catálogo (lib/equipmentCatalog.ts) numa linha de
-// inventário de verdade — pedido do usuário: "clicar no item e ele ser
-// adicionado ao inventário". `category` do catálogo já vem pronta pra
-// copiar: "I"/"II"/etc. pra item de verdade, ou "+I"/"+II" pra modificação/
-// maldição (deixa claro que é um AUMENTO de categoria de outro item, não
-// uma categoria própria — ver comentário em equipmentCatalog.ts).
-function itemFromCatalog(entry: CatalogItem): InventoryItem {
-  return { id: uid(), name: entry.name, category: entry.category, qty: 1, slots: entry.slots, notes: entry.notes };
 }
 function emptyRitual(): Ritual {
   return {
