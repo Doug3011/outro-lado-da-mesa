@@ -24,32 +24,55 @@ export function SearchSelect({
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
-  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number }>({
+  const [menuStyle, setMenuStyle] = useState<{ top?: number; bottom?: number; left: number; width: number }>({
     top: 0,
     left: 0,
     width: 0,
   });
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const q = value.trim().toLowerCase();
   const filtered = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
 
+  // Tenta embaixo do campo; se não couber (campo perto do rodapé da
+  // janela), vira pra cima dele — mesmo comportamento clássico de
+  // combobox, pra nunca cortar a lista na borda da tela.
+  const MENU_MAX_H = 260;
   const place = () => {
     const r = inputRef.current?.getBoundingClientRect();
     if (!r) return;
-    setMenuStyle({ top: r.bottom + 6, left: r.left, width: r.width });
+    const spaceBelow = window.innerHeight - r.bottom;
+    if (spaceBelow < MENU_MAX_H && r.top > spaceBelow) {
+      setMenuStyle({ bottom: window.innerHeight - r.top + 6, left: r.left, width: r.width });
+    } else {
+      setMenuStyle({ top: r.bottom + 6, left: r.left, width: r.width });
+    }
   };
 
   useEffect(() => {
     if (!open) return;
     place();
     const close = () => setOpen(false);
+    // BUG achado (usuário: "a lista fica embaixo e some se eu tentar
+    // rolar") — `scroll` num elemento com overflow não borbulha no modo
+    // normal, mas UM LISTENER NO WINDOW COM `capture: true` ainda recebe
+    // ele (fase de captura alcança qualquer descendente). Rolar a PRÓPRIA
+    // lista do menu disparava esse listener e fechava o menu na hora,
+    // antes do primeiro scroll "pegar". Ignora quando o scroll vem de
+    // dentro do próprio menu — só fecha quando é outra coisa rolando por
+    // baixo (o que invalidaria a posição calculada em `place()`).
+    const onScroll = (e: Event) => {
+      const menu = menuRef.current;
+      if (menu && e.target instanceof Node && (e.target === menu || menu.contains(e.target))) return;
+      close();
+    };
     window.addEventListener('resize', close);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       window.removeEventListener('resize', close);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -99,9 +122,16 @@ export function SearchSelect({
       />
       {open && filtered.length > 0 && (
         <div
+          ref={menuRef}
           className="rd-search-select-menu"
           role="listbox"
-          style={{ top: menuStyle.top, left: menuStyle.left, width: menuStyle.width }}
+          style={{
+            top: menuStyle.top,
+            bottom: menuStyle.bottom,
+            left: menuStyle.left,
+            width: menuStyle.width,
+            maxHeight: MENU_MAX_H,
+          }}
         >
           {filtered.map((o, i) => (
             <button

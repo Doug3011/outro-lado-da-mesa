@@ -81,6 +81,26 @@ export function SceneTransition({
     };
   }, [kind, mapImageUrl]);
 
+  // Teto de segurança que NÃO depende de `requestAnimationFrame` — achado
+  // testando mesa pela internet: o Chromium pausa rAF por completo numa
+  // janela minimizada/oculta (confirmado ao vivo: rAF simplesmente não
+  // disparava), o que deixava a tela presa em "Preparando a mesa…" pra
+  // sempre mesmo depois do MAX_WAIT_MS, porque o loop inteiro (inclusive
+  // essa checagem de tempo) vivia dentro do próprio rAF. `setTimeout`
+  // continua disparando (só throttled, não pausado) mesmo com a aba/janela
+  // oculta, então serve de rede de segurança de verdade.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (!doneRef.current) {
+        doneRef.current = true;
+        setLeaving(true);
+        window.setTimeout(onReady, FADE_OUT_MS);
+      }
+    }, MAX_WAIT_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onReady]);
+
   useEffect(() => {
     let raf = 0;
     const tick = () => {
