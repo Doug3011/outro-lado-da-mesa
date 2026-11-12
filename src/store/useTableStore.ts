@@ -8,6 +8,7 @@ import { uid } from '../lib/ids';
 import { saveMyCharacter } from '../lib/characterLibrary';
 import type { PlayerProfile } from '../domain/profile';
 import { placeToScene, type Place } from '../lib/placeLibrary';
+import { map2dToScene, type Map2D } from '../lib/map2dLibrary';
 import {
   DEFAULT_MUSIC_STATE,
   makeScene,
@@ -151,6 +152,11 @@ interface TableState {
 
   addScene: (name?: string) => void;
   addScene3d: (place: Place | null, name?: string) => void;
+  // Cria um cenário 2D a partir de um mapa já montado (peças/chão salvos na
+  // Área do Mestre, ver map2dLibrary.ts) — pedido do usuário: poder usar um
+  // mapa 2D já pronto como cenário novo direto de dentro da mesa, igual já
+  // dava pra fazer com cenário 3D (addScene3d/place).
+  addSceneFromMap2d: (map2d: Map2D, name?: string) => void;
   renameScene: (id: string, name: string) => void;
   deleteScene: (id: string) => void;
   switchScene: (id: string) => void;
@@ -759,6 +765,16 @@ export const useTableStore = create<TableState>((set, get) => {
 
     addScene: (name) => {
       const sc = makeScene(name?.trim() || `Cenário ${get().scenes.length + 1}`);
+      set((s) => ({ scenes: [...s.scenes, sc], activeSceneId: sc.id }));
+      persist();
+      const s = get();
+      if (s.code) void saveScenesNow(s.code, s.scenes, s.activeSceneId);
+      get().conn?.send({ type: 'scene:upsert', payload: sc });
+      get().conn?.send({ type: 'scene:switch', payload: { id: sc.id } });
+    },
+
+    addSceneFromMap2d: (map2d, name) => {
+      const sc = map2dToScene(map2d, name);
       set((s) => ({ scenes: [...s.scenes, sc], activeSceneId: sc.id }));
       persist();
       const s = get();

@@ -306,6 +306,7 @@ export function Battle3D() {
   const setCamera3d = useTableStore((s) => s.setCamera3d);
   const addScene3d = useTableStore((s) => s.addScene3d);
   const addScene = useTableStore((s) => s.addScene);
+  const addSceneFromMap2d = useTableStore((s) => s.addSceneFromMap2d);
   const updateMap = useTableStore((s) => s.updateMap);
   const renameScene = useTableStore((s) => s.renameScene);
   const deleteScene = useTableStore((s) => s.deleteScene);
@@ -2008,6 +2009,10 @@ export function Battle3D() {
           onPick={(dataUrl) => {
             addScene();
             if (dataUrl) updateMap({ background: dataUrl });
+            setShowMapPicker(false);
+          }}
+          onPickMap2d={(map2d) => {
+            addSceneFromMap2d(map2d);
             setShowMapPicker(false);
           }}
         />

@@ -128,6 +128,7 @@ export function BattleMap() {
   const deleteToken = useTableStore((s) => s.deleteToken);
   const updateMap = useTableStore((s) => s.updateMap);
   const addScene = useTableStore((s) => s.addScene);
+  const addSceneFromMap2d = useTableStore((s) => s.addSceneFromMap2d);
   const addScene3d = useTableStore((s) => s.addScene3d);
   const renameScene = useTableStore((s) => s.renameScene);
   const deleteScene = useTableStore((s) => s.deleteScene);
@@ -1187,6 +1188,10 @@ export function BattleMap() {
           onPick={(dataUrl) => {
             addScene();
             if (dataUrl) updateMap({ background: dataUrl });
+            setShowMapPicker(false);
+          }}
+          onPickMap2d={(map2d) => {
+            addSceneFromMap2d(map2d);
             setShowMapPicker(false);
           }}
           onAdd3d={() => {

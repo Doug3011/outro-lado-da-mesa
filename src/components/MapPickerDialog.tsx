@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { AssetFolder, MapAsset } from '../types';
 import { fetchMapLibrary, mapAssetUrl } from '../lib/mapLibrary';
 import { urlToDownscaledDataURL } from '../lib/image';
+import { fetchMap2D, fetchMap2Ds, type Map2D, type Map2DSummary } from '../lib/map2dLibrary';
 
 // Aberto ao clicar em "+ cenário": em vez de criar um cenário em branco na
 // hora, mostra os mapas 2D já importados na Área do Mestre, num estilo
@@ -20,28 +21,48 @@ import { urlToDownscaledDataURL } from '../lib/image';
 // porque o mesmo componente também é usado noutro lugar sem esse contexto.
 export function MapPickerDialog({
   onPick,
+  onPickMap2d,
   onBlank,
   onAdd3d,
   onClose,
 }: {
   onPick: (dataUrl: string) => void;
+  // Mapa 2D já MONTADO (peças/chão posicionados na Área do Mestre, ver
+  // Prototype2D.tsx) — diferente de `onPick`, que é só uma imagem de fundo
+  // solta. Opcional pelo mesmo motivo de `onAdd3d`: outros usos deste
+  // diálogo podem não ter cenário pra plantar o resultado dentro.
+  onPickMap2d?: (map2d: Map2D) => void;
   onBlank: () => void;
   onAdd3d?: () => void;
   onClose: () => void;
 }) {
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [maps, setMaps] = useState<MapAsset[]>([]);
+  const [map2ds, setMap2ds] = useState<Map2DSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [openFolder, setOpenFolder] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
 
   useEffect(() => {
-    void fetchMapLibrary().then((data) => {
+    void Promise.all([
+      fetchMapLibrary(),
+      onPickMap2d ? fetchMap2Ds() : Promise.resolve([]),
+    ]).then(([data, m2d]) => {
       setFolders(data.folders);
       setMaps(data.items.filter((m) => m.kind === '2d'));
+      setMap2ds(m2d);
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const pickMap2d = async (m: Map2DSummary) => {
+    if (picking || !onPickMap2d) return;
+    setPicking(true);
+    const full = await fetchMap2D(m.id);
+    setPicking(false);
+    if (full) onPickMap2d(full);
+  };
 
   const visibleFolders = openFolder === null ? folders : [];
   const visibleMaps = maps.filter((m) => (m.folderId ?? null) === openFolder);
@@ -91,6 +112,35 @@ export function MapPickerDialog({
               <span className="map-picker-blank-ico">🧊</span>
               Cenário 3D — a mesa troca de mestre e jogadores juntos ao trocar
             </button>
+          )}
+
+          {!loading && openFolder === null && onPickMap2d && map2ds.length > 0 && (
+            <>
+              <p className="map-picker-crumb" style={{ margin: '10px 0 2px' }}>
+                Mapas 2D montados (com peças já posicionadas)
+              </p>
+              <div className="asset-grid">
+                {map2ds.map((m) => (
+                  <button
+                    key={m.id}
+                    className="asset-card map-picker-map"
+                    disabled={picking}
+                    onClick={() => void pickMap2d(m)}
+                  >
+                    <div className="asset-thumb proto3d-place-thumb">🗺️</div>
+                    <span className="asset-name" title={m.name}>
+                      {m.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {!loading && openFolder === null && onPickMap2d && (
+            <p className="map-picker-crumb" style={{ margin: '14px 0 2px' }}>
+              Imagens soltas
+            </p>
           )}
 
           {!loading && (
