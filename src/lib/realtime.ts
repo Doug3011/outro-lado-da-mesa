@@ -69,6 +69,22 @@ export type RoomEvent =
   // "estado tocando", é um evento; `nonce` evita o próprio mestre tocar o
   // som 2x ao receber o eco da sua própria rede, ver AmbientPlayer.tsx).
   | { type: 'ambient:play'; payload: { clipId: string; nonce: string } }
+  // Sinalização WebRTC (Entrega 2 da mesa pela internet) — o mestre
+  // transmite sua própria tela 3D + áudio pros jogadores em vez de cada um
+  // renderizar/baixar os assets pesados. Reaproveita o MESMO canal de
+  // eventos da mesa (funciona igual em LAN ou Supabase) em vez de abrir um
+  // canal de sinalização à parte; `to`/`from` fazem o filtro de quem é o
+  // destinatário, já que `send()` sempre distribui pra sala inteira.
+  | { type: 'webrtc:offer'; payload: { to: string; from: string; sdp: string } }
+  | { type: 'webrtc:answer'; payload: { to: string; from: string; sdp: string } }
+  | {
+      type: 'webrtc:ice';
+      payload: { to: string; from: string; candidate: RTCIceCandidateInit };
+    }
+  // Avisa o jogador que o mestre fechou a conexão de transmissão com ele
+  // (ex.: jogador saiu, ou mestre reiniciou a transmissão) — sem isso o
+  // jogador não tem como saber que deve descartar a RTCPeerConnection velha.
+  | { type: 'webrtc:bye'; payload: { to: string; from: string } }
   | { type: 'sync:request'; payload: { from: string } }
   | {
       type: 'sync:state';

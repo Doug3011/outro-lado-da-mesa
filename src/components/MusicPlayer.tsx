@@ -3,6 +3,7 @@ import { useIdentity } from '../hooks/useIdentity';
 import { useTableStore } from '../store/useTableStore';
 import { fetchMusicLibrary, trackUrl } from '../lib/musicLibrary';
 import { setMusicAudioEl } from '../lib/musicAudio';
+import { connectAudioElement, resumeAvMix } from '../lib/avMix';
 
 const VOLUME_KEY = 'ordem:music-volume';
 const DRIFT_TOLERANCE_S = 1.2;
@@ -21,12 +22,29 @@ export function MusicPlayer() {
   const music = useTableStore((s) => s.music);
   const setMusicState = useTableStore((s) => s.setMusicState);
   const code = useTableStore((s) => s.code);
+  const roomMode = useTableStore((s) => s.mode);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   if (!audioRef.current && typeof Audio !== 'undefined') {
     audioRef.current = new Audio();
     setMusicAudioEl(audioRef.current);
   }
+
+  // Mesa pela internet: o áudio do mestre também alimenta o stream WebRTC
+  // que vai pros jogadores (ver lib/avMix.ts/AvBroadcastController.tsx) —
+  // em rede local isso não é necessário (cada jogador já toca seu próprio
+  // arquivo, ver Room.tsx: MusicPlayer só monta assim em LAN ou pro mestre).
+  useEffect(() => {
+    if (!me.isGM || roomMode === 'lan' || !audioRef.current) return;
+    connectAudioElement(audioRef.current);
+    const resume = () => resumeAvMix();
+    window.addEventListener('pointerdown', resume, { once: true });
+    window.addEventListener('keydown', resume, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('keydown', resume);
+    };
+  }, [me.isGM, roomMode]);
 
   // Pára o áudio de vez quando o MusicPlayer desmonta (saiu da mesa — Room
   // inteiro desmonta na troca de rota). Sem isso o <audio> criado via

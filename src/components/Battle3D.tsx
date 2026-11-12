@@ -59,6 +59,7 @@ import {
   TokensFloatIcon,
 } from './icons';
 import { hasLan } from '../lib/lan';
+import { setGmCanvas3d } from '../lib/gmCanvasRegistry';
 import type { PlaceObject, SkyPreset, TerrainConfig, Token, TokenSprite } from '../types';
 
 // Mesa 3D de verdade (Fase 3): mesmas abas/mecânicas da mesa 2D (dados,
@@ -148,6 +149,30 @@ function CameraFollower({ camera3d }: { camera3d: Camera3D | null }) {
 function CameraFollowerSync() {
   const camera3d = useTableStore((s) => s.camera3d);
   return <CameraFollower camera3d={camera3d} />;
+}
+
+// Mesa pela internet: em vez de renderizar a cena 3D localmente (exigiria
+// baixar modelo/textura pesados pro jogador), mostra o vídeo que o mestre
+// transmite ao vivo (captura do próprio canvas dele, ver
+// AvBroadcastController.tsx). Vídeo mudo de propósito — o áudio já toca
+// via RemoteAudioSink.tsx (mesmo stream, montado uma vez só em Room.tsx,
+// não duplicado aqui a cada troca de cenário).
+function RemoteVideoView({ stream }: { stream: MediaStream | null }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = stream;
+    if (stream) void video.play().catch(() => {});
+  }, [stream]);
+  return (
+    <video
+      ref={videoRef}
+      muted
+      playsInline
+      style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+    />
+  );
 }
 
 function TokenHtmlLabel({ token, y }: { token: Token; y: number }) {
@@ -266,6 +291,11 @@ export function Battle3D() {
   // numa mesa em rede local (ver mesmo comentário em BattleMap.tsx).
   const roomMode = useTableStore((s) => s.mode);
   const musicAvailable = hasLan && roomMode === 'lan';
+  // Mesa pela internet: o jogador não renderiza a cena 3D localmente (isso
+  // exigiria baixar modelos/texturas pesados, o problema original que essa
+  // etapa resolve) — só assiste o vídeo que o mestre transmite ao vivo
+  // (ver AvBroadcastController.tsx/RemoteVideoView abaixo).
+  const remoteAvStream = useTableStore((s) => s.remoteAvStream);
   const characters = useTableStore((s) => s.characters);
   const users = useTableStore((s) => s.users);
   const upsertToken = useTableStore((s) => s.upsertToken);
@@ -339,6 +369,13 @@ export function Battle3D() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const camRef = useRef<THREE.Camera | null>(null);
   const domRef = useRef<HTMLElement | null>(null);
+
+  // Limpa o registro do canvas 3D (ver gmCanvasRegistry.ts) ao sair desta
+  // cena — sem isso, o AvBroadcastController podia continuar segurando a
+  // referência de um canvas já desmontado.
+  useEffect(() => {
+    return () => setGmCanvas3d(null);
+  }, []);
 
   // Câmera "voo livre" estilo modo criativo do Minecraft (pedido do
   // usuário) — tecla 1 alterna com a câmera de órbita padrão. Só o mestre
@@ -831,17 +868,21 @@ export function Battle3D() {
           </span>
         </div>
         <div className="battle3d-canvas">
-          <Canvas camera={{ position: [6, 5, 6], fov: 50 }}>
-            <SceneSky sky={scene.sky} preset={scene.skyPreset} />
-            <ambientLight intensity={0.7} />
-            <directionalLight position={[5, 8, 3]} intensity={1} />
-            <Suspense fallback={null}>
-              <GroundPlane ground={ground} size={scene.groundSize ?? 40} terrain={scene.terrain} />
-              {renderObjects()}
-              {renderTokens(false)}
-            </Suspense>
-            <CameraFollowerSync />
-          </Canvas>
+          {roomMode && roomMode !== 'lan' ? (
+            <RemoteVideoView stream={remoteAvStream} />
+          ) : (
+            <Canvas camera={{ position: [6, 5, 6], fov: 50 }}>
+              <SceneSky sky={scene.sky} preset={scene.skyPreset} />
+              <ambientLight intensity={0.7} />
+              <directionalLight position={[5, 8, 3]} intensity={1} />
+              <Suspense fallback={null}>
+                <GroundPlane ground={ground} size={scene.groundSize ?? 40} terrain={scene.terrain} />
+                {renderObjects()}
+                {renderTokens(false)}
+              </Suspense>
+              <CameraFollowerSync />
+            </Canvas>
+          )}
         </div>
 
         <div className="battle-floating-layer" ref={floatingLayerRef}>
@@ -1877,6 +1918,10 @@ export function Battle3D() {
           onCreated={({ camera, gl }) => {
             camRef.current = camera;
             domRef.current = gl.domElement;
+            // Mesa pela internet (Entrega 2): publica o canvas pro
+            // AvBroadcastController poder capturar como stream de vídeo pros
+            // jogadores — ver lib/gmCanvasRegistry.ts.
+            setGmCanvas3d(gl.domElement);
           }}
         >
           <SceneSky sky={scene.sky} preset={scene.skyPreset} />

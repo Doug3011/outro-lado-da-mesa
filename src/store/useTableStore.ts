@@ -61,6 +61,16 @@ function defaultScenes(): Scene[] {
   return [makeScene('Cenário 1')];
 }
 
+// Sinalização WebRTC (Entrega 2 da mesa pela internet, AvBroadcastController)
+// — fica FORA do estado reativo de propósito: isso é controle de conexão
+// efêmero, não dado de mesa (não deveria persistir/causar re-render de quem
+// só lê characters/scenes etc). `AvBroadcastController` registra um único
+// handler ao montar; `applyEvent` repassa os 4 tipos `webrtc:*` endereçados
+// a ESTE participante (`payload.to === me.id`) pra ele, sem passar pelo
+// `set()` do Zustand.
+export type WebrtcSignal = Extract<RoomEvent, { type: `webrtc:${string}` }>;
+let webrtcHandler: ((ev: WebrtcSignal) => void) | null = null;
+
 interface TableState {
   code: string | null;
   me: PresenceUser | null;
@@ -78,6 +88,13 @@ interface TableState {
   music: MusicState;
   camera3d: Camera3D | null; // câmera livre do mestre numa mesa 3D — efêmero, não persiste
   ambientCue: { clipId: string; nonce: string } | null; // soundboard — efêmero, só um "disparo", não persiste
+  // Stream de áudio/vídeo recebido do mestre via WebRTC (mesa pela internet,
+  // AvBroadcastController) — só preenchido pro lado do JOGADOR. Troca de
+  // referência (novo MediaStream) sempre que uma faixa é adicionada/removida
+  // (ex.: cenário virou 3D), pra garantir que quem consome (ex.: a tag
+  // <video>/<audio>) perceba a mudança — efêmero, não persiste.
+  remoteAvStream: MediaStream | null;
+  setRemoteAvStream: (s: MediaStream | null) => void;
 
   connect: (code: string, me: PresenceUser, opts?: { initialScene?: Scene }) => void;
   disconnect: () => void;
@@ -102,6 +119,12 @@ interface TableState {
   deleteCharacter: (id: string) => void;
   setActiveCharacter: (id: string | null) => void;
   sendProfile: (name: string, ownerId: string, profile: PlayerProfile) => void;
+  // Passthrough genérico pro AvBroadcastController mandar sinalização WebRTC
+  // sem precisar conhecer `conn` diretamente.
+  sendRoomEvent: (ev: RoomEvent) => void;
+  // Registra/limpa o único handler que recebe os eventos `webrtc:*`
+  // endereçados a este participante (ver comentário acima de `webrtcHandler`).
+  setWebrtcHandler: (fn: ((ev: WebrtcSignal) => void) | null) => void;
 
   upsertToken: (t: Token) => void;
   // versão "leve" de upsertToken pros commits PERIÓDICOS do giro/resize
@@ -353,6 +376,12 @@ export const useTableStore = create<TableState>((set, get) => {
         // `nonce` igual garante que o efeito em AmbientPlayer.tsx não toca 2x.
         set({ ambientCue: ev.payload });
         break;
+      case 'webrtc:offer':
+      case 'webrtc:answer':
+      case 'webrtc:ice':
+      case 'webrtc:bye':
+        if (ev.payload.to === s.me?.id) webrtcHandler?.(ev);
+        break;
       case 'sync:request': {
         if (ev.payload.from === s.me?.id) break;
         setTimeout(() => {
@@ -425,6 +454,7 @@ export const useTableStore = create<TableState>((set, get) => {
     music: DEFAULT_MUSIC_STATE,
     camera3d: null,
     ambientCue: null,
+    remoteAvStream: null,
 
     connect: (code, me, opts) => {
       get().conn?.disconnect();
@@ -453,6 +483,7 @@ export const useTableStore = create<TableState>((set, get) => {
         music: DEFAULT_MUSIC_STATE,
         camera3d: null,
         ambientCue: null,
+        remoteAvStream: null,
       });
 
       const conn = connectRoom(code, me, {
@@ -512,6 +543,7 @@ export const useTableStore = create<TableState>((set, get) => {
         music: DEFAULT_MUSIC_STATE,
         camera3d: null,
         ambientCue: null,
+        remoteAvStream: null,
       });
     },
 
@@ -597,6 +629,14 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       get().conn?.send({ type: 'profile:upsert', payload: entry });
     },
+
+    sendRoomEvent: (ev) => {
+      get().conn?.send(ev);
+    },
+    setWebrtcHandler: (fn) => {
+      webrtcHandler = fn;
+    },
+    setRemoteAvStream: (s) => set({ remoteAvStream: s }),
 
     upsertToken: (t) => {
       const sceneId = get().activeSceneId;

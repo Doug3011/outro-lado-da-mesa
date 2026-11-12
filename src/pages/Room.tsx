@@ -14,6 +14,8 @@ import { NotificationToasts } from '../components/NotificationToasts';
 import { DiceRollFX } from '../components/DiceRollFX';
 import { MusicPlayer } from '../components/MusicPlayer';
 import { AmbientPlayer } from '../components/AmbientPlayer';
+import { AvBroadcastController } from '../components/AvBroadcastController';
+import { RemoteAudioSink } from '../components/RemoteAudioSink';
 import { BattleMap } from '../components/BattleMap';
 import { Battle3D } from '../components/Battle3D';
 import { SceneTransition } from '../components/SceneTransition';
@@ -31,6 +33,7 @@ export function Room() {
   const upsertCharacter = useTableStore((s) => s.upsertCharacter);
   const setActiveCharacter = useTableStore((s) => s.setActiveCharacter);
   const sendProfile = useTableStore((s) => s.sendProfile);
+  const roomMode = useTableStore((s) => s.mode);
   const linkedPushed = useRef<string | null>(null);
 
   useEffect(() => {
@@ -126,8 +129,10 @@ export function Room() {
       <TopBar code={code.toUpperCase()} />
       <NotificationToasts />
       <DiceRollFX />
-      {hasLan && <MusicPlayer />}
-      {hasLan && <AmbientPlayer />}
+      {(hasLan && (roomMode === 'lan' || me.isGM)) && <MusicPlayer />}
+      {(hasLan && (roomMode === 'lan' || me.isGM)) && <AmbientPlayer />}
+      {roomMode && roomMode !== 'lan' && <AvBroadcastController />}
+      {roomMode && roomMode !== 'lan' && !me.isGM && <RemoteAudioSink />}
       <div className="room-body">
         <div className="map-area">
           {scene.kind === '3d' ? <Battle3D /> : <BattleMap />}
