@@ -43,7 +43,7 @@ import {
 } from '../domain/character';
 import { uid } from '../lib/ids';
 import { fileToDownscaledDataURL } from '../lib/image';
-import { RITUALS, type RitualDef } from '../data/rituals';
+import { RITUALS, RITUAL_BY_NAME, ritualCost, ritualRollDice, type RitualDef } from '../data/rituals';
 import { EQUIPMENT_CATALOG } from '../data/equipmentCatalog';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
 import { CLASS_POWERS, type ClassPowerDef } from '../data/classPowers';
@@ -1314,6 +1314,58 @@ export function CharacterSheet({
                       ganho por classe/trilha (não conta na vaga)
                     </span>
                   </label>
+                  {(() => {
+                    const def = RITUAL_BY_NAME[rt.name];
+                    if (!def) return null;
+                    const hasAdvanced = def.discenteCost !== undefined || def.verdadeiroCost !== undefined;
+                    const variant = rt.variant ?? 'padrao';
+                    const cost = ritualCost(def, variant);
+                    const dice = ritualRollDice(def, variant);
+                    const canAfford = draft.pe.current >= cost;
+                    return (
+                      <div style={{ marginTop: 6 }}>
+                        {hasAdvanced && (
+                          <div className="chip-row" style={{ marginBottom: 6 }}>
+                            {(
+                              [
+                                { v: 'padrao' as const, show: true, effect: undefined },
+                                { v: 'discente' as const, show: def.discenteCost !== undefined, effect: def.discenteEffect },
+                                { v: 'verdadeiro' as const, show: def.verdadeiroCost !== undefined, effect: def.verdadeiroEffect },
+                              ] as const
+                            )
+                              .filter((o) => o.show)
+                              .map(({ v, effect }) => (
+                                <span
+                                  key={v}
+                                  className={`chip ${variant === v ? 'on' : ''}`}
+                                  title={effect}
+                                  onClick={() => updateRitual(draft, patch, rt.id, { variant: v })}
+                                >
+                                  {v === 'padrao' ? 'Padrão' : v === 'discente' ? 'Discente' : 'Verdadeiro'} ({ritualCost(def, v)} PE)
+                                </span>
+                              ))}
+                          </div>
+                        )}
+                        <button
+                          className="small primary"
+                          disabled={!canAfford}
+                          title={
+                            canAfford
+                              ? dice
+                                ? `Rola ${dice} e desconta ${cost} PE`
+                                : `Desconta ${cost} PE`
+                              : `PE insuficiente (custa ${cost}, você tem ${draft.pe.current})`
+                          }
+                          onClick={() => {
+                            patch({ pe: { ...draft.pe, current: draft.pe.current - cost } });
+                            if (dice) rollFree(`${draft.name} · ${rt.name} (${variant})`, dice);
+                          }}
+                        >
+                          Conjurar ({cost} PE{dice ? ` · ${dice}` : ''})
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
               <button className="small" onClick={() => patch({ rituals: [...draft.rituals, emptyRitual()] })}>

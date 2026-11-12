@@ -46,6 +46,11 @@ export interface Ritual {
   duration: string;
   description: string;
   freeSource?: boolean; // ganho por classe/trilha — não conta no limite de rituais conhecidos
+  // Qual forma foi escolhida pra conjurar (padrão/discente/verdadeiro) —
+  // só tem efeito prático (custo em PE diferente, dado diferente) quando
+  // esse ritual existe no compêndio com essas formas cadastradas (ver
+  // RITUAL_BY_NAME/ritualCost em data/rituals.ts). Ausente = padrão.
+  variant?: 'padrao' | 'discente' | 'verdadeiro';
 }
 
 export interface Ability {
