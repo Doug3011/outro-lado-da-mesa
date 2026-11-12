@@ -57,23 +57,47 @@ export async function removeCharacter(_code: string, id: string): Promise<void> 
   }
 }
 
+async function upsertRoomScenes(code: string, scenes: Scene[], activeSceneId: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase
+      .from('rooms')
+      .upsert({
+        code,
+        scenes,
+        active_scene_id: activeSceneId,
+        updated_at: new Date().toISOString(),
+      });
+  } catch (err) {
+    console.warn('[persistence] saveScenes', err);
+  }
+}
+
 let scenesTimer: ReturnType<typeof setTimeout> | null = null;
 // escrita agregada: muitos movimentos de token não devem virar muitas gravações
 export function saveScenes(code: string, scenes: Scene[], activeSceneId: string): void {
   if (!supabase) return;
   if (scenesTimer) clearTimeout(scenesTimer);
-  scenesTimer = setTimeout(async () => {
-    try {
-      await supabase!
-        .from('rooms')
-        .upsert({
-          code,
-          scenes,
-          active_scene_id: activeSceneId,
-          updated_at: new Date().toISOString(),
-        });
-    } catch (err) {
-      console.warn('[persistence] saveScenes', err);
-    }
+  scenesTimer = setTimeout(() => {
+    void upsertRoomScenes(code, scenes, activeSceneId);
   }, 1200);
+}
+
+// Versão sem debounce — usada só ao CRIAR um cenário novo (addScene/
+// addScene3d em useTableStore.ts). O broadcast em tempo real (Supabase
+// Realtime) tem limite de 256KB por mensagem; um cenário com imagem de
+// fundo/modelo 3D embutido como data URL estoura isso fácil e o
+// `scene:upsert` correspondente simplesmente não chega nos outros
+// participantes (sem erro nenhum visível) — o jogador então recebe só o
+// `scene:switch` (evento pequeno, esse sempre chega) apontando pra uma
+// cena que ele nunca viu. O self-heal em `scene:switch` (useTableStore.ts)
+// busca a cena que falta direto daqui, do banco — por isso não dá pra
+// esperar o debounce de 1200ms de `saveScenes`, senão o self-heal busca
+// cedo demais e não acha nada.
+export function saveScenesNow(code: string, scenes: Scene[], activeSceneId: string): Promise<void> {
+  if (scenesTimer) {
+    clearTimeout(scenesTimer);
+    scenesTimer = null;
+  }
+  return upsertRoomScenes(code, scenes, activeSceneId);
 }

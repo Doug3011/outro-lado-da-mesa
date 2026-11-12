@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { connectRoom, type Camera3D, type ProfileEntry, type RoomConnection, type RoomEvent } from '../lib/realtime';
-import { loadRoom, removeCharacter, saveCharacter, saveScenes } from '../lib/persistence';
+import { loadRoom, removeCharacter, saveCharacter, saveScenes, saveScenesNow } from '../lib/persistence';
 import { rollExpression, rollOrdemTest } from '../domain/dice';
 import type { Character } from '../domain/character';
 import { ELEMENT_COLOR } from '../data/ordem';
@@ -211,6 +211,32 @@ export const useTableStore = create<TableState>((set, get) => {
   const patchScene = (id: string, fn: (sc: Scene) => Scene): Scene[] =>
     get().scenes.map((sc) => (sc.id === id ? fn(sc) : sc));
 
+  // Chega um `scene:switch` pra uma cena que este cliente não conhece —
+  // normalmente porque o `scene:upsert` correspondente nunca chegou (mesa
+  // pela internet/Supabase: broadcast tem limite de 256KB por mensagem, um
+  // cenário com imagem de fundo ou modelo 3D embutido estoura isso fácil e
+  // a mensagem simplesmente não chega, sem erro nenhum visível). Em vez de
+  // ficar preso mostrando a cena errada (`activeScene` cai pro scenes[0]),
+  // busca o cenário certo direto do banco — já é escrito lá em paralelo
+  // (ver saveScenesNow/saveScenes). Tenta de novo 2x com um intervalo (a
+  // escrita no banco pode ainda não ter terminado na primeira tentativa).
+  const healMissingScene = (id: string, attempt = 0) => {
+    const code = get().code;
+    if (!code) return;
+    void loadRoom(code).then((loaded) => {
+      if (!loaded) return;
+      const hasIt = loaded.scenes.some((sc) => sc.id === id);
+      set((st) => ({
+        scenes: loaded.scenes.length ? loaded.scenes : st.scenes,
+        activeSceneId: hasIt ? id : st.activeSceneId,
+      }));
+      persist();
+      if (!hasIt && attempt < 2) {
+        window.setTimeout(() => healMissingScene(id, attempt + 1), 1200);
+      }
+    });
+  };
+
   const addRoll = (entry: RollLogEntry) => {
     set((s) => ({ rollLog: [entry, ...s.rollLog].slice(0, 200) }));
     persist();
@@ -343,8 +369,12 @@ export const useTableStore = create<TableState>((set, get) => {
         persist();
         break;
       case 'scene:switch':
-        set({ activeSceneId: ev.payload.id });
-        persist();
+        if (s.scenes.some((sc) => sc.id === ev.payload.id)) {
+          set({ activeSceneId: ev.payload.id });
+          persist();
+        } else {
+          healMissingScene(ev.payload.id);
+        }
         break;
       case 'music:state':
         set({ music: ev.payload });
@@ -731,7 +761,8 @@ export const useTableStore = create<TableState>((set, get) => {
       const sc = makeScene(name?.trim() || `Cenário ${get().scenes.length + 1}`);
       set((s) => ({ scenes: [...s.scenes, sc], activeSceneId: sc.id }));
       persist();
-      pushScenesToDb();
+      const s = get();
+      if (s.code) void saveScenesNow(s.code, s.scenes, s.activeSceneId);
       get().conn?.send({ type: 'scene:upsert', payload: sc });
       get().conn?.send({ type: 'scene:switch', payload: { id: sc.id } });
     },
@@ -745,7 +776,8 @@ export const useTableStore = create<TableState>((set, get) => {
         : makeScene(name?.trim() || `Cenário ${get().scenes.length + 1}`, '3d');
       set((s) => ({ scenes: [...s.scenes, sc], activeSceneId: sc.id }));
       persist();
-      pushScenesToDb();
+      const s = get();
+      if (s.code) void saveScenesNow(s.code, s.scenes, s.activeSceneId);
       get().conn?.send({ type: 'scene:upsert', payload: sc });
       get().conn?.send({ type: 'scene:switch', payload: { id: sc.id } });
     },
