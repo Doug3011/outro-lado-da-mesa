@@ -8,6 +8,7 @@
 import { supabase } from './supabase';
 import type { Character } from '../domain/character';
 import type { Scene } from '../types';
+import { loadHeavySceneData, saveHeavySceneData } from './localSceneCache';
 
 export interface LoadedRoom {
   characters: Character[];
@@ -26,15 +27,41 @@ export async function loadRoom(code: string): Promise<LoadedRoom | null> {
       console.warn('[persistence] leitura parcial', chars.error || room.error);
     }
     const rd = (room.data ?? {}) as unknown as { scenes?: Scene[]; active_scene_id?: string };
+    const scenes = await Promise.all((rd.scenes ?? []).map(rehydrateHeavySceneData));
     return {
       characters: (chars.data ?? []).map((r) => r.data as Character),
-      scenes: rd.scenes ?? [],
+      scenes,
       activeSceneId: rd.active_scene_id ?? '',
     };
   } catch (err) {
     console.warn('[persistence] loadRoom falhou (rode o schema.sql?)', err);
     return null;
   }
+}
+
+// O banco guarda cenário 3D sem `ground`/`objects3d` (ver stripHeavySceneData
+// abaixo) — religa de volta a partir do cache local (IndexedDB, mesmo
+// computador) deste mestre, se existir. Cena 2D ou cenário 3D vindo de
+// outro computador (nunca salvou aqui) fica como veio do banco mesmo —
+// sem o cache local, não tem como ter essa parte, mas pelo menos o resto
+// da cena (tokens, nome) continua certo.
+async function rehydrateHeavySceneData(sc: Scene): Promise<Scene> {
+  if (sc.kind !== '3d') return sc;
+  const cached = await loadHeavySceneData(sc.id);
+  if (!cached) return sc;
+  return { ...sc, ground: cached.ground, objects3d: cached.objects3d };
+}
+
+// Separa o que é pesado demais pro banco (textura/modelo 3D embutidos como
+// data URL, podem passar de dezenas de MB — o mesmo estouro de tamanho já
+// corrigido pro broadcast em tempo real, ver sceneForBroadcast em
+// useTableStore.ts) do resto da cena. A parte pesada vai só pro cache
+// local (IndexedDB); o banco guarda uma versão enxuta (nome/tokens/etc.),
+// que é o suficiente pra outro computador saber que aquela cena existe.
+function stripHeavySceneData(sc: Scene): Scene {
+  if (sc.kind !== '3d') return sc;
+  void saveHeavySceneData(sc.id, { ground: sc.ground, objects3d: sc.objects3d });
+  return { ...sc, ground: null, objects3d: [] };
 }
 
 export async function saveCharacter(code: string, c: Character): Promise<void> {
@@ -64,7 +91,7 @@ async function upsertRoomScenes(code: string, scenes: Scene[], activeSceneId: st
       .from('rooms')
       .upsert({
         code,
-        scenes,
+        scenes: scenes.map(stripHeavySceneData),
         active_scene_id: activeSceneId,
         updated_at: new Date().toISOString(),
       });

@@ -9,6 +9,7 @@ import { saveMyCharacter } from '../lib/characterLibrary';
 import type { PlayerProfile } from '../domain/profile';
 import { placeToScene, type Place } from '../lib/placeLibrary';
 import { map2dToScene, type Map2D } from '../lib/map2dLibrary';
+import { loadHeavySceneData, saveHeavySceneData } from '../lib/localSceneCache';
 import {
   DEFAULT_MUSIC_STATE,
   makeScene,
@@ -185,12 +186,41 @@ export const activeScene = (s: Pick<TableState, 'scenes' | 'activeSceneId'>): Sc
   s.scenes.find((sc) => sc.id === s.activeSceneId) ?? s.scenes[0];
 
 export const useTableStore = create<TableState>((set, get) => {
+  // Mesmo problema do limite de tamanho do Supabase (ver sceneForBroadcast/
+  // rehydrateHeavySceneData), só que agora é a cota do PRÓPRIO localStorage
+  // (uns 5-10MB por origem) — um cenário 3D de verdade (chão/objetos como
+  // data URL) sozinho já pode estourar isso, e o `try/catch` abaixo então
+  // silenciosamente MANTINHA o valor antigo em cache (sem o cenário 3D
+  // novo), dando a impressão de "só o 2D fica salvo". Tira `ground`/
+  // `objects3d` antes de gravar no localStorage e manda pro mesmo cache
+  // IndexedDB (sem limite realista) usado pelo lado do Supabase.
+  const stripHeavySceneDataLocal = (sc: Scene): Scene => {
+    if (sc.kind !== '3d') return sc;
+    void saveHeavySceneData(sc.id, { ground: sc.ground, objects3d: sc.objects3d });
+    return { ...sc, ground: null, objects3d: [] };
+  };
+
+  // Religa `ground`/`objects3d` de volta num array de cenas a partir do
+  // cache IndexedDB — usado depois de ler o cache leve do localStorage (ver
+  // persist()) e depois do merge com o que vier do Supabase em connect(),
+  // sem depender da guarda "untouched" (que só decide se usa dados vindos
+  // do banco pro resto da cena, não se religa o 3D pesado).
+  const rehydrateHeavySceneDataLocal = async (scenes: Scene[]): Promise<Scene[]> =>
+    Promise.all(
+      scenes.map(async (sc) => {
+        if (sc.kind !== '3d' || sc.ground || sc.objects3d.length > 0) return sc;
+        const cached = await loadHeavySceneData(sc.id);
+        if (!cached) return sc;
+        return { ...sc, ground: cached.ground, objects3d: cached.objects3d };
+      }),
+    );
+
   const persist = () => {
     const s = get();
     if (!s.code) return;
     const cache: Cache = {
       characters: Object.values(s.characters),
-      scenes: s.scenes,
+      scenes: s.scenes.map(stripHeavySceneDataLocal),
       activeSceneId: s.activeSceneId,
       rollLog: s.rollLog.slice(0, 120),
       notifications: s.notifications.slice(0, 120),
@@ -206,6 +236,27 @@ export const useTableStore = create<TableState>((set, get) => {
     } catch {
       /* quota cheia (imagens grandes) — o app segue, mas pode não persistir ao recarregar */
     }
+  };
+
+  // Religa `ground`/`objects3d` em qualquer cena 3D que ainda esteja sem
+  // eles — chamado depois de carregar o cache local (localStorage, que
+  // agora guarda a versão enxuta, ver persist()) e de novo depois do merge
+  // com o Supabase em connect(), sem depender da guarda "untouched" (essa
+  // só decide se adota o RESTO da cena vindo do banco, não afeta isso).
+  // Só patcheia cenas que CONTINUAM sem dado pesado no momento em que a
+  // busca no IndexedDB termina — se enquanto isso outra fonte (ex. o merge
+  // do Supabase) já preencheu, não sobrescreve.
+  const rehydrateHeavySceneDataNow = () => {
+    const snapshot = get().scenes;
+    if (!snapshot.some((sc) => sc.kind === '3d' && !sc.ground && sc.objects3d.length === 0)) return;
+    void rehydrateHeavySceneDataLocal(snapshot).then((rehydrated) => {
+      set((st) => ({
+        scenes: st.scenes.map((sc) => {
+          if (sc.kind !== '3d' || sc.ground || sc.objects3d.length > 0) return sc;
+          return rehydrated.find((r) => r.id === sc.id) ?? sc;
+        }),
+      }));
+    });
   };
 
   const pushScenesToDb = () => {
@@ -542,6 +593,7 @@ export const useTableStore = create<TableState>((set, get) => {
         ambientCue: null,
         remoteAvStream: null,
       });
+      rehydrateHeavySceneDataNow();
 
       const conn = connectRoom(code, me, {
         onEvent: applyEvent,
@@ -582,6 +634,7 @@ export const useTableStore = create<TableState>((set, get) => {
           };
         });
         persist();
+        rehydrateHeavySceneDataNow();
       });
 
       setTimeout(() => {

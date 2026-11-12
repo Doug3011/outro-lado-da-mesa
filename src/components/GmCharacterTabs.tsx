@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useTableStore } from '../store/useTableStore';
+import { loadMyCharacters } from '../lib/characterLibrary';
 import { CharacterCard } from './CharacterCard';
 import { CharacterSheet } from './CharacterSheet';
 
@@ -57,18 +59,28 @@ export function GmCharacterTabs({
 }) {
   const characters = useTableStore((s) => s.characters);
   const deleteCharacter = useTableStore((s) => s.deleteCharacter);
+  const upsertCharacter = useTableStore((s) => s.upsertCharacter);
   const list = Object.values(characters).sort((a, b) => a.name.localeCompare(b.name));
   const activeChar = activeId ? characters[activeId] : null;
   const openTabs = openIds.map((id) => characters[id]).filter((c): c is (typeof characters)[string] => !!c);
 
+  // Pedido do usuário: mestre poder colocar ficha na mesa direto (pra
+  // testar combate, NPCs etc.) sem depender de um jogador vincular a
+  // própria — pega da MESMA biblioteca local de "Minhas Fichas", só não
+  // repete quem já está na mesa.
+  const [addFilter, setAddFilter] = useState('');
+  const myChars = loadMyCharacters().filter((c) => !characters[c.id]);
+  const addMatches = myChars.filter((c) => !addFilter.trim() || c.name.toLowerCase().includes(addFilter.trim().toLowerCase()));
+
   return (
     <div>
       <p className="faint" style={{ fontSize: 12, marginBottom: 8 }}>
-        Fichas vinculadas a esta mesa pelos jogadores que entraram. Clique pra abrir
+        Fichas vinculadas a esta mesa (pelos jogadores que entraram, ou adicionadas por você logo
+        abaixo). Clique pra abrir
         {floatingPicker ? ' numa janela.' : ' numa aba.'}
       </p>
       {list.length === 0 && (
-        <p className="empty">Nenhum jogador vinculou uma ficha a esta mesa ainda.</p>
+        <p className="empty">Nenhuma ficha nesta mesa ainda.</p>
       )}
       {list.length > 0 && (
         <div className="char-card-list" style={{ marginBottom: 14 }}>
@@ -99,6 +111,32 @@ export function GmCharacterTabs({
             </div>
           ))}
         </div>
+      )}
+
+      {myChars.length > 0 && (
+        <details className="ritual-picker" style={{ marginBottom: 14 }}>
+          <summary>+ Adicionar ficha da sua biblioteca</summary>
+          <input
+            placeholder="Filtrar por nome…"
+            value={addFilter}
+            onChange={(e) => setAddFilter(e.target.value)}
+            style={{ margin: '8px 0' }}
+          />
+          {addMatches.map((c) => (
+            <div className="ritual-row" key={c.id}>
+              <button className="small" title="Adicionar à mesa" onClick={() => upsertCharacter(c)}>
+                +
+              </button>
+              <span>
+                <strong>{c.name}</strong>{' '}
+                <small className="faint">
+                  {c.classe} · NEX {c.nex}%
+                </small>
+              </span>
+            </div>
+          ))}
+          {addMatches.length === 0 && <p className="faint" style={{ fontSize: 12, padding: 8 }}>Nenhuma ficha encontrada.</p>}
+        </details>
       )}
 
       {floatingPicker ? (
