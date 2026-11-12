@@ -898,7 +898,9 @@ export function Home() {
         </div>
 
         <footer className="rd-menu-footer">
-          <span className="rd-menu-footer-note">Mesa de fã para jogar com os amigos · sem fins comerciais</span>
+          <span className="rd-menu-footer-note">
+            Mesa de fã para jogar com os amigos · sem fins comerciais · v{__APP_VERSION__}
+          </span>
           <div className="rd-menu-net-card" style={{ '--rd-net-dot': modeBadge.dot } as CSSProperties}>
             <span className="rd-menu-net-dot" />
             <div className="rd-menu-net-text">
