@@ -1078,22 +1078,68 @@ export function CharacterSheet({
                           </button>
                         </div>
                         {expanded ? (
-                          <textarea
-                            className="ability-description"
-                            value={ab.description}
-                            placeholder="Descrição"
-                            onChange={(e) => updateAbility(draft, patch, ab.id, { description: e.target.value })}
-                          />
+                          <>
+                            <textarea
+                              className="ability-description"
+                              value={ab.description}
+                              placeholder="Descrição"
+                              onChange={(e) => updateAbility(draft, patch, ab.id, { description: e.target.value })}
+                            />
+                            <div className="row" style={{ marginTop: 6, alignItems: 'center' }}>
+                              <input
+                                style={{ maxWidth: 140 }}
+                                value={ab.rollDice ?? ''}
+                                placeholder="Dado (ex.: 2d6) — opcional"
+                                onChange={(e) =>
+                                  updateAbility(draft, patch, ab.id, { rollDice: e.target.value || undefined })
+                                }
+                              />
+                              {ab.rollDice && (
+                                <button
+                                  className="small"
+                                  onClick={() => rollFree(`${draft.name} · ${ab.name || 'habilidade'}`, ab.rollDice!)}
+                                >
+                                  Rolar
+                                </button>
+                              )}
+                            </div>
+                          </>
                         ) : preview ? (
                           <p className="ability-preview" onClick={() => abilityManyExpand.toggle(ab.id)}>
                             {preview.length > 120 ? `${preview.slice(0, 120)}…` : preview}
+                            {ab.rollDice ? ` · ${ab.rollDice}` : ''}
                           </p>
                         ) : null}
+                        {!expanded && ab.rollDice && (
+                          <button
+                            className="small"
+                            style={{ marginTop: 4 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              rollFree(`${draft.name} · ${ab.name || 'habilidade'}`, ab.rollDice!);
+                            }}
+                          >
+                            Rolar {ab.rollDice}
+                          </button>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               ))}
+              <button
+                className="small ghost"
+                onClick={() =>
+                  patch({
+                    abilities: [
+                      ...draft.abilities,
+                      { id: uid(), name: '', source: 'Personalizada', description: '' },
+                    ],
+                  })
+                }
+              >
+                + Criar habilidade
+              </button>
               <details className="ritual-picker">
                 <summary>+ Adicionar poder geral do livro</summary>
                 <input

@@ -8,9 +8,37 @@ import {
   type AttrKey,
   type Training,
 } from '../data/ordem';
+import { uid } from '../lib/ids';
 import { DiceShapeIcon } from './icons';
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
+
+// Dados personalizados (pedido do usuário: "quando eu pedir aos jogadores
+// uma rolagem específica que ainda não existe na lista") — persistido por
+// computador (localStorage), ao lado dos presets fixos (QUICK) de sempre.
+interface CustomDie {
+  id: string;
+  label: string;
+  expression: string;
+}
+const CUSTOM_DICE_KEY = 'ordem:custom-dice';
+
+function readCustomDice(): CustomDie[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_DICE_KEY);
+    return raw ? (JSON.parse(raw) as CustomDie[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCustomDice(list: CustomDie[]) {
+  try {
+    localStorage.setItem(CUSTOM_DICE_KEY, JSON.stringify(list));
+  } catch {
+    /* localStorage indisponível — perde só a lista salva, sem travar nada */
+  }
+}
 
 // Botão/janela flutuante "Dados" — abas "Teste de perícia"/"Rolagem livre"
 // (REDESIGN Passo 4, igual à referência Mesa-Mestre.dc.html: `diceTab`/
@@ -54,6 +82,26 @@ export function DiceRoller() {
   }, [skillDef, attrKey, activeChar]);
 
   const [freeExpr, setFreeExpr] = useState('1d20');
+  const [customDice, setCustomDice] = useState<CustomDie[]>(readCustomDice);
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [newDieLabel, setNewDieLabel] = useState('');
+  const [newDieExpr, setNewDieExpr] = useState('');
+
+  const addCustomDie = () => {
+    if (!newDieLabel.trim() || !newDieExpr.trim()) return;
+    const next = [...customDice, { id: uid(), label: newDieLabel.trim(), expression: newDieExpr.trim() }];
+    setCustomDice(next);
+    writeCustomDice(next);
+    setNewDieLabel('');
+    setNewDieExpr('');
+    setAddingCustom(false);
+  };
+
+  const removeCustomDie = (id: string) => {
+    const next = customDice.filter((d) => d.id !== id);
+    setCustomDice(next);
+    writeCustomDice(next);
+  };
 
   const doOrdem = () => {
     rollOrdem({
@@ -213,6 +261,75 @@ export function DiceRoller() {
           </button>
         </div>
       </div>
+
+      {customDice.length > 0 && (
+        <div className="rd-dice-grid" style={{ marginTop: 10 }}>
+          {customDice.map((d) => (
+            <div key={d.id} style={{ position: 'relative' }}>
+              <button
+                className="rd-dice-btn"
+                title={d.expression}
+                onClick={() => rollFree(d.label, d.expression)}
+                style={{ width: '100%' }}
+              >
+                <DiceShapeIcon sides={6} />
+                <span className="rd-dice-btn-label">{d.label}</span>
+              </button>
+              <button
+                className="small ghost"
+                title="Remover dado personalizado"
+                aria-label={`Remover ${d.label}`}
+                style={{ position: 'absolute', top: -6, right: -6, padding: '0 4px' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeCustomDie(d.id);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {addingCustom ? (
+        <div className="field" style={{ marginTop: 10 }}>
+          <label>Novo dado — nome e expressão</label>
+          <div className="row">
+            <input
+              placeholder="Ex.: Dano da granada"
+              value={newDieLabel}
+              onChange={(e) => setNewDieLabel(e.target.value)}
+            />
+            <input
+              placeholder="Ex.: 3d6+2"
+              value={newDieExpr}
+              onChange={(e) => setNewDieExpr(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addCustomDie()}
+            />
+          </div>
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="primary" style={{ flex: 'none' }} onClick={addCustomDie}>
+              Salvar
+            </button>
+            <button
+              className="small ghost"
+              style={{ flex: 'none' }}
+              onClick={() => {
+                setAddingCustom(false);
+                setNewDieLabel('');
+                setNewDieExpr('');
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className="small ghost" style={{ marginTop: 10 }} onClick={() => setAddingCustom(true)}>
+          + Novo dado
+        </button>
+      )}
         </>
       )}
     </div>

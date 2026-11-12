@@ -53,6 +53,10 @@ export interface Ability {
   name: string;
   source: string; // classe, trilha, poder paranormal, origem...
   description: string;
+  // Dado opcional (ex. "2d6") — só habilidades criadas pelo jogador com um
+  // efeito que vale a pena rolar direto da ficha (pedido do usuário: criar
+  // habilidade nova e já rolar clicando nela, igual arma/ritual).
+  rollDice?: string;
 }
 
 // Escolha de um "Poder de Classe" (NEX 15/30/45/60/75/90). `abilityId` liga essa
