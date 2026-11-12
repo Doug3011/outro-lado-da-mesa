@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { useIdentity } from '../hooks/useIdentity';
 import { useTableStore } from '../store/useTableStore';
 import { ambientClipUrl } from '../lib/ambientLibrary';
+import { connectAudioElement } from '../lib/avMix';
 
 const VOLUME_KEY = 'ordem:ambient-volume';
 
@@ -17,8 +19,10 @@ function readVolume(): number {
 // Vários sons podem tocar sobrepostos (cada disparo ganha seu próprio
 // elemento de áudio) — soundboard de verdade, não troca o que já está tocando.
 export function AmbientPlayer() {
+  const { me } = useIdentity();
   const ambientCue = useTableStore((s) => s.ambientCue);
   const code = useTableStore((s) => s.code);
+  const roomMode = useTableStore((s) => s.mode);
   const lastNonceRef = useRef<string | null>(null);
   // Vários efeitos podem tocar sobrepostos (soundboard de verdade) — guarda
   // TODOS os <audio> ativos no momento, não só o último, pra conseguir
@@ -29,8 +33,22 @@ export function AmbientPlayer() {
   useEffect(() => {
     if (!ambientCue || ambientCue.nonce === lastNonceRef.current) return;
     lastNonceRef.current = ambientCue.nonce;
-    const audio = new Audio(ambientClipUrl(ambientCue.clipId, code));
+    // Jogador numa mesa pela internet não busca o efeito aqui — não alcança
+    // o servidor local do mestre (só `code` em rede local, "host:porta", é
+    // um endereço válido pra isso) e de qualquer forma vai ouvir o efeito já
+    // misturado no áudio recebido via WebRTC (RemoteAudioSink.tsx), igual já
+    // acontece com a música — ver `connectAudioElement` abaixo.
+    if (!me.isGM && roomMode !== 'lan') return;
+    const roomHostForClip = !me.isGM && roomMode === 'lan' ? code : null;
+    const audio = new Audio(ambientClipUrl(ambientCue.clipId, roomHostForClip));
     audio.volume = readVolume();
+    // Mesa pela internet: manda esse efeito também pro mix que vai pros
+    // jogadores via WebRTC (mesmo grafo de áudio da música, ver avMix.ts) —
+    // como o volume do elemento é aplicado ANTES de entrar no grafo, o
+    // slider de volume do mestre (readVolume acima / evento de baixo) já
+    // controla sozinho o quanto o efeito sai pra mesa toda, sem precisar de
+    // um controle de volume "de saída" separado.
+    if (me.isGM && roomMode !== 'lan') connectAudioElement(audio);
     activeAudiosRef.current.add(audio);
     const cleanup = () => activeAudiosRef.current.delete(audio);
     audio.addEventListener('ended', cleanup);
@@ -41,7 +59,7 @@ export function AmbientPlayer() {
       // mesmo); pros outros, só não toca silenciosamente, sem travar nada.
       cleanup();
     });
-  }, [ambientCue, code]);
+  }, [ambientCue, code, me.isGM, roomMode]);
 
   // Achado num bug reportado pelo usuário: o volume só valia pro som
   // seguinte, nunca pro que já estava tocando — mesmo padrão que a música

@@ -128,7 +128,12 @@ export function MusicPanel() {
           </div>
         )}
         <div className="field" style={{ marginTop: 10, maxWidth: 260 }}>
-          <label>🔊 Seu volume (só no seu aparelho)</label>
+          <label>
+            🔊{' '}
+            {me.isGM && roomMode !== 'lan'
+              ? 'Volume (numa mesa pela internet, é também o que os players ouvem)'
+              : 'Seu volume (só no seu aparelho)'}
+          </label>
           <input
             type="range"
             min={0}

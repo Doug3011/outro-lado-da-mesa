@@ -17,7 +17,7 @@ function readVolume(): number {
 export function AmbientPanel() {
   const { me } = useIdentity();
   const playAmbient = useTableStore((s) => s.playAmbient);
-  const code = useTableStore((s) => s.code);
+  const roomMode = useTableStore((s) => s.mode);
   const [volume, setVolume] = useState(readVolume);
 
   useEffect(() => {
@@ -33,7 +33,12 @@ export function AmbientPanel() {
   return (
     <div className="music-panel">
       <div className="field" style={{ marginBottom: 14, maxWidth: 260 }}>
-        <label>🔊 Seu volume dos efeitos (só no seu aparelho)</label>
+        <label>
+          🔊{' '}
+          {me.isGM && roomMode !== 'lan'
+            ? 'Volume dos efeitos (numa mesa pela internet, é também o que os players ouvem)'
+            : 'Seu volume dos efeitos (só no seu aparelho)'}
+        </label>
         <input
           type="range"
           min={0}
@@ -52,7 +57,7 @@ export function AmbientPanel() {
           <p className="faint" style={{ fontSize: 12, marginBottom: 10 }}>
             Clique num som pra tocar pra mesa toda, na hora, por cima do que já estiver tocando.
           </p>
-          <AmbientLibraryManager mode="room" onTrigger={playAmbient} roomHost={code} />
+          <AmbientLibraryManager mode="room" onTrigger={playAmbient} />
         </>
       ) : (
         <p className="faint" style={{ fontSize: 12 }}>
