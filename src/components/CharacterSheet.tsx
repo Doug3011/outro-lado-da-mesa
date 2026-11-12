@@ -181,13 +181,17 @@ export function CharacterSheet({
     timer.current = window.setTimeout(() => (onSave ? onSave(next) : upsertCharacter(next)), 350);
   };
 
-  // campos cuja mudança dispara recálculo dos derivados
+  // campos cuja mudança dispara recálculo dos derivados. NÃO inclui
+  // 'autoCalc' de propósito — o próprio ato de marcar/desmarcar o checkbox
+  // não deve, sozinho, mexer em PV/PE/SAN (bug relatado pelo usuário: ligar
+  // o automático fazia os pontos caírem sozinhos, porque isso disparava
+  // applyDerived mesmo sem nenhum outro campo ter mudado — ver applyDerived
+  // em domain/character.ts pro resto da correção).
   const RECALC_KEYS: (keyof Character)[] = [
     'attributes',
     'nex',
     'classe',
     'defenseBonus',
-    'autoCalc',
     'classPowers',
     'pdMode',
   ];
@@ -492,7 +496,24 @@ export function CharacterSheet({
               <input
                 type="checkbox"
                 checked={draft.autoCalc}
-                onChange={() => patch({ autoCalc: !draft.autoCalc })}
+                onChange={() => {
+                  // Ligar é o único momento em que faz sentido recalcular — a
+                  // partir daí, só uma mudança de verdade (atributo, NEX...)
+                  // dispara de novo (ver RECALC_KEYS). Desligar só congela os
+                  // valores como estão, sem mexer em nada.
+                  if (!draft.autoCalc) {
+                    const applied = applyDerived({ ...draft, autoCalc: true });
+                    patch({
+                      autoCalc: true,
+                      pv: applied.pv,
+                      pe: applied.pe,
+                      sanity: applied.sanity,
+                      defense: applied.defense,
+                    });
+                  } else {
+                    patch({ autoCalc: false });
+                  }
+                }}
               />
               <span className="rd-toggle-track">
                 <span className="rd-toggle-thumb" />

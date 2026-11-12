@@ -201,14 +201,32 @@ export function deriveStats(char: Character): DerivedStats {
   };
 }
 
-// Aplica os valores derivados a uma ficha (mantendo current <= max). So use quando autoCalc.
+// Quando o máximo de um recurso muda (PV/PE/SAN), decide o que acontece com
+// o valor atual: se já estava no máximo antigo (cheio), continua cheio no
+// máximo novo. Senão, preserva a MESMA diferença (dano/gasto sofrido) em vez
+// de só grudar o atual no novo teto — bug relatado pelo usuário: o clamp
+// antigo (Math.min(current, novoMax)) jogava o atual pro novo máximo toda
+// vez que ele caía abaixo do que já estava, mesmo sem o personagem ter
+// perdido nada "de verdade" entre uma chamada e outra.
+function carryOverCurrent(current: number, oldMax: number, newMax: number): number {
+  if (newMax === oldMax) return current;
+  if (current >= oldMax) return newMax;
+  return Math.max(0, Math.min(newMax, current + (newMax - oldMax)));
+}
+
+// Aplica os valores derivados a uma ficha (mantendo o "dano sofrido" ao
+// mudar o máximo, não zerando current). So use quando autoCalc.
 export function applyDerived(char: Character): Character {
   const d = deriveStats(char);
   return {
     ...char,
-    pv: { ...char.pv, max: d.pvMax, current: Math.min(char.pv.current, d.pvMax) },
-    pe: { ...char.pe, max: d.peMax, current: Math.min(char.pe.current, d.peMax) },
-    sanity: { ...char.sanity, max: d.sanMax, current: Math.min(char.sanity.current, d.sanMax) },
+    pv: { ...char.pv, max: d.pvMax, current: carryOverCurrent(char.pv.current, char.pv.max, d.pvMax) },
+    pe: { ...char.pe, max: d.peMax, current: carryOverCurrent(char.pe.current, char.pe.max, d.peMax) },
+    sanity: {
+      ...char.sanity,
+      max: d.sanMax,
+      current: carryOverCurrent(char.sanity.current, char.sanity.max, d.sanMax),
+    },
     defense: d.defense,
   };
 }
