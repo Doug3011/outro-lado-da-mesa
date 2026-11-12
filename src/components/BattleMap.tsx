@@ -115,6 +115,12 @@ export function BattleMap() {
   const { me } = useIdentity();
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
+  // Música depende do servidor HTTP local do mestre — só existe de verdade
+  // numa mesa em rede local. `hasLan` é característica do EXECUTÁVEL (sempre
+  // true); `roomMode` é da mesa atual — uma mesa pela internet (Supabase)
+  // tem `roomMode === 'supabase'` mesmo rodando no mesmo executável.
+  const roomMode = useTableStore((s) => s.mode);
+  const musicAvailable = hasLan && roomMode === 'lan';
   const characters = useTableStore((s) => s.characters);
   const users = useTableStore((s) => s.users);
   const upsertToken = useTableStore((s) => s.upsertToken);
@@ -218,7 +224,7 @@ export function BattleMap() {
           setHistoricoOpen((o) => !o);
           break;
         case 'KeyS':
-          if (hasLan) setMusicasOpen((o) => !o);
+          if (musicAvailable) setMusicasOpen((o) => !o);
           break;
         case 'KeyP':
           if (me.isGM) setPerfisOpen((o) => !o);
@@ -1299,7 +1305,7 @@ export function BattleMap() {
           topFrac={me.isGM ? 0.63 : 0.41}
           rightFrac={0.04}
         />
-        {hasLan && (
+        {musicAvailable && (
           <FloatingButton
             containerRef={floatingLayerRef}
             dock
@@ -1789,7 +1795,7 @@ export function BattleMap() {
           <RollLog />
         </FloatingWindow>
 
-        {hasLan && (
+        {musicAvailable && (
           <FloatingWindow
             containerRef={floatingLayerRef}
             dock

@@ -262,6 +262,10 @@ export function Battle3D() {
   const { me } = useIdentity();
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
+  // Música depende do servidor HTTP local do mestre — só existe de verdade
+  // numa mesa em rede local (ver mesmo comentário em BattleMap.tsx).
+  const roomMode = useTableStore((s) => s.mode);
+  const musicAvailable = hasLan && roomMode === 'lan';
   const characters = useTableStore((s) => s.characters);
   const users = useTableStore((s) => s.users);
   const upsertToken = useTableStore((s) => s.upsertToken);
@@ -398,7 +402,7 @@ export function Battle3D() {
           setHistoricoOpen((o) => !o);
           break;
         case 'KeyS':
-          if (hasLan && cameraMode !== 'fly') setMusicasOpen((o) => !o);
+          if (musicAvailable && cameraMode !== 'fly') setMusicasOpen((o) => !o);
           break;
         case 'KeyP':
           if (isGM) setPerfisOpen((o) => !o);
@@ -874,7 +878,7 @@ export function Battle3D() {
             topFrac={0.41}
             rightFrac={0.04}
           />
-          {hasLan && (
+          {musicAvailable && (
             <FloatingButton
               containerRef={floatingLayerRef}
               dock
@@ -933,7 +937,7 @@ export function Battle3D() {
             <RollLog />
           </FloatingWindow>
 
-          {hasLan && (
+          {musicAvailable && (
             <FloatingWindow
               containerRef={floatingLayerRef}
               dock
@@ -1031,7 +1035,7 @@ export function Battle3D() {
           topFrac={0.63}
           rightFrac={0.04}
         />
-        {hasLan && (
+        {musicAvailable && (
           <FloatingButton
             containerRef={floatingLayerRef}
             dock
@@ -1427,7 +1431,7 @@ export function Battle3D() {
           <RollLog />
         </FloatingWindow>
 
-        {hasLan && (
+        {musicAvailable && (
           <FloatingWindow
             containerRef={floatingLayerRef}
             dock

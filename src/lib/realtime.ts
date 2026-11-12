@@ -1,6 +1,5 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { hasLan } from './lan';
 import type { Character } from '../domain/character';
 import type { PlayerProfile } from '../domain/profile';
 import type {
@@ -99,12 +98,20 @@ interface Handlers {
   onStatus: (connected: boolean) => void;
 }
 
+// Decide o transporte pelo FORMATO do código, não por `hasLan` (que é uma
+// característica do executável — sempre true — não da mesa escolhida).
+// Código de mesa LAN é sempre "host:porta" (ver getLocalIp em
+// server/main.cjs); código de mesa pela internet é sempre 6 chars sem ":"
+// (ver newRoomCode em lib/ids.ts) — os dois formatos nunca colidem, então
+// dá pra escolher sem ambiguidade e sem precisar saber se o executável tem
+// LAN disponível. Pedido do usuário: tirar o Radmin da jogada — mesa pela
+// internet via Supabase Realtime, só com o código, sem VPN nenhuma.
 export function connectRoom(
   code: string,
   me: PresenceUser,
   handlers: Handlers,
 ): RoomConnection {
-  if (hasLan) return lanRoom(code, me, handlers);
+  if (code.includes(':')) return lanRoom(code, me, handlers);
   return supabase ? supabaseRoom(code, me, handlers) : localRoom(code, me, handlers);
 }
 

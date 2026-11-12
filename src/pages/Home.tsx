@@ -109,6 +109,16 @@ export function Home() {
   const [role, setRole] = useState<Role | null>(codeFromLink ? 'player' : me.isGM ? 'gm' : null);
   const [code, setCode] = useState(codeFromLink);
   const [error, setError] = useState('');
+  // Mesa na rede local (host:porta, Radmin incluso) vs mesa pela internet
+  // (Supabase Realtime, só com um código de 6 chars — ver connectRoom em
+  // lib/realtime.ts) — pedido do usuário: tirar o Radmin da jogada. Os dois
+  // fluxos de UI (hospedar/entrar) já existiam escritos pro caso `!hasLan`;
+  // esse estado só decide QUAL dos dois aparece, em vez de depender só do
+  // executável ter ou não capacidade de LAN. Link de convite sempre assume
+  // internet (código de 6 chars não tem como ser host:porta).
+  const [netMode, setNetMode] = useState<'lan' | 'internet'>(
+    codeFromLink || !hasLan ? 'internet' : 'lan',
+  );
   const [gmAreaTab, setGmAreaTab] = useState<GmAreaTab>('music');
   const [extrasTab, setExtrasTab] = useState<ExtrasTab>('minigames');
   // Item em destaque no menu principal (redesign Passo 2) — hover/foco troca
@@ -160,7 +170,7 @@ export function Home() {
   );
 
   useEffect(() => {
-    if (!hasLan || role === null) return;
+    if (!hasLan || role === null || netMode !== 'lan') return;
     const ctl = new LanControl();
     lanRef.current = ctl;
     ctl.connect({
@@ -190,7 +200,7 @@ export function Home() {
       ctl.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  }, [role, netMode]);
 
   const enter = (roomCode: string) => {
     if (!me.name.trim()) return setError('Escolha um nome.');
@@ -755,7 +765,7 @@ export function Home() {
       });
     }
 
-    const netMode = hasLan
+    const modeBadge = hasLan
       ? {
           dot: '#3ddc84',
           title: 'MODO REDE LOCAL',
@@ -877,11 +887,11 @@ export function Home() {
 
         <footer className="rd-menu-footer">
           <span className="rd-menu-footer-note">Mesa de fã para jogar com os amigos · sem fins comerciais</span>
-          <div className="rd-menu-net-card" style={{ '--rd-net-dot': netMode.dot } as CSSProperties}>
+          <div className="rd-menu-net-card" style={{ '--rd-net-dot': modeBadge.dot } as CSSProperties}>
             <span className="rd-menu-net-dot" />
             <div className="rd-menu-net-text">
-              <span className="rd-menu-net-title">{netMode.title}</span>
-              <span className="rd-menu-net-sub">{netMode.sub}</span>
+              <span className="rd-menu-net-title">{modeBadge.title}</span>
+              <span className="rd-menu-net-sub">{modeBadge.sub}</span>
             </div>
           </div>
         </footer>
@@ -994,7 +1004,24 @@ export function Home() {
           </div>
         )}
 
-        {role === 'gm' && hasLan && (
+        {role !== null && hasLan && (
+          <div className="chip-row" style={{ marginBottom: -6 }}>
+            <span
+              className={`chip ${netMode === 'lan' ? 'on' : ''}`}
+              onClick={() => setNetMode('lan')}
+            >
+              Rede local
+            </span>
+            <span
+              className={`chip ${netMode === 'internet' ? 'on' : ''}`}
+              onClick={() => setNetMode('internet')}
+            >
+              Pela internet
+            </span>
+          </div>
+        )}
+
+        {role === 'gm' && netMode === 'lan' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 860 }}>
             <div className="rd-opt-tabs" role="tablist" aria-label="Opções do mestre">
               <button
@@ -1157,7 +1184,7 @@ export function Home() {
           </div>
         )}
 
-        {role === 'gm' && !hasLan && (
+        {role === 'gm' && netMode === 'internet' && (
           <div className="rd-connect-panel" style={{ maxWidth: 860 }}>
             <div className="rd-form-grid">
               <label className="rd-field">
@@ -1215,8 +1242,11 @@ export function Home() {
         )}
 
         {role === 'player' && (
-          <div className={hasLan ? 'rd-player-grid' : undefined} style={!hasLan ? { maxWidth: 480 } : undefined}>
-            <div className={hasLan ? 'rd-player-col' : undefined}>
+          <div
+            className={netMode === 'lan' ? 'rd-player-grid' : undefined}
+            style={netMode !== 'lan' ? { maxWidth: 480 } : undefined}
+          >
+            <div className={netMode === 'lan' ? 'rd-player-col' : undefined}>
               <div className="rd-connect-panel">
                 <div className="rd-form-grid">
                   <label className="rd-field">
@@ -1281,7 +1311,7 @@ export function Home() {
                   )}
                 </label>
 
-                {hasLan ? (
+                {netMode === 'lan' ? (
                   <>
                     <div className="rd-divider" />
                     <label className="rd-field">
@@ -1324,7 +1354,7 @@ export function Home() {
               </div>
             </div>
 
-            {hasLan && (
+            {netMode === 'lan' && (
               <div className="rd-player-col">
                 <div className="rd-connect-panel">
                   <div className="rd-connect-panel-head">
