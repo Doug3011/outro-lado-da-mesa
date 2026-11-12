@@ -22,17 +22,26 @@ export function MusicPanel() {
   const music = useTableStore((s) => s.music);
   const setMusicState = useTableStore((s) => s.setMusicState);
   const code = useTableStore((s) => s.code);
+  const roomMode = useTableStore((s) => s.mode);
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
   const [volume, setVolume] = useState(readVolume);
   const [blocked, setBlocked] = useState(false);
 
-  // `code` (o host:porta da sala) garante que isso bate no servidor certo
-  // mesmo pra quem entrou na mesa de outro computador — ver comentário em
-  // src/lib/musicLibrary.ts (apiBase). Sem isso, um jogador só enxergava a
-  // biblioteca vazia do PRÓPRIO app, nunca a do mestre.
+  // O mestre sempre fala com o PRÓPRIO servidor local (relativo), em
+  // qualquer modo — só importa pra quem entrou de outro computador, e só
+  // dá pra alcançar o servidor do mestre assim em rede local (`code` vira
+  // "host:porta"). Numa mesa pela internet, o jogador não alcança esse
+  // servidor nenhuma forma — a biblioteca fica vazia pra ele mesmo (o nome
+  // da faixa tocando chega pela rede normal da mesa, ver `music.trackName`
+  // abaixo; o ÁUDIO em si chega via WebRTC, ver RemoteAudioSink.tsx).
+  const roomHostForFetch = me.isGM ? undefined : roomMode === 'lan' ? code : undefined;
   useEffect(() => {
-    void fetchMusicLibrary(code).then((d) => setTracks(d.tracks));
-  }, [music.trackId, code]);
+    if (!me.isGM && roomMode !== 'lan') {
+      setTracks([]);
+      return;
+    }
+    void fetchMusicLibrary(roomHostForFetch).then((d) => setTracks(d.tracks));
+  }, [music.trackId, roomHostForFetch, me.isGM, roomMode]);
 
   // Se o navegador bloquear o autoplay (comum em quem entra por um navegador
   // comum, sem ser pelo app instalado), MusicPlayer.tsx avisa por aqui — mostra
@@ -49,9 +58,20 @@ export function MusicPanel() {
   }, [volume]);
 
   const current = music.trackId ? tracks.find((t) => t.id === music.trackId) : null;
+  // Fallback pra quem não conseguiu buscar a biblioteca (jogador numa mesa
+  // pela internet, ver useEffect acima) — ainda mostra ALGUM nome, em vez de
+  // "tocando" sem dizer o quê.
+  const currentName = current?.name ?? music.trackName;
 
   const play = (trackId: string) => {
-    setMusicState({ trackId, playing: true, startedAt: Date.now(), positionAtStart: 0, loop: music.loop });
+    setMusicState({
+      trackId,
+      trackName: tracks.find((t) => t.id === trackId)?.name ?? null,
+      playing: true,
+      startedAt: Date.now(),
+      positionAtStart: 0,
+      loop: music.loop,
+    });
   };
   const togglePlayPause = () => {
     if (!music.trackId) return;
@@ -62,7 +82,8 @@ export function MusicPanel() {
       setMusicState({ ...music, playing: true, startedAt: Date.now() });
     }
   };
-  const stop = () => setMusicState({ trackId: null, playing: false, startedAt: 0, positionAtStart: 0, loop: music.loop });
+  const stop = () =>
+    setMusicState({ trackId: null, trackName: null, playing: false, startedAt: 0, positionAtStart: 0, loop: music.loop });
   const toggleLoop = () => setMusicState({ ...music, loop: !music.loop });
 
   return (
@@ -71,8 +92,8 @@ export function MusicPanel() {
         <div className="section-title" style={{ margin: 0 }}>
           Tocando agora
         </div>
-        {!current && <p className="faint">Nada tocando. Escolha uma faixa na lista abaixo.</p>}
-        {current && blocked && (
+        {!music.trackId && <p className="faint">Nada tocando. Escolha uma faixa na lista abaixo.</p>}
+        {music.trackId && blocked && (
           <button
             className="small primary"
             style={{ width: '100%', marginBottom: 8 }}
@@ -84,9 +105,9 @@ export function MusicPanel() {
             ▶ Tocar (o navegador bloqueou o som automático)
           </button>
         )}
-        {current && (
+        {music.trackId && (
           <div className="music-now-row">
-            <span className="music-now-name">{current.name}</span>
+            <span className="music-now-name">{currentName ?? 'Música da mesa'}</span>
             {me.isGM && (
               <div className="chip-row" style={{ flex: 'none' }}>
                 <button className="small" onClick={togglePlayPause}>
@@ -127,7 +148,7 @@ export function MusicPanel() {
             activeTrackId={music.trackId}
             isPlaying={music.playing}
             onSelectTrack={play}
-            roomHost={code}
+            roomHost={roomHostForFetch}
           />
         </>
       ) : (

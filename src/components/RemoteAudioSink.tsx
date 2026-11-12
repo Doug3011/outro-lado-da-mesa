@@ -1,9 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { useTableStore } from '../store/useTableStore';
 
+const VOLUME_KEY = 'ordem:music-volume';
+
+function readVolume(): number {
+  const raw = Number(localStorage.getItem(VOLUME_KEY));
+  return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.7;
+}
+
 // Toca o áudio recebido do mestre via WebRTC (música + futuramente outros
 // sons) numa mesa pela internet — só montado pro JOGADOR (ver Room.tsx).
-// Sem UI própria, mesmo padrão "motor sem rosto" do MusicPlayer.tsx.
+// Sem UI própria, mesmo padrão "motor sem rosto" do MusicPlayer.tsx — usa o
+// mesmo slider/evento 'ordem:music-volume' do MusicPanel (é o mesmo áudio
+// pro jogador, só que chegando por WebRTC em vez de arquivo baixado).
 export function RemoteAudioSink() {
   const stream = useTableStore((s) => s.remoteAvStream);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -11,7 +20,17 @@ export function RemoteAudioSink() {
   if (!audioRef.current && typeof Audio !== 'undefined') {
     audioRef.current = new Audio();
     audioRef.current.autoplay = true;
+    audioRef.current.volume = readVolume();
   }
+
+  useEffect(() => {
+    const onVolume = (e: Event) => {
+      const audio = audioRef.current;
+      if (audio) audio.volume = (e as CustomEvent<number>).detail;
+    };
+    window.addEventListener('ordem:music-volume', onVolume);
+    return () => window.removeEventListener('ordem:music-volume', onVolume);
+  }, []);
 
   useEffect(() => {
     return () => {

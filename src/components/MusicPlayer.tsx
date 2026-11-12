@@ -24,6 +24,11 @@ export function MusicPlayer() {
   const code = useTableStore((s) => s.code);
   const roomMode = useTableStore((s) => s.mode);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // O mestre sempre toca do PRÓPRIO servidor local (relativo) — "code" só é
+  // um host:porta válido pra buscar em rede local; numa mesa pela internet
+  // é um código de 6 caracteres (não dá pra montar URL com isso). Só o
+  // JOGADOR em rede local precisa do endereço do mestre pra buscar a faixa.
+  const roomHostForTrack = !me.isGM && roomMode === 'lan' ? code : null;
 
   if (!audioRef.current && typeof Audio !== 'undefined') {
     audioRef.current = new Audio();
@@ -86,7 +91,7 @@ export function MusicPlayer() {
       audio.removeAttribute('src');
       return;
     }
-    const src = trackUrl(music.trackId, code);
+    const src = trackUrl(music.trackId, roomHostForTrack);
     if (!audio.src.endsWith(src)) {
       audio.src = src;
     }
@@ -122,7 +127,7 @@ export function MusicPlayer() {
     } else {
       audio.pause();
     }
-  }, [music.trackId, music.playing, music.startedAt, music.positionAtStart, music.loop, code]);
+  }, [music.trackId, music.playing, music.startedAt, music.positionAtStart, music.loop, roomHostForTrack]);
 
   // avança pra próxima faixa da mesma pasta ao terminar — só quando não está
   // em loop (loop de verdade usa o `audio.loop` nativo, então isso nem
@@ -144,13 +149,21 @@ export function MusicPlayer() {
         if (next) {
           setMusicState({
             trackId: next.id,
+            trackName: next.name,
             playing: true,
             startedAt: Date.now(),
             positionAtStart: 0,
             loop: music.loop,
           });
         } else {
-          setMusicState({ trackId: cur.id, playing: false, startedAt: 0, positionAtStart: 0, loop: music.loop });
+          setMusicState({
+            trackId: cur.id,
+            trackName: cur.name,
+            playing: false,
+            startedAt: 0,
+            positionAtStart: 0,
+            loop: music.loop,
+          });
         }
       });
     };

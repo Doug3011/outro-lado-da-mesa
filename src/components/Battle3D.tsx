@@ -287,10 +287,10 @@ export function Battle3D() {
   const { me } = useIdentity();
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
-  // Música depende do servidor HTTP local do mestre — só existe de verdade
-  // numa mesa em rede local (ver mesmo comentário em BattleMap.tsx).
+  // Música funciona em qualquer modo agora (ver mesmo comentário em
+  // BattleMap.tsx) — pela internet o áudio chega ao vivo via WebRTC.
   const roomMode = useTableStore((s) => s.mode);
-  const musicAvailable = hasLan && roomMode === 'lan';
+  const musicAvailable = hasLan;
   // Mesa pela internet: o jogador não renderiza a cena 3D localmente (isso
   // exigiria baixar modelos/texturas pesados, o problema original que essa
   // etapa resolve) — só assiste o vídeo que o mestre transmite ao vivo

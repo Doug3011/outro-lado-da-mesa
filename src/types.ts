@@ -391,6 +391,12 @@ export interface Map2DSummary {
 // sem precisar de um "tique" constante pela rede.
 export interface MusicState {
   trackId: string | null;
+  // Nome da faixa, mandado junto pela rede (ver MusicPanel.tsx) — numa mesa
+  // pela internet, o jogador não alcança o servidor local do mestre pra
+  // buscar a biblioteca e descobrir o nome sozinho (só recebe o ÁUDIO em si
+  // via WebRTC, ver avMix.ts/AvBroadcastController.tsx); sem isso o painel
+  // dele mostraria "tocando" sem dizer o quê.
+  trackName: string | null;
   playing: boolean;
   startedAt: number;
   positionAtStart: number;
@@ -399,6 +405,7 @@ export interface MusicState {
 
 export const DEFAULT_MUSIC_STATE: MusicState = {
   trackId: null,
+  trackName: null,
   playing: false,
   startedAt: 0,
   positionAtStart: 0,
