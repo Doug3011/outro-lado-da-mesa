@@ -13,7 +13,8 @@ import { unlockedTrilhaPowers, trilhaByName } from '../data/trilhas';
 import { CLASS_POWERS, CLASS_POWER_NEX_SLOTS } from '../data/classPowers';
 import { PARANORMAL_BY_KEY } from '../data/paranormalPowers';
 import { EQUIPMENT_EFFECTS, type EquipEffect } from '../data/equipmentEffects';
-import type { CatalogItem } from '../data/equipmentCatalog';
+import { ABILITY_EFFECTS } from '../data/abilityEffects';
+import type { CatalogItem, WeaponStats } from '../data/equipmentCatalog';
 import { WEAPON_MOD_BY_KEY, type WeaponModDef } from '../data/weaponModifications';
 import { uid } from '../lib/ids';
 
@@ -296,6 +297,26 @@ function parseDiceTerm(s: string): { count: number; sides: number } | null {
   return { count: Number(m[1]), sides: Number(m[2]) };
 }
 
+// Categoria de arma usada por data/abilityEffects.ts (weaponDamageBonus) —
+// 'fogo' cobre arma de disparo balístico/chamas, 'disparo' cobre arco/
+// besta (Pontaria, mas não é arma de fogo), 'corpo-a-corpo' cobre Luta.
+function weaponCategory(w: WeaponStats): 'fogo' | 'disparo' | 'corpo-a-corpo' {
+  if (w.skill === 'luta') return 'corpo-a-corpo';
+  return w.damageType === 'balístico' || w.damageType === 'fogo' ? 'fogo' : 'disparo';
+}
+
+// Bônus de dano de arma só de habilidades escolhidas com efeito cadastrado
+// pra essa categoria (ver data/abilityEffects.ts) — ex.: Balística
+// Avançada, +2 de dano com arma de fogo.
+function abilityWeaponDamageBonus(char: Character, category: 'fogo' | 'disparo' | 'corpo-a-corpo'): number {
+  let total = 0;
+  for (const a of char.abilities) {
+    const eff = ABILITY_EFFECTS[a.name];
+    if (eff?.weaponDamageBonus && eff.weaponDamageBonus.category === category) total += eff.weaponDamageBonus.amount;
+  }
+  return total;
+}
+
 // Monta o Attack (dano/crítico/teste) de uma arma do catálogo já com Força
 // e modificações aplicadas — pedido do usuário: equipar uma arma (e
 // modificá-la depois) já deixa pronto pra rolar com um clique, em vez de
@@ -303,7 +324,7 @@ function parseDiceTerm(s: string): { count: number; sides: number } | null {
 // syncWeaponAttacks abaixo só mantém `char.attacks` em dia com isto).
 // Dano com duas opções de empunhadura (ex. "1d6/1d8") usa sempre a maior
 // (duas mãos) — sem uma escolha explícita de empunhadura na ficha ainda.
-export function computeWeaponAttack(item: CatalogItem, modKeys: string[], forca: number): Attack {
+export function computeWeaponAttack(char: Character, item: CatalogItem, modKeys: string[]): Attack {
   const w = item.weapon;
   if (!w) {
     return {
@@ -325,7 +346,10 @@ export function computeWeaponAttack(item: CatalogItem, modKeys: string[], forca:
   const parsed = parseDiceTerm(baseDamageStr) ?? { count: 1, sides: 6 };
   const extraSameType = mods.reduce((a, m) => a + (m.effect.extraDieSameType ?? 0), 0);
   const diceCount = parsed.count + extraSameType;
-  const flatBonus = (w.addsForce ? forca : 0) + mods.reduce((a, m) => a + (m.effect.dmgBonus ?? 0), 0);
+  const flatBonus =
+    (w.addsForce ? char.attributes.FOR : 0) +
+    mods.reduce((a, m) => a + (m.effect.dmgBonus ?? 0), 0) +
+    abilityWeaponDamageBonus(char, weaponCategory(w));
   const extraDice = mods.map((m) => m.effect.extraDamageDie).filter((d): d is string => !!d);
 
   let damage = `${diceCount}d${parsed.sides}`;
@@ -373,7 +397,7 @@ export function syncWeaponAttacks(char: Character, catalog: CatalogItem[]): Char
   const synced = equippedWeapons.map((it) => {
     const catalogItem = catalogById.get(it.catalogId!)!;
     const existing = stillEquipped.find((a) => a.linkedInventoryId === it.id);
-    const attack = computeWeaponAttack(catalogItem, it.modifications ?? [], char.attributes.FOR);
+    const attack = computeWeaponAttack(char, catalogItem, it.modifications ?? []);
     return { ...attack, id: existing?.id ?? attack.id, linkedInventoryId: it.id };
   });
 
@@ -667,16 +691,44 @@ export function classInnateProgress(char: Character): string[] {
   return [`Escolhido pelo Outro Lado: aprende um ritual grátis de até ${cur.c} círculo neste NEX (adicione pelo compêndio e marque "ganho por classe").`];
 }
 
+// Bônus de perícia só de habilidades escolhidas que tenham efeito numérico
+// cadastrado (ver data/abilityEffects.ts) — generaliza o que antes era um
+// caso único hardcoded (Operações Especiais/Iniciativa Aprimorada).
+export function abilitySkillBonus(char: Character, skillKey: string): number {
+  let total = 0;
+  for (const a of char.abilities) {
+    const eff = ABILITY_EFFECTS[a.name];
+    if (eff?.skillBonus && eff.skillBonus.skill === skillKey) total += eff.skillBonus.amount;
+  }
+  return total;
+}
+
 // Bonus total somado ao d20 escolhido (treino + outros + bônus fixos de trilha).
 // O atributo define a QUANTIDADE de dados, não entra aqui.
 export function skillBonus(char: Character, skillKey: string): number {
   const st = char.skills[skillKey];
   if (!st) return 0;
   let bonus = st.training + st.bonus;
-  // Operações Especiais (trilha de combatente) — Iniciativa Aprimorada: +5 em Iniciativa.
-  if (skillKey === 'iniciativa' && char.trilha === 'Operações Especiais' && char.nex >= 10) {
-    bonus += 5;
-  }
+  bonus += abilitySkillBonus(char, skillKey);
   bonus += equipmentSkillBonus(char, skillKey);
   return bonus;
+}
+
+// Bloqueio e Esquiva (Capítulo 4, pg 98 do livro) — NÃO são estatísticas
+// fixas como Defesa, são reações que só existem se treinado na perícia
+// certa: Bloqueio (treinado em Fortitude) dá RD igual ao bônus de
+// Fortitude contra um ataque corpo a corpo; Esquiva (treinado em Reflexos)
+// soma o bônus de Reflexos à Defesa contra um ataque. `null` quando não
+// treinado — a ficha não simula combate rodada a rodada, só mostra o valor
+// pro jogador anunciar na mesa.
+export function blockReduction(char: Character): number | null {
+  const st = char.skills.fortitude;
+  if (!st || st.training <= 0) return null;
+  return skillBonus(char, 'fortitude');
+}
+
+export function dodgeBonus(char: Character): number | null {
+  const st = char.skills.reflexos;
+  if (!st || st.training <= 0) return null;
+  return skillBonus(char, 'reflexos');
 }

@@ -18,7 +18,9 @@ import {
   addClassPowerPick,
   addTrainingBump,
   applyDerived,
+  blockReduction,
   classInnateProgress,
+  dodgeBonus,
   countTrained,
   describeNexGain,
   deriveStats,
@@ -747,6 +749,25 @@ export function CharacterSheet({
                   />
                 </label>
               )}
+            </div>
+          </div>
+
+          <div className="rd-card" style={{ display: 'flex', gap: 18, fontSize: 12, padding: '8px 12px' }}>
+            <div style={{ flex: 1 }}>
+              <strong>Bloqueio</strong>
+              <div className="faint">
+                {blockReduction(draft) !== null
+                  ? `RD ${blockReduction(draft)} contra um ataque corpo a corpo (reação, 1x/rodada)`
+                  : 'Precisa ser treinado em Fortitude'}
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <strong>Esquiva</strong>
+              <div className="faint">
+                {dodgeBonus(draft) !== null
+                  ? `+${dodgeBonus(draft)} na Defesa contra um ataque (reação, 1x/rodada)`
+                  : 'Precisa ser treinado em Reflexos'}
+              </div>
             </div>
           </div>
 
