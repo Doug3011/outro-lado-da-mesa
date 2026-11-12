@@ -21,6 +21,13 @@ import { loadMyCharacters } from '../lib/characterLibrary';
 import { getLinkedCharacterId, setLinkedCharacterId } from '../lib/roomLinks';
 import { recordMatch } from '../lib/matchHistory';
 import { loadSavedTables, recordSavedTable, deleteSavedTable, type SavedTable } from '../lib/savedTables';
+import {
+  loadSavedOnlineTables,
+  recordSavedOnlineTable,
+  touchSavedOnlineTable,
+  deleteSavedOnlineTable,
+  type SavedOnlineTable,
+} from '../lib/savedOnlineTables';
 import type { Character } from '../domain/character';
 import { CLASS_BY_KEY } from '../data/ordem';
 import { ProfileEditor } from '../components/ProfileEditor';
@@ -168,6 +175,11 @@ export function Home() {
   const [masterTab, setMasterTab] = useState<'saved' | 'new'>(
     savedTables.length > 0 ? 'saved' : 'new',
   );
+
+  // ---- mesas salvas pela internet (Entrega 1: tirar o Radmin da jogada)
+  // ---- mesmo motivo de savedTables acima, mas aqui o CÓDIGO é a
+  // identidade real da mesa (não só uma etiqueta) — ver savedOnlineTables.ts.
+  const [savedOnlineTables, setSavedOnlineTables] = useState<SavedOnlineTable[]>(loadSavedOnlineTables);
 
   useEffect(() => {
     if (!hasLan || role === null || netMode !== 'lan') return;
@@ -1216,13 +1228,80 @@ export function Home() {
                 </div>
               </div>
             </div>
-            <button className="rd-connect-host-btn" onClick={() => enter(newRoomCode())}>
+            <label className="rd-field">
+              <span className="rd-field-label">Nome da mesa</span>
+              <input
+                className="rd-input"
+                value={tableName}
+                onChange={(e) => setTableName(e.target.value)}
+                placeholder="Mesa de sexta"
+              />
+            </label>
+            <button
+              className="rd-connect-host-btn"
+              onClick={() => {
+                const freshCode = newRoomCode();
+                setSavedOnlineTables(
+                  recordSavedOnlineTable({
+                    code: freshCode,
+                    name: tableName,
+                    masterName: me.name,
+                    masterColor: me.color,
+                  }),
+                );
+                enter(freshCode);
+              }}
+            >
               <HostIcon />
               Criar mesa
             </button>
+
+            {savedOnlineTables.length > 0 && (
+              <>
+                <div className="rd-divider" />
+                <label className="rd-field">
+                  <span className="rd-field-label">…ou reabrir uma mesa sua já criada</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {savedOnlineTables.map((t) => (
+                      <div
+                        key={t.code}
+                        className="rd-input"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, height: 'auto', padding: '8px 10px' }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {t.name}
+                          </div>
+                          <div className="faint" style={{ fontSize: 11 }}>
+                            código {t.code} · {t.timesHosted}x hospedada
+                          </div>
+                        </div>
+                        <button
+                          className="rd-btn-ghost"
+                          onClick={() => {
+                            setSavedOnlineTables(touchSavedOnlineTable(t.code));
+                            enter(t.code);
+                          }}
+                        >
+                          Reabrir
+                        </button>
+                        <button
+                          className="small ghost"
+                          title="Esquecer esta mesa"
+                          onClick={() => setSavedOnlineTables(deleteSavedOnlineTable(t.code))}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </label>
+              </>
+            )}
+
             <div className="rd-divider" />
             <label className="rd-field">
-              <span className="rd-field-label">…ou reabrir uma mesa existente</span>
+              <span className="rd-field-label">…ou digite o código de qualquer mesa</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
                   className="rd-input rd-input-mono"

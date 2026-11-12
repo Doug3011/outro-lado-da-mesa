@@ -1911,6 +1911,12 @@ export function Battle3D() {
       <div className="battle3d-canvas" onDragOver={(e) => e.preventDefault()} onDrop={onCanvasDrop}>
         <Canvas
           camera={{ position: [6, 5, 6], fov: 50 }}
+          // `preserveDrawingBuffer: true` — sem isso, `canvas.captureStream()`
+          // (mesa pela internet, AvBroadcastController.tsx) geralmente pega o
+          // frame JÁ limpo pelo WebGL antes do compositor ler ele de volta, e
+          // o jogador recebe um vídeo preto/vazio em vez da cena de verdade.
+          // Custo: um pouco de desempenho a mais no navegador do mestre.
+          gl={{ preserveDrawingBuffer: true }}
           onPointerMissed={() => {
             setSelKind(null);
             setSelId(null);

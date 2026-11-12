@@ -18,7 +18,6 @@ import { PlacePickerDialog } from './PlacePickerDialog';
 import { FloatingButton } from './FloatingButton';
 import { FloatingWindow } from './FloatingWindow';
 import { TokenLibraryManager } from './TokenLibraryManager';
-import { Map2DLibraryManager } from './Map2DLibraryManager';
 import { CharacterPanel } from './CharacterPanel';
 import { CharacterSheet } from './CharacterSheet';
 import { GmCharacterTabs } from './GmCharacterTabs';
@@ -1693,10 +1692,6 @@ export function BattleMap() {
                 </button>
               </div>
             </div>
-
-            <div className="floating-divider" />
-
-            <Map2DLibraryManager />
           </FloatingWindow>
         )}
 
