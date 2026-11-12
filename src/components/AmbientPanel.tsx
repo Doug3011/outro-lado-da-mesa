@@ -6,7 +6,12 @@ import { AmbientLibraryManager } from './AmbientLibraryManager';
 const VOLUME_KEY = 'ordem:ambient-volume';
 
 function readVolume(): number {
-  const raw = Number(localStorage.getItem(VOLUME_KEY));
+  // Number(null) é 0 (não NaN) — sem o cheque de null, quem nunca tocou no
+  // slider (perfil novo) começava com volume MUDO em vez do padrão, já que
+  // `localStorage.getItem` devolve null quando a chave nunca foi escrita.
+  const stored = localStorage.getItem(VOLUME_KEY);
+  if (stored === null) return 0.8;
+  const raw = Number(stored);
   return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.8;
 }
 
