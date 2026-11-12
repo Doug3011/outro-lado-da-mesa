@@ -217,6 +217,22 @@ export const useTableStore = create<TableState>((set, get) => {
   const patchScene = (id: string, fn: (sc: Scene) => Scene): Scene[] =>
     get().scenes.map((sc) => (sc.id === id ? fn(sc) : sc));
 
+  // Numa mesa pela internet (Supabase), o JOGADOR não renderiza mais a cena
+  // 3D localmente — só assiste o vídeo que o mestre transmite ao vivo (ver
+  // AvBroadcastController.tsx) — então não precisa receber chão/objetos
+  // 3D nenhum, que é exatamente o que costuma estourar o limite de 256KB
+  // por mensagem do Supabase Realtime Broadcast (modelo/textura embutidos
+  // como data URL em `ground`/`objects3d`). Bug relatado pelo usuário:
+  // trocar pra um cenário 3D DE VERDADE (com chão/objetos, não em branco)
+  // nunca chegava no jogador — o `scene:upsert` correspondente nem saía
+  // do lugar. Em rede local (`mode === 'lan'`) o relay local aceita
+  // mensagens bem maiores (ver maxPayload em server/main.cjs), então isso
+  // não muda nada lá — só afeta o que é mandado pela internet.
+  const sceneForBroadcast = (sc: Scene): Scene => {
+    if (get().mode === 'lan' || sc.kind !== '3d') return sc;
+    return { ...sc, ground: null, objects3d: [] };
+  };
+
   // Chega um `scene:switch` pra uma cena que este cliente não conhece —
   // normalmente porque o `scene:upsert` correspondente nunca chegou (mesa
   // pela internet/Supabase: broadcast tem limite de 256KB por mensagem, um
@@ -232,8 +248,13 @@ export const useTableStore = create<TableState>((set, get) => {
     void loadRoom(code).then((loaded) => {
       if (!loaded) return;
       const hasIt = loaded.scenes.some((sc) => sc.id === id);
+      // O banco sempre guarda a versão COMPLETA (o mestre precisa dela pra
+      // reconectar); se quem está curando é um jogador, aplica o mesmo
+      // corte de `sceneForBroadcast` antes de adotar, só por economia —
+      // não muda nada visualmente pro jogador (ele só assiste vídeo).
+      const scenes = get().me?.isGM ? loaded.scenes : loaded.scenes.map(sceneForBroadcast);
       set((st) => ({
-        scenes: loaded.scenes.length ? loaded.scenes : st.scenes,
+        scenes: scenes.length ? scenes : st.scenes,
         activeSceneId: hasIt ? id : st.activeSceneId,
       }));
       persist();
@@ -426,7 +447,7 @@ export const useTableStore = create<TableState>((set, get) => {
             type: 'sync:state',
             payload: {
               characters: Object.values(g.characters),
-              scenes: g.scenes,
+              scenes: g.scenes.map(sceneForBroadcast),
               activeSceneId: g.activeSceneId,
               // perfis só são compartilhados entre mestres
               profiles: g.me?.isGM ? Object.values(g.playerProfiles) : undefined,
@@ -535,7 +556,7 @@ export const useTableStore = create<TableState>((set, get) => {
       // o kind:'3d' escolhido ao hospedar. `conn.send` já enfileira sozinho
       // se o socket ainda não abriu, então não precisa de setTimeout aqui.
       if (usingInitialScene && opts?.initialScene) {
-        conn.send({ type: 'scene:upsert', payload: opts.initialScene });
+        conn.send({ type: 'scene:upsert', payload: sceneForBroadcast(opts.initialScene) });
         conn.send({ type: 'scene:switch', payload: { id: opts.initialScene.id } });
       }
 
@@ -769,7 +790,7 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       const s = get();
       if (s.code) void saveScenesNow(s.code, s.scenes, s.activeSceneId);
-      get().conn?.send({ type: 'scene:upsert', payload: sc });
+      get().conn?.send({ type: 'scene:upsert', payload: sceneForBroadcast(sc) });
       get().conn?.send({ type: 'scene:switch', payload: { id: sc.id } });
     },
 
@@ -779,7 +800,7 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       const s = get();
       if (s.code) void saveScenesNow(s.code, s.scenes, s.activeSceneId);
-      get().conn?.send({ type: 'scene:upsert', payload: sc });
+      get().conn?.send({ type: 'scene:upsert', payload: sceneForBroadcast(sc) });
       get().conn?.send({ type: 'scene:switch', payload: { id: sc.id } });
     },
 
@@ -794,7 +815,7 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       const s = get();
       if (s.code) void saveScenesNow(s.code, s.scenes, s.activeSceneId);
-      get().conn?.send({ type: 'scene:upsert', payload: sc });
+      get().conn?.send({ type: 'scene:upsert', payload: sceneForBroadcast(sc) });
       get().conn?.send({ type: 'scene:switch', payload: { id: sc.id } });
     },
 
@@ -803,7 +824,7 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       pushScenesToDb();
       const sc = get().scenes.find((x) => x.id === id);
-      if (sc) get().conn?.send({ type: 'scene:upsert', payload: sc });
+      if (sc) get().conn?.send({ type: 'scene:upsert', payload: sceneForBroadcast(sc) });
     },
 
     deleteScene: (id) => {
