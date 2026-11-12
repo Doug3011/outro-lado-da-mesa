@@ -5,6 +5,24 @@ import { getMixedAudioTrack } from '../lib/avMix';
 import { onGmCanvas3dChange } from '../lib/gmCanvasRegistry';
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+// Sem isso, o WebRTC usa os padrões pensados pra webcam (bitrate baixo,
+// prioridade em suavidade de movimento) — péssimo pra uma cena 3D parada a
+// maior parte do tempo, onde nitidez importa muito mais que taxa de
+// quadros. Pedido do usuário: "a resolução ficou pixelada e embaçada".
+const VIDEO_MAX_BITRATE = 4_000_000; // 4 Mbps
+
+async function applyVideoQuality(sender: RTCRtpSender) {
+  try {
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+    params.encodings[0].maxBitrate = VIDEO_MAX_BITRATE;
+    params.encodings[0].scaleResolutionDownBy = 1;
+    await sender.setParameters(params);
+  } catch {
+    // alguns navegadores só aceitam setParameters depois da 1ª negociação
+    // terminar — se falhar aqui, a qualidade só fica no padrão mesmo.
+  }
+}
 
 // Transmissão ao vivo (WebRTC) do mestre pros jogadores numa mesa pela
 // internet (Entrega 2 — ver plano) — substitui distribuir arquivo de
@@ -77,7 +95,7 @@ export function AvBroadcastController() {
       };
       const audioTrack = getMixedAudioTrack();
       if (audioTrack) pc.addTrack(audioTrack);
-      if (videoTrackRef.current) pc.addTrack(videoTrackRef.current);
+      if (videoTrackRef.current) void applyVideoQuality(pc.addTrack(videoTrackRef.current));
       return pc;
     };
 
@@ -136,8 +154,13 @@ export function AvBroadcastController() {
       const stream = canvas.captureStream(24);
       const track = stream.getVideoTracks()[0];
       if (!track) return;
+      // "detail" em vez do padrão ("motion") — pede pro navegador priorizar
+      // nitidez espacial sobre suavidade de movimento ao decidir como gastar
+      // o bitrate, o jeito certo pra conteúdo tipo "tela compartilhada"
+      // (mesa 3D), diferente de webcam/chamada de vídeo.
+      track.contentHint = 'detail';
       videoTrackRef.current = track;
-      for (const pc of peersRef.current.values()) pc.addTrack(track);
+      for (const pc of peersRef.current.values()) void applyVideoQuality(pc.addTrack(track));
     });
   }, [active, me.isGM, is3d]);
 
