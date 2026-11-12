@@ -12,12 +12,27 @@
 // modificações/maldições, que não são itens próprios — modificam um item já
 // existente (some ao total de categoria dele, não ocupam espaço próprio).
 
+// Estatísticas estruturadas de uma arma (Capítulo 3, Tabela 3.3 — já
+// conferidas contra o livro) — antes só existiam em prosa dentro de
+// `notes`. Pedido do usuário: equipar a arma já monta o ataque
+// (dano/crítico/tipo) pra rolar com um clique, em vez de digitar à mão.
+export interface WeaponStats {
+  damage: string; // ex. "1d12" — ou "1d6/1d8" (uma mão/duas mãos, usa a 2ª quando empunhada com as duas)
+  critRange?: number; // 18 | 19 — omitido = margem padrão (20)
+  critMult?: number; // 3 | 4 — omitido = multiplicador padrão (x2)
+  damageType: string; // corte | impacto | perfuração | balístico | fogo...
+  range?: 'curto' | 'médio' | 'longo' | 'extremo'; // omitido = só corpo a corpo
+  skill: 'luta' | 'pontaria';
+  addsForce: boolean; // soma Força do personagem ao dano (corpo a corpo/arremesso = sim; disparo/fogo = não, salvo exceção)
+}
+
 export interface CatalogItem {
   id: string;
   name: string;
   category: string; // '0' | 'I' | 'II' | 'III' | 'IV' (item) ou '+I' / '+II' (modificação/maldição — aumento de categoria)
   slots: number;
   notes: string;
+  weapon?: WeaponStats;
 }
 
 export interface CatalogGroup {
@@ -32,54 +47,54 @@ export const EQUIPMENT_CATALOG: CatalogGroup[] = [
     label: '⚔️ Armas',
     items: [
       // Armas Simples
-      { id: 'faca', name: 'Faca', category: '0', slots: 1, notes: 'Corpo a corpo leve (ágil). Dano 1d4, crítico 19, corte. Pode ser arremessada (alcance curto).' },
-      { id: 'martelo', name: 'Martelo', category: '0', slots: 1, notes: 'Corpo a corpo leve. Dano 1d6, crítico x2, impacto.' },
-      { id: 'punhal', name: 'Punhal', category: '0', slots: 1, notes: 'Corpo a corpo leve (ágil). Dano 1d4, crítico x3, perfuração. Usado por cultistas em rituais.' },
-      { id: 'bastao', name: 'Bastão', category: '0', slots: 1, notes: 'Corpo a corpo uma mão (1d6) ou duas mãos (1d8), crítico x2, impacto.' },
-      { id: 'machete', name: 'Machete', category: '0', slots: 1, notes: 'Corpo a corpo uma mão. Dano 1d6, crítico 19, corte.' },
-      { id: 'lanca', name: 'Lança', category: '0', slots: 1, notes: 'Corpo a corpo uma mão. Dano 1d6, crítico x2, perfuração. Pode ser arremessada (alcance curto).' },
-      { id: 'cajado', name: 'Cajado', category: '0', slots: 2, notes: 'Corpo a corpo duas mãos (ágil). Dano 1d6, crítico x2, impacto. Pode ser usado como arma de uma mão + leve com Combater com Duas Armas.' },
-      { id: 'arco', name: 'Arco', category: '0', slots: 2, notes: 'Disparo, duas mãos. Dano 1d6, crítico x3, alcance médio, perfuração. Usa Flechas (categoria 0, 1 espaço).' },
-      { id: 'besta', name: 'Besta', category: '0', slots: 2, notes: 'Disparo, duas mãos. Dano 1d8, crítico 19, alcance médio, perfuração. Recarregar exige ação de movimento. Usa Flechas.' },
-      { id: 'pistola', name: 'Pistola', category: 'I', slots: 1, notes: 'Fogo, leve. Dano 1d12, crítico 18, alcance curto, balístico. Usa Balas curtas (categoria 0, 1 espaço).' },
-      { id: 'revolver', name: 'Revólver', category: 'I', slots: 1, notes: 'Fogo, leve. Dano 2d6, crítico 19/x3, alcance curto, balístico. Usa Balas curtas.' },
-      { id: 'fuzil-caca-livro', name: 'Fuzil de Caça', category: 'I', slots: 2, notes: 'Fogo, duas mãos. Dano 2d8, crítico 19/x3, alcance médio, balístico. Usa Balas longas (categoria I, 1 espaço).' },
+      { id: 'faca', name: 'Faca', category: '0', slots: 1, notes: 'Corpo a corpo leve (ágil). Dano 1d4, crítico 19, corte. Pode ser arremessada (alcance curto).', weapon: { damage: '1d4', critRange: 19, damageType: 'corte', range: 'curto', skill: 'luta', addsForce: true } },
+      { id: 'martelo', name: 'Martelo', category: '0', slots: 1, notes: 'Corpo a corpo leve. Dano 1d6, crítico x2, impacto.', weapon: { damage: '1d6', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'punhal', name: 'Punhal', category: '0', slots: 1, notes: 'Corpo a corpo leve (ágil). Dano 1d4, crítico x3, perfuração. Usado por cultistas em rituais.', weapon: { damage: '1d4', critMult: 3, damageType: 'perfuração', skill: 'luta', addsForce: true } },
+      { id: 'bastao', name: 'Bastão', category: '0', slots: 1, notes: 'Corpo a corpo uma mão (1d6) ou duas mãos (1d8), crítico x2, impacto.', weapon: { damage: '1d6/1d8', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'machete', name: 'Machete', category: '0', slots: 1, notes: 'Corpo a corpo uma mão. Dano 1d6, crítico 19, corte.', weapon: { damage: '1d6', critRange: 19, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'lanca', name: 'Lança', category: '0', slots: 1, notes: 'Corpo a corpo uma mão. Dano 1d6, crítico x2, perfuração. Pode ser arremessada (alcance curto).', weapon: { damage: '1d6', damageType: 'perfuração', range: 'curto', skill: 'luta', addsForce: true } },
+      { id: 'cajado', name: 'Cajado', category: '0', slots: 2, notes: 'Corpo a corpo duas mãos (ágil). Dano 1d6, crítico x2, impacto. Pode ser usado como arma de uma mão + leve com Combater com Duas Armas.', weapon: { damage: '1d6', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'arco', name: 'Arco', category: '0', slots: 2, notes: 'Disparo, duas mãos. Dano 1d6, crítico x3, alcance médio, perfuração. Usa Flechas (categoria 0, 1 espaço).', weapon: { damage: '1d6', critMult: 3, damageType: 'perfuração', range: 'médio', skill: 'pontaria', addsForce: false } },
+      { id: 'besta', name: 'Besta', category: '0', slots: 2, notes: 'Disparo, duas mãos. Dano 1d8, crítico 19, alcance médio, perfuração. Recarregar exige ação de movimento. Usa Flechas.', weapon: { damage: '1d8', critRange: 19, damageType: 'perfuração', range: 'médio', skill: 'pontaria', addsForce: false } },
+      { id: 'pistola', name: 'Pistola', category: 'I', slots: 1, notes: 'Fogo, leve. Dano 1d12, crítico 18, alcance curto, balístico. Usa Balas curtas (categoria 0, 1 espaço).', weapon: { damage: '1d12', critRange: 18, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'revolver', name: 'Revólver', category: 'I', slots: 1, notes: 'Fogo, leve. Dano 2d6, crítico 19/x3, alcance curto, balístico. Usa Balas curtas.', weapon: { damage: '2d6', critRange: 19, critMult: 3, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'fuzil-caca-livro', name: 'Fuzil de Caça', category: 'I', slots: 2, notes: 'Fogo, duas mãos. Dano 2d8, crítico 19/x3, alcance médio, balístico. Usa Balas longas (categoria I, 1 espaço).', weapon: { damage: '2d8', critRange: 19, critMult: 3, damageType: 'balístico', range: 'médio', skill: 'pontaria', addsForce: false } },
       // Armas Táticas
-      { id: 'machadinha', name: 'Machadinha', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve. Dano 1d6, crítico x3, corte. Pode ser arremessada (alcance curto).' },
-      { id: 'nunchaku', name: 'Nunchaku', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve (ágil). Dano 1d8, crítico x2, impacto.' },
-      { id: 'corrente', name: 'Corrente', category: '0', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 1d8, crítico x2, impacto. +2 em testes de desarmar e derrubar.' },
-      { id: 'espada', name: 'Espada', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão (1d8) ou duas mãos (1d10), crítico 19, corte.' },
-      { id: 'florete', name: 'Florete', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão (ágil). Dano 1d6, crítico 18, corte.' },
-      { id: 'machado', name: 'Machado', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 1d8, crítico x3, corte.' },
-      { id: 'maca', name: 'Maça', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 2d4, crítico x2, impacto.' },
-      { id: 'acha', name: 'Acha', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 1d12, crítico x3, corte.' },
-      { id: 'gadanho', name: 'Gadanho', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 2d4, crítico x4, corte.' },
-      { id: 'katana', name: 'Katana', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos (ágil; veterano em Luta pode usar como uma mão). Dano 1d10, crítico 19, corte.' },
-      { id: 'marreta', name: 'Marreta', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 3d4, crítico x2, impacto.' },
-      { id: 'montante', name: 'Montante', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 2d6, crítico 19, corte.' },
-      { id: 'motosserra', name: 'Motosserra', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 3d6, crítico x2, corte. Rolou 6? Role +1 dado de dano. –O em testes de ataque. Ligar gasta ação de movimento.' },
-      { id: 'arco-composto', name: 'Arco Composto', category: 'I', slots: 2, notes: 'Tática, disparo duas mãos. Dano 1d10, crítico x3, alcance médio, perfuração. Soma Força ao dano (diferente de arcos comuns). Usa Flechas.' },
-      { id: 'balestra', name: 'Balestra', category: 'I', slots: 2, notes: 'Tática, disparo duas mãos. Dano 1d12, crítico 19, alcance médio, perfuração. Recarregar exige ação de movimento. Usa Flechas.' },
-      { id: 'submetralhadora', name: 'Submetralhadora', category: 'I', slots: 1, notes: 'Tática, fogo uma mão, automática. Dano 2d6, crítico 19/x3, alcance curto, balístico. Usa Balas curtas.' },
-      { id: 'espingarda', name: 'Espingarda', category: 'I', slots: 2, notes: 'Tática, fogo duas mãos. Dano 4d6, crítico x3, alcance curto, balístico (metade do dano além do alcance médio). Usa Cartuchos (categoria I, 1 espaço).' },
-      { id: 'fuzil-assalto-livro', name: 'Fuzil de Assalto', category: 'II', slots: 2, notes: 'Tática, fogo duas mãos, automática. Dano 2d10, crítico 19/x3, alcance médio, balístico. Usa Balas longas.' },
-      { id: 'fuzil-precisao-livro', name: 'Fuzil de Precisão', category: 'III', slots: 2, notes: 'Tática, fogo duas mãos. Dano 2d10, crítico 19/x3, alcance longo, balístico. Veterano em Pontaria mirando: +5 na margem de ameaça. Usa Balas longas.' },
+      { id: 'machadinha', name: 'Machadinha', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve. Dano 1d6, crítico x3, corte. Pode ser arremessada (alcance curto).', weapon: { damage: '1d6', critMult: 3, damageType: 'corte', range: 'curto', skill: 'luta', addsForce: true } },
+      { id: 'nunchaku', name: 'Nunchaku', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve (ágil). Dano 1d8, crítico x2, impacto.', weapon: { damage: '1d8', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'corrente', name: 'Corrente', category: '0', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 1d8, crítico x2, impacto. +2 em testes de desarmar e derrubar.', weapon: { damage: '1d8', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'espada', name: 'Espada', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão (1d8) ou duas mãos (1d10), crítico 19, corte.', weapon: { damage: '1d8/1d10', critRange: 19, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'florete', name: 'Florete', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão (ágil). Dano 1d6, crítico 18, corte.', weapon: { damage: '1d6', critRange: 18, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'machado', name: 'Machado', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 1d8, crítico x3, corte.', weapon: { damage: '1d8', critMult: 3, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'maca', name: 'Maça', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 2d4, crítico x2, impacto.', weapon: { damage: '2d4', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'acha', name: 'Acha', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 1d12, crítico x3, corte.', weapon: { damage: '1d12', critMult: 3, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'gadanho', name: 'Gadanho', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 2d4, crítico x4, corte.', weapon: { damage: '2d4', critMult: 4, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'katana', name: 'Katana', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos (ágil; veterano em Luta pode usar como uma mão). Dano 1d10, crítico 19, corte.', weapon: { damage: '1d10', critRange: 19, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'marreta', name: 'Marreta', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 3d4, crítico x2, impacto.', weapon: { damage: '3d4', damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'montante', name: 'Montante', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 2d6, crítico 19, corte.', weapon: { damage: '2d6', critRange: 19, damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'motosserra', name: 'Motosserra', category: 'I', slots: 2, notes: 'Tática, corpo a corpo duas mãos. Dano 3d6, crítico x2, corte. Rolou 6? Role +1 dado de dano. –O em testes de ataque. Ligar gasta ação de movimento.', weapon: { damage: '3d6', damageType: 'corte', skill: 'luta', addsForce: true } },
+      { id: 'arco-composto', name: 'Arco Composto', category: 'I', slots: 2, notes: 'Tática, disparo duas mãos. Dano 1d10, crítico x3, alcance médio, perfuração. Soma Força ao dano (diferente de arcos comuns). Usa Flechas.', weapon: { damage: '1d10', critMult: 3, damageType: 'perfuração', range: 'médio', skill: 'pontaria', addsForce: true } },
+      { id: 'balestra', name: 'Balestra', category: 'I', slots: 2, notes: 'Tática, disparo duas mãos. Dano 1d12, crítico 19, alcance médio, perfuração. Recarregar exige ação de movimento. Usa Flechas.', weapon: { damage: '1d12', critRange: 19, damageType: 'perfuração', range: 'médio', skill: 'pontaria', addsForce: false } },
+      { id: 'submetralhadora', name: 'Submetralhadora', category: 'I', slots: 1, notes: 'Tática, fogo uma mão, automática. Dano 2d6, crítico 19/x3, alcance curto, balístico. Usa Balas curtas.', weapon: { damage: '2d6', critRange: 19, critMult: 3, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'espingarda', name: 'Espingarda', category: 'I', slots: 2, notes: 'Tática, fogo duas mãos. Dano 4d6, crítico x3, alcance curto, balístico (metade do dano além do alcance médio). Usa Cartuchos (categoria I, 1 espaço).', weapon: { damage: '4d6', critMult: 3, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'fuzil-assalto-livro', name: 'Fuzil de Assalto', category: 'II', slots: 2, notes: 'Tática, fogo duas mãos, automática. Dano 2d10, crítico 19/x3, alcance médio, balístico. Usa Balas longas.', weapon: { damage: '2d10', critRange: 19, critMult: 3, damageType: 'balístico', range: 'médio', skill: 'pontaria', addsForce: false } },
+      { id: 'fuzil-precisao-livro', name: 'Fuzil de Precisão', category: 'III', slots: 2, notes: 'Tática, fogo duas mãos. Dano 2d10, crítico 19/x3, alcance longo, balístico. Veterano em Pontaria mirando: +5 na margem de ameaça. Usa Balas longas.', weapon: { damage: '2d10', critRange: 19, critMult: 3, damageType: 'balístico', range: 'longo', skill: 'pontaria', addsForce: false } },
       // Armas Pesadas
-      { id: 'bazuca', name: 'Bazuca', category: 'III', slots: 2, notes: 'Pesada, fogo duas mãos. Dano 10d8, crítico x2, alcance médio, impacto. Atinge um raio de 3m (Reflexos DT Agi reduz à metade pra quem não for o alvo direto). Recarregar exige ação de movimento. Usa Foguete (categoria I, 1 espaço, dura 1 disparo).' },
-      { id: 'lanca-chamas-livro', name: 'Lança-chamas', category: 'III', slots: 2, notes: 'Pesada, fogo duas mãos. Dano 6d6, crítico x2, alcance curto, fogo. Atinge todos numa linha de 1,5m de largura; alvos pegam fogo. Usa Combustível (categoria I, 1 espaço).' },
-      { id: 'metralhadora-livro', name: 'Metralhadora', category: 'II', slots: 2, notes: 'Pesada, fogo duas mãos, automática. Dano 2d12, crítico 19/x3, alcance médio, balístico. Exige Força 4+ ou apoiar em tripé (ação de movimento), senão –5 nos ataques. Usa Balas longas.' },
+      { id: 'bazuca', name: 'Bazuca', category: 'III', slots: 2, notes: 'Pesada, fogo duas mãos. Dano 10d8, crítico x2, alcance médio, impacto. Atinge um raio de 3m (Reflexos DT Agi reduz à metade pra quem não for o alvo direto). Recarregar exige ação de movimento. Usa Foguete (categoria I, 1 espaço, dura 1 disparo).', weapon: { damage: '10d8', damageType: 'impacto', range: 'médio', skill: 'pontaria', addsForce: false } },
+      { id: 'lanca-chamas-livro', name: 'Lança-chamas', category: 'III', slots: 2, notes: 'Pesada, fogo duas mãos. Dano 6d6, crítico x2, alcance curto, fogo. Atinge todos numa linha de 1,5m de largura; alvos pegam fogo. Usa Combustível (categoria I, 1 espaço).', weapon: { damage: '6d6', damageType: 'fogo', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'metralhadora-livro', name: 'Metralhadora', category: 'II', slots: 2, notes: 'Pesada, fogo duas mãos, automática. Dano 2d12, crítico 19/x3, alcance médio, balístico. Exige Força 4+ ou apoiar em tripé (ação de movimento), senão –5 nos ataques. Usa Balas longas.', weapon: { damage: '2d12', critRange: 19, critMult: 3, damageType: 'balístico', range: 'médio', skill: 'pontaria', addsForce: false } },
       // Suplemento "Sobrevivendo ao Horror" — Tabela 1.4 "Novas Armas"
-      { id: 'sah-pregador-pneumatico', name: 'Pregador Pneumático', category: '0', slots: 1, notes: 'Simples, disparo uma mão. Dano 1d4, crítico x4, alcance curto, perfuração. Conta como arma de fogo pra poderes. Armazena 300 pregos (dura 1 missão).' },
-      { id: 'sah-estilingue', name: 'Estilingue', category: '0', slots: 1, notes: 'Simples, disparo duas mãos. Dano 1d4, crítico x2, alcance curto, impacto. Soma Força ao dano. Pode lançar granadas (alcance longo).' },
-      { id: 'sah-revolver-compacto', name: 'Revólver Compacto', category: 'I', slots: 1, notes: 'Fogo leve. Dano 2d4, crítico 19/x3, alcance curto, balístico. Treinado em Crime: não ocupa espaço. Usa Balas curtas.' },
-      { id: 'sah-baioneta', name: 'Baioneta', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve. Dano 1d4, crítico 19, perfuração. Ação de movimento pra fixar numa arma de fogo de duas mãos (vira arma de duas mãos ágil, dano 1d6, mas –O em ataques à distância com a arma de fogo).' },
-      { id: 'sah-faca-tatica', name: 'Faca Tática', category: 'I', slots: 1, notes: 'Tática, corpo a corpo leve (ágil). Dano 1d6, crítico 19, alcance curto, corte. Contra-ataque: +2 no teste. Bloqueio: 2 PE + sacrificar a faca pra +20 na RD do bloqueio.' },
-      { id: 'sah-gancho-carne', name: 'Gancho de Carne', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve. Dano 1d4, crítico x4, perfuração. Com corda/corrente: alcance 4,5m e vira item de espaço 2.' },
-      { id: 'sah-bastao-policial', name: 'Bastão Policial', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão (ágil). Dano 1d6, crítico x2, alcance curto, impacto. Esquiva com ele: +1 adicional na Defesa.' },
-      { id: 'sah-picareta', name: 'Picareta', category: '0', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 1d6, crítico x4, impacto.' },
-      { id: 'sah-shuriken', name: 'Shuriken', category: 'I', slots: 0.5, notes: 'Tática, arremesso. Dano 1d4, crítico x2, alcance curto, perfuração. Veterano em Pontaria: 1 PE pra ataque adicional de shuriken no mesmo alvo (1x/rodada). 1 shuriken = pacote pra 2 cenas.' },
-      { id: 'sah-pistola-pesada', name: 'Pistola Pesada', category: 'I', slots: 1, notes: 'Tática, fogo uma mão. Dano 2d8, crítico 18, alcance curto, balístico. –O no ataque (anula empunhando com duas mãos). Usa Balas curtas.' },
-      { id: 'sah-espingarda-cano-duplo', name: 'Espingarda de Cano Duplo', category: 'II', slots: 2, notes: 'Tática, fogo duas mãos. Dano 4d6, crítico x3, alcance curto, balístico. Recarregar: ação de movimento. Pode disparar os dois canos juntos no mesmo alvo: –O no ataque, dano sobe pra 6d6. Usa Cartuchos.' },
+      { id: 'sah-pregador-pneumatico', name: 'Pregador Pneumático', category: '0', slots: 1, notes: 'Simples, disparo uma mão. Dano 1d4, crítico x4, alcance curto, perfuração. Conta como arma de fogo pra poderes. Armazena 300 pregos (dura 1 missão).', weapon: { damage: '1d4', critMult: 4, damageType: 'perfuração', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'sah-estilingue', name: 'Estilingue', category: '0', slots: 1, notes: 'Simples, disparo duas mãos. Dano 1d4, crítico x2, alcance curto, impacto. Soma Força ao dano. Pode lançar granadas (alcance longo).', weapon: { damage: '1d4', damageType: 'impacto', range: 'curto', skill: 'pontaria', addsForce: true } },
+      { id: 'sah-revolver-compacto', name: 'Revólver Compacto', category: 'I', slots: 1, notes: 'Fogo leve. Dano 2d4, crítico 19/x3, alcance curto, balístico. Treinado em Crime: não ocupa espaço. Usa Balas curtas.', weapon: { damage: '2d4', critRange: 19, critMult: 3, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'sah-baioneta', name: 'Baioneta', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve. Dano 1d4, crítico 19, perfuração. Ação de movimento pra fixar numa arma de fogo de duas mãos (vira arma de duas mãos ágil, dano 1d6, mas –O em ataques à distância com a arma de fogo).', weapon: { damage: '1d4', critRange: 19, damageType: 'perfuração', skill: 'luta', addsForce: true } },
+      { id: 'sah-faca-tatica', name: 'Faca Tática', category: 'I', slots: 1, notes: 'Tática, corpo a corpo leve (ágil). Dano 1d6, crítico 19, alcance curto, corte. Contra-ataque: +2 no teste. Bloqueio: 2 PE + sacrificar a faca pra +20 na RD do bloqueio.', weapon: { damage: '1d6', critRange: 19, damageType: 'corte', range: 'curto', skill: 'luta', addsForce: true } },
+      { id: 'sah-gancho-carne', name: 'Gancho de Carne', category: '0', slots: 1, notes: 'Tática, corpo a corpo leve. Dano 1d4, crítico x4, perfuração. Com corda/corrente: alcance 4,5m e vira item de espaço 2.', weapon: { damage: '1d4', critMult: 4, damageType: 'perfuração', skill: 'luta', addsForce: true } },
+      { id: 'sah-bastao-policial', name: 'Bastão Policial', category: 'I', slots: 1, notes: 'Tática, corpo a corpo uma mão (ágil). Dano 1d6, crítico x2, alcance curto, impacto. Esquiva com ele: +1 adicional na Defesa.', weapon: { damage: '1d6', damageType: 'impacto', range: 'curto', skill: 'luta', addsForce: true } },
+      { id: 'sah-picareta', name: 'Picareta', category: '0', slots: 1, notes: 'Tática, corpo a corpo uma mão. Dano 1d6, crítico x4, impacto.', weapon: { damage: '1d6', critMult: 4, damageType: 'impacto', skill: 'luta', addsForce: true } },
+      { id: 'sah-shuriken', name: 'Shuriken', category: 'I', slots: 0.5, notes: 'Tática, arremesso. Dano 1d4, crítico x2, alcance curto, perfuração. Veterano em Pontaria: 1 PE pra ataque adicional de shuriken no mesmo alvo (1x/rodada). 1 shuriken = pacote pra 2 cenas.', weapon: { damage: '1d4', damageType: 'perfuração', range: 'curto', skill: 'pontaria', addsForce: true } },
+      { id: 'sah-pistola-pesada', name: 'Pistola Pesada', category: 'I', slots: 1, notes: 'Tática, fogo uma mão. Dano 2d8, crítico 18, alcance curto, balístico. –O no ataque (anula empunhando com duas mãos). Usa Balas curtas.', weapon: { damage: '2d8', critRange: 18, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
+      { id: 'sah-espingarda-cano-duplo', name: 'Espingarda de Cano Duplo', category: 'II', slots: 2, notes: 'Tática, fogo duas mãos. Dano 4d6, crítico x3, alcance curto, balístico. Recarregar: ação de movimento. Pode disparar os dois canos juntos no mesmo alvo: –O no ataque, dano sobe pra 6d6. Usa Cartuchos.', weapon: { damage: '4d6', critMult: 3, damageType: 'balístico', range: 'curto', skill: 'pontaria', addsForce: false } },
     ],
   },
   {
@@ -133,7 +148,7 @@ export const EQUIPMENT_CATALOG: CatalogGroup[] = [
       { id: 'pe-de-cabra', name: 'Pé de Cabra', category: '0', slots: 1, notes: '+5 em Força pra arrombar portas. Pode ser usado em combate como bastão.' },
       { id: 'pistola-dardos', name: 'Pistola de Dardos', category: 'I', slots: 1, notes: 'Leve, alcance curto. Acerto: inconsciente até o fim da cena (Fortitude DT Agi reduz pra desprevenido+lento 1 rodada). Vem com 2 dardos.' },
       { id: 'pistola-sinalizadora', name: 'Pistola Sinalizadora', category: '0', slots: 1, notes: 'Disparo leve, alcance curto, 2d6 de dano de fogo. Vem com 2 cargas.' },
-      { id: 'soqueira', name: 'Soqueira', category: '0', slots: 1, notes: '+1 em dano desarmado e torna o dano letal. Pode receber modificações/maldições de arma corpo a corpo.' },
+      { id: 'soqueira', name: 'Soqueira', category: '0', slots: 1, notes: '+1 em dano desarmado e torna o dano letal. Pode receber modificações/maldições de arma corpo a corpo.', weapon: { damage: '1d3+1', damageType: 'impacto', skill: 'luta', addsForce: false } },
       { id: 'spray-pimenta', name: 'Spray de Pimenta', category: '0', slots: 1, notes: 'Ação padrão contra adjacente: cego por 1d4 rodadas (Fortitude DT Agi evita). Dura 2 usos.' },
       { id: 'taser', name: 'Taser', category: 'I', slots: 1, notes: 'Ação padrão contra adjacente: 1d6 de dano de eletricidade + atordoado 1 rodada (Fortitude DT Agi evita). Dura 2 usos.' },
       { id: 'traje-hazmat', name: 'Traje Hazmat', category: 'I', slots: 2, notes: '+5 em resistência contra efeitos ambientais. Resistência a químico 10.' },

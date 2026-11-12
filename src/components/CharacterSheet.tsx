@@ -33,6 +33,7 @@ import {
   ritualsUsed,
   skillBonus,
   syncTrilhaAbilities,
+  syncWeaponAttacks,
   trainingBumpBudget,
   type Attack,
   type Character,
@@ -41,6 +42,7 @@ import {
 import { uid } from '../lib/ids';
 import { fileToDownscaledDataURL } from '../lib/image';
 import { RITUALS, type RitualDef } from '../data/rituals';
+import { EQUIPMENT_CATALOG } from '../data/equipmentCatalog';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
 import { CLASS_POWERS, type ClassPowerDef } from '../data/classPowers';
 import { PARANORMAL_BY_KEY, PARANORMAL_POWERS } from '../data/paranormalPowers';
@@ -49,6 +51,10 @@ import { InventoryEditor } from './InventoryEditor';
 import { FichaQr } from './FichaQr';
 import { TokenLinkDialog } from './TokenLinkDialog';
 import { GearIcon, LinkTokenIcon, PdIcon, PhoneIcon } from './icons';
+
+// Catálogo "achatado" (sem os grupos) — syncWeaponAttacks só precisa
+// procurar por id, não pelos grupos/labels da UI de catálogo.
+const FLAT_EQUIPMENT_CATALOG = EQUIPMENT_CATALOG.flatMap((g) => g.items);
 
 // ---------- REDESIGN Passo 5 (Ficha de personagem) ----------
 // Layout em 3 colunas (pentágono de atributos / tabela de perícias /
@@ -117,7 +123,9 @@ export function CharacterSheet({
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
 
-  const [draft, setDraft] = useState<Character>(character);
+  // syncWeaponAttacks aqui pega fichas antigas que já tinham arma equipada
+  // antes dessa sincronização existir, sem precisar desequipar/reequipar.
+  const [draft, setDraft] = useState<Character>(() => syncWeaponAttacks(character, FLAT_EQUIPMENT_CATALOG));
   // Token que já representa esse personagem no cenário ativo (ver
   // TokenLinkDialog.tsx) — ausente/`null` = ainda sem token vinculado.
   const [showTokenLink, setShowTokenLink] = useState(false);
@@ -201,6 +209,12 @@ export function CharacterSheet({
   const patch = (p: Partial<Character>) =>
     setDraft((d) => {
       let next: Character = { ...d, ...p };
+      // Inventário mudou (equipar/desequipar arma, trocar modificação) —
+      // mantém os ataques vinculados em dia (ver syncWeaponAttacks); nunca
+      // mexe em ataques criados à mão.
+      if ('inventory' in p) {
+        next = syncWeaponAttacks(next, FLAT_EQUIPMENT_CATALOG);
+      }
       if (next.autoCalc && RECALC_KEYS.some((k) => k in p)) {
         next = applyDerived(next);
       }

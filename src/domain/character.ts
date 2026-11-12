@@ -13,6 +13,8 @@ import { unlockedTrilhaPowers, trilhaByName } from '../data/trilhas';
 import { CLASS_POWERS, CLASS_POWER_NEX_SLOTS } from '../data/classPowers';
 import { PARANORMAL_BY_KEY } from '../data/paranormalPowers';
 import { EQUIPMENT_EFFECTS, type EquipEffect } from '../data/equipmentEffects';
+import type { CatalogItem } from '../data/equipmentCatalog';
+import { WEAPON_MOD_BY_KEY, type WeaponModDef } from '../data/weaponModifications';
 import { uid } from '../lib/ids';
 
 const ELEMENT_NAME: Record<Element, string> = Object.fromEntries(
@@ -29,6 +31,7 @@ export interface InventoryItem {
   catalogId?: string; // id do catálogo (equipmentCatalog.ts) quando adicionado de lá — permite calcular bônus automático
   equipped?: boolean; // "vestido/empunhado agora" — só itens com efeito conhecido (ver EQUIPMENT_EFFECTS) mostram a opção
   boostSkill?: string; // pra itens tipo Utensílio/Vestimenta que dão bônus numa perícia à escolha
+  modifications?: string[]; // chaves em data/weaponModifications.ts — só relevante pra item com catalogId de arma (item.weapon)
 }
 
 export interface Ritual {
@@ -147,6 +150,12 @@ export interface Attack {
   range: string;
   crit: string; // ex.: "20/x2"
   notes: string;
+  // Quando este ataque veio de uma arma EQUIPADA do inventário (ver
+  // InventoryItem.catalogId/modifications), aponta pro mesmo InventoryItem
+  // — recalculado automaticamente toda vez que a arma ou suas modificações
+  // mudam (ver syncWeaponAttacks). Ataques criados à mão não têm isso, e
+  // nunca são tocados pela sincronização.
+  linkedInventoryId?: string;
 }
 
 function emptySkills(): Record<string, SkillState> {
@@ -272,6 +281,103 @@ export function equipmentSkillBonus(char: Character, skillKey: string): number {
     if (effect.skillBonus && item.boostSkill === skillKey) return a + effect.skillBonus;
     return a;
   }, 0);
+}
+
+const RANGE_LABEL: Record<string, string> = {
+  curto: 'Curto',
+  médio: 'Médio',
+  longo: 'Longo',
+  extremo: 'Extremo',
+};
+
+function parseDiceTerm(s: string): { count: number; sides: number } | null {
+  const m = /^(\d+)d(\d+)$/i.exec(s.trim());
+  if (!m) return null;
+  return { count: Number(m[1]), sides: Number(m[2]) };
+}
+
+// Monta o Attack (dano/crítico/teste) de uma arma do catálogo já com Força
+// e modificações aplicadas — pedido do usuário: equipar uma arma (e
+// modificá-la depois) já deixa pronto pra rolar com um clique, em vez de
+// digitar à mão (ver sceneForBroadcast-style: isso é a fonte da verdade,
+// syncWeaponAttacks abaixo só mantém `char.attacks` em dia com isto).
+// Dano com duas opções de empunhadura (ex. "1d6/1d8") usa sempre a maior
+// (duas mãos) — sem uma escolha explícita de empunhadura na ficha ainda.
+export function computeWeaponAttack(item: CatalogItem, modKeys: string[], forca: number): Attack {
+  const w = item.weapon;
+  if (!w) {
+    return {
+      id: uid(),
+      name: item.name,
+      test: '',
+      damage: '',
+      type: '',
+      range: '—',
+      crit: '',
+      notes: 'Arma sem estatísticas cadastradas no catálogo.',
+    };
+  }
+  const mods = modKeys
+    .map((k) => WEAPON_MOD_BY_KEY[k])
+    .filter((m): m is WeaponModDef => !!m);
+
+  const baseDamageStr = w.damage.includes('/') ? w.damage.split('/')[1] : w.damage;
+  const parsed = parseDiceTerm(baseDamageStr) ?? { count: 1, sides: 6 };
+  const extraSameType = mods.reduce((a, m) => a + (m.effect.extraDieSameType ?? 0), 0);
+  const diceCount = parsed.count + extraSameType;
+  const flatBonus = (w.addsForce ? forca : 0) + mods.reduce((a, m) => a + (m.effect.dmgBonus ?? 0), 0);
+  const extraDice = mods.map((m) => m.effect.extraDamageDie).filter((d): d is string => !!d);
+
+  let damage = `${diceCount}d${parsed.sides}`;
+  if (flatBonus > 0) damage += `+${flatBonus}`;
+  else if (flatBonus < 0) damage += `${flatBonus}`;
+  for (const d of extraDice) damage += `+${d}`;
+
+  const critThreatBonus = mods.reduce((a, m) => a + (m.effect.critThreatBonus ?? 0), 0);
+  const critMultBonus = mods.reduce((a, m) => a + (m.effect.critMultBonus ?? 0), 0);
+  const critRange = Math.max(2, (w.critRange ?? 20) - critThreatBonus);
+  const critMult = (w.critMult ?? 2) + critMultBonus;
+  const crit = `${critRange}/x${critMult}`;
+
+  const atkBonus = mods.reduce((a, m) => a + (m.effect.atkBonus ?? 0), 0);
+  const testName = w.skill === 'luta' ? 'Luta' : 'Pontaria';
+  const test = atkBonus ? `${testName} +${atkBonus}` : testName;
+
+  return {
+    id: uid(),
+    name: item.name,
+    test,
+    damage,
+    type: w.damageType,
+    range: w.range ? RANGE_LABEL[w.range] : '—',
+    crit,
+    notes: mods.length ? `Modificações: ${mods.map((m) => m.name).join(', ')}` : '',
+  };
+}
+
+// Mantém char.attacks em dia com as armas equipadas: cria/atualiza um
+// Attack vinculado (linkedInventoryId) pra cada InventoryItem equipado que
+// tem estatísticas de arma, e remove o vinculado de quem foi desequipado —
+// NUNCA mexe em ataques criados à mão (sem linkedInventoryId). Chamado toda
+// vez que o inventário ou as modificações de uma arma mudam (ver
+// CharacterSheet.tsx).
+export function syncWeaponAttacks(char: Character, catalog: CatalogItem[]): Character {
+  const catalogById = new Map(catalog.map((c) => [c.id, c]));
+  const equippedWeapons = char.inventory.filter(
+    (it) => it.equipped && it.catalogId && catalogById.get(it.catalogId)?.weapon,
+  );
+  const equippedIds = new Set(equippedWeapons.map((it) => it.id));
+
+  const keptManual = char.attacks.filter((a) => !a.linkedInventoryId);
+  const stillEquipped = char.attacks.filter((a) => a.linkedInventoryId && equippedIds.has(a.linkedInventoryId));
+  const synced = equippedWeapons.map((it) => {
+    const catalogItem = catalogById.get(it.catalogId!)!;
+    const existing = stillEquipped.find((a) => a.linkedInventoryId === it.id);
+    const attack = computeWeaponAttack(catalogItem, it.modifications ?? [], char.attributes.FOR);
+    return { ...attack, id: existing?.id ?? attack.id, linkedInventoryId: it.id };
+  });
+
+  return { ...char, attacks: [...keptManual, ...synced] };
 }
 
 export function createCharacter(ownerId: string, name = 'Novo Agente'): Character {

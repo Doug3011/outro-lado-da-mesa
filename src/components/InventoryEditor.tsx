@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { SKILLS } from '../data/ordem';
 import { EQUIPMENT_EFFECTS } from '../data/equipmentEffects';
-import type { CatalogItem } from '../data/equipmentCatalog';
+import { EQUIPMENT_CATALOG, type CatalogItem } from '../data/equipmentCatalog';
+import { WEAPON_MODIFICATIONS } from '../data/weaponModifications';
 import type { InventoryItem } from '../domain/character';
 import { uid } from '../lib/ids';
 import { EquipmentCatalogDialog } from './EquipmentCatalogDialog';
+
+const CATALOG_BY_ID = new Map(EQUIPMENT_CATALOG.flatMap((g) => g.items).map((i) => [i.id, i]));
 
 // Ícone do botão "Catálogo do livro" — substitui o emoji 📖 (movido de
 // CharacterSheet.tsx pra cá quando o editor de inventário virou compartilhado
@@ -51,6 +54,8 @@ export function InventoryEditor({
       {loadHint && <p className="faint rd-sheet-inv-head">{loadHint}</p>}
       {inventory.map((it) => {
         const effect = it.catalogId ? EQUIPMENT_EFFECTS[it.catalogId] : undefined;
+        const catalogItem = it.catalogId ? CATALOG_BY_ID.get(it.catalogId) : undefined;
+        const isWeapon = !!catalogItem?.weapon;
         return (
           <div className="list-item" key={it.id}>
             <div className="li-head">
@@ -129,6 +134,47 @@ export function InventoryEditor({
                     ))}
                   </select>
                 )}
+              </div>
+            )}
+            {isWeapon && (
+              <div className="row" style={{ marginTop: 6, alignItems: 'center', gap: 8 }}>
+                <label className="chip-row" style={{ alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: 'auto' }}
+                    checked={!!it.equipped}
+                    onChange={(e) => update(it.id, { equipped: e.target.checked })}
+                  />
+                  <span className="faint" style={{ fontSize: 12 }}>
+                    Equipada — vira um ataque pronto pra rolar na aba Combate, atualizado sozinho
+                  </span>
+                </label>
+              </div>
+            )}
+            {isWeapon && it.equipped && (
+              <div style={{ marginTop: 6 }}>
+                <label className="faint" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  Modificações
+                </label>
+                <div className="chip-row">
+                  {WEAPON_MODIFICATIONS.map((mod) => {
+                    const on = (it.modifications ?? []).includes(mod.key);
+                    return (
+                      <span
+                        key={mod.key}
+                        className={`chip ${on ? 'on' : ''}`}
+                        title={`${mod.description} (${mod.scope})`}
+                        onClick={() => {
+                          const cur = it.modifications ?? [];
+                          const next = on ? cur.filter((k) => k !== mod.key) : [...cur, mod.key];
+                          update(it.id, { modifications: next });
+                        }}
+                      >
+                        {mod.name}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
