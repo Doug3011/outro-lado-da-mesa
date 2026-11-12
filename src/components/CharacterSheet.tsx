@@ -254,6 +254,17 @@ export function CharacterSheet({
   };
 
   const addRitualFromDef = (r: RitualDef) => {
+    // Monta a descrição já com tudo que o livro diz (pedido do usuário:
+    // adicionar do compêndio não deve deixar nada em branco pra consultar
+    // o livro depois) — alvo/resistência não têm campo próprio na ficha
+    // (Ritual não tem esses campos), então entram junto na descrição.
+    const header = [
+      r.target ? `Alvo: ${r.target}` : null,
+      r.resistance ? `Resistência: ${r.resistance}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    const description = [header, r.fullText ?? r.summary].filter(Boolean).join('\n\n');
     patch({
       rituals: [
         ...draft.rituals,
@@ -263,10 +274,10 @@ export function CharacterSheet({
           circle: r.circle,
           element: r.elements[0],
           cost: '',
-          execution: '',
-          range: '',
-          duration: '',
-          description: r.summary,
+          execution: r.execution ?? '',
+          range: r.range ?? '',
+          duration: r.duration ?? '',
+          description,
         },
       ],
     });
