@@ -287,6 +287,25 @@ export const useTableStore = create<TableState>((set, get) => {
     return { ...sc, ground: null, objects3d: [] };
   };
 
+  // Mesmo corte de sceneForBroadcast, mas pro PATCH parcial que
+  // updatePlace3d/moveObject3dLive mandam (ground/objects3d podem trazer
+  // modelo/textura embutidos como data URL, estourando os 256KB do
+  // Supabase Realtime Broadcast) — bug relatado pelo usuário: cenário 3D
+  // parou de chegar pro jogador de novo. be8abf2 só cortou o scene:upsert
+  // (troca de cenário); ajustar o CHÃO/objetos de um cenário 3D que já
+  // está ativo (ground/terrain/sky, ou arrastar um objeto) passa por aqui,
+  // não por lá, e não tinha o mesmo corte. Numa mesa pela internet o
+  // jogador não renderiza a cena 3D localmente de qualquer jeito (só
+  // assiste o vídeo que o mestre transmite, ver AvBroadcastController.tsx)
+  // — então pode ficar sem ground/objects3d sem perder nada.
+  const placePatchForBroadcast = <T extends { ground?: unknown; objects3d?: unknown }>(patch: T): T => {
+    if (get().mode === 'lan') return patch;
+    const next = { ...patch };
+    if ('ground' in next) delete next.ground;
+    if ('objects3d' in next) delete next.objects3d;
+    return next;
+  };
+
   // Chega um `scene:switch` pra uma cena que este cliente não conhece —
   // normalmente porque o `scene:upsert` correspondente nunca chegou (mesa
   // pela internet/Supabase: broadcast tem limite de 256KB por mensagem, um
@@ -937,7 +956,7 @@ export const useTableStore = create<TableState>((set, get) => {
       }));
       persist();
       pushScenesToDb();
-      get().conn?.send({ type: 'place3d:update', payload: { sceneId, ...patch } });
+      get().conn?.send({ type: 'place3d:update', payload: placePatchForBroadcast({ sceneId, ...patch }) });
     },
 
     // Mesma ideia de moveToken (lado 2D): só atualiza estado local + manda
@@ -958,7 +977,10 @@ export const useTableStore = create<TableState>((set, get) => {
         }),
       }));
       if (nextObjects) {
-        get().conn?.send({ type: 'place3d:update', payload: { sceneId, objects3d: nextObjects } });
+        get().conn?.send({
+          type: 'place3d:update',
+          payload: placePatchForBroadcast({ sceneId, objects3d: nextObjects }),
+        });
       }
     },
 
