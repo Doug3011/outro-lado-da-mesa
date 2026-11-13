@@ -150,6 +150,9 @@ interface TableState {
   broadcastTokenMove: (id: string, x: number, y: number) => void;
   deleteToken: (id: string) => void;
   updateMap: (patch: Partial<MapState>) => void;
+  // Igual updateMap, mas pra campos do Scene em si (fora do map) — ex.
+  // breathingEnabled, o toggle de respiração dos tokens.
+  updateScene: (patch: Partial<Scene>) => void;
 
   addScene: (name?: string) => void;
   addScene3d: (place: Place | null, name?: string) => void;
@@ -416,6 +419,14 @@ export const useTableStore = create<TableState>((set, get) => {
         const { sceneId, patch } = ev.payload;
         set(() => ({
           scenes: patchScene(sceneId, (sc) => ({ ...sc, map: { ...sc.map, ...patch } })),
+        }));
+        persist();
+        break;
+      }
+      case 'scene:update': {
+        const { sceneId, patch } = ev.payload;
+        set(() => ({
+          scenes: patchScene(sceneId, (sc) => ({ ...sc, ...patch })),
         }));
         persist();
         break;
@@ -835,6 +846,16 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       pushScenesToDb();
       get().conn?.send({ type: 'map:update', payload: { sceneId, patch } });
+    },
+
+    updateScene: (patch) => {
+      const sceneId = get().activeSceneId;
+      set(() => ({
+        scenes: patchScene(sceneId, (sc) => ({ ...sc, ...patch })),
+      }));
+      persist();
+      pushScenesToDb();
+      get().conn?.send({ type: 'scene:update', payload: { sceneId, patch } });
     },
 
     addScene: (name) => {

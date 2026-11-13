@@ -41,6 +41,7 @@ export type RoomEvent =
   | { type: 'token:move'; payload: { sceneId: string; id: string; x: number; y: number } }
   | { type: 'token:delete'; payload: { sceneId: string; id: string } }
   | { type: 'map:update'; payload: { sceneId: string; patch: Partial<MapState> } }
+  | { type: 'scene:update'; payload: { sceneId: string; patch: Partial<Scene> } }
   | { type: 'scene:upsert'; payload: Scene }
   | { type: 'scene:delete'; payload: { id: string } }
   | { type: 'scene:switch'; payload: { id: string } }

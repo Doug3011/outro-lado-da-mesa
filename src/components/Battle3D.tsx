@@ -354,6 +354,7 @@ export function Battle3D() {
   const addScene = useTableStore((s) => s.addScene);
   const addSceneFromMap2d = useTableStore((s) => s.addSceneFromMap2d);
   const updateMap = useTableStore((s) => s.updateMap);
+  const updateScene = useTableStore((s) => s.updateScene);
   const renameScene = useTableStore((s) => s.renameScene);
   const deleteScene = useTableStore((s) => s.deleteScene);
   const switchScene = useTableStore((s) => s.switchScene);
@@ -1254,6 +1255,16 @@ export function Battle3D() {
                 🗑
               </button>
             </div>
+          </div>
+
+          <div className="floating-row" style={{ marginTop: 8 }}>
+            <span className="floating-row-label">Respiração</span>
+            <button
+              className={'small ' + (scene.breathingEnabled ? 'primary' : '')}
+              onClick={() => updateScene({ breathingEnabled: !scene.breathingEnabled })}
+            >
+              {scene.breathingEnabled ? 'Ligado' : 'Desligado'}
+            </button>
           </div>
 
           <div className="floating-divider" />

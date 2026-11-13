@@ -1,5 +1,7 @@
 import type React from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
+import * as THREE from 'three';
 import { activeScene, useTableStore } from '../store/useTableStore';
 import { useIdentity } from '../hooks/useIdentity';
 import { randomColor, uid } from '../lib/ids';
@@ -38,6 +40,15 @@ import {
   TokensFloatIcon,
   ViewFloatIcon,
 } from './icons';
+import {
+  applyRigToUniforms,
+  breathingScale,
+  createWarpUniforms,
+  updateWarpTime,
+  WARP_FRAGMENT_SHADER,
+  WARP_SEGMENTS,
+  WARP_VERTEX_SHADER,
+} from '../lib/tokenWarp';
 import type { Token, TokenSprite } from '../types';
 
 const SEND_EVERY_MS = 45;
@@ -48,7 +59,21 @@ type TokenElProps = {
   cellSize: number;
   onPointerDown: (e: React.PointerEvent, t: Token) => void;
   registerEl: (id: string, el: HTMLDivElement | null) => void;
+  // Animação de respiração (ver Scene.breathingEnabled) — só aplicada aqui
+  // via CSS pra token SEM rig de puppet warp; quem tem rig já respira via
+  // a escala do próprio quad WebGL (ver TokenWarpOverlay2D), senão as duas
+  // ficariam fora de sincronia (CSS por aproximação vs. o seno de verdade
+  // do shader) sem ganhar nada visualmente.
+  breathingEnabled: boolean;
 };
+
+// Mesmo hash simples de breathingScale (tokenWarp.ts) — usado aqui só pra
+// desfasar o `animation-delay` do CSS, pra nem todo token pulsar junto.
+function breathPhaseSeconds(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return (h % 1000) / 1000;
+}
 
 // Extraído de dentro do `.map()` do BattleMap (varredura de performance:
 // "ainda trava ao arrastar, mesmo depois do fix anterior") — SEM isso,
@@ -65,13 +90,20 @@ type TokenElProps = {
 // referência de objeto (`patchScene`/`moveToken` só trocam a entrada do
 // token movido), então o `memo` abaixo bloqueia o re-render de todo o resto
 // — só o token realmente arrastado continua recalculando a cada commit.
-const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, registerEl }: TokenElProps) {
+const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, registerEl, breathingEnabled }: TokenElProps) {
   const free = !!t.image;
   const px = t.sizePx ?? t.size * cellSize - 6;
+  const breathing = breathingEnabled && !t.animationRig;
   return (
     <div
       ref={(el) => registerEl(t.id, el)}
-      className={'token ' + (free ? 'token-free ' : '') + (selected ? 'selected ' : '') + (t.lanternOn ? 'lantern-on' : '')}
+      className={
+        'token ' +
+        (free ? 'token-free ' : '') +
+        (selected ? 'selected ' : '') +
+        (t.lanternOn ? 'lantern-on ' : '') +
+        (breathing ? 'breathing' : '')
+      }
       onPointerDown={(e) => onPointerDown(e, t)}
       style={{
         left: t.x * cellSize,
@@ -82,9 +114,14 @@ const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, re
         background: t.image ? undefined : t.color,
         borderColor: free ? 'transparent' : t.color,
         fontSize: Math.min(18, px * 0.3),
+        animationDelay: breathing ? `-${breathPhaseSeconds(t.id) * 4.833}s` : undefined,
       }}
     >
-      {t.image && (
+      {/* Token com rig de animação (puppet warp) não desenha a imagem aqui —
+          quem desenha é a camada WebGL (TokenWarpOverlay2D, um canvas só pra
+          mesa inteira, ver comentário lá) na mesma posição/tamanho; o resto
+          deste <div> (borda, barra de vida, rótulo) continua igual. */}
+      {t.image && !t.animationRig && (
         <span
           className="tk-img"
           style={{
@@ -110,6 +147,99 @@ const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, re
   );
 });
 
+// Desenha UM token com rig de puppet warp (ver tokenWarp.ts) como um quad
+// WebGL, na posição/tamanho exatos que o `.token` (TokenEl) já calcula via
+// CSS — mesma fórmula (`t.x*cellSize`/`t.sizePx ?? t.size*cellSize-6`,
+// margem de 3px). Mantém a proporção da imagem (como o `background-size:
+// contain` do CSS já fazia), em vez de esticar pro quadrado do token.
+function WarpedTokenQuad({
+  token,
+  cellSize,
+  breathingEnabled,
+}: {
+  token: Token;
+  cellSize: number;
+  breathingEnabled: boolean;
+}) {
+  const texture = useLoader(THREE.TextureLoader, token.image as string);
+  const imgAspect = texture.image ? texture.image.width / texture.image.height : 1;
+  const px = token.sizePx ?? token.size * cellSize - 6;
+  const quadW = imgAspect >= 1 ? px : px * imgAspect;
+  const quadH = imgAspect >= 1 ? px / imgAspect : px;
+  const cx = token.x * cellSize + px / 2 + 3;
+  const cy = token.y * cellSize + px / 2 + 3;
+  const uniforms = useMemo(() => createWarpUniforms(texture), [texture]);
+  useEffect(() => {
+    applyRigToUniforms(uniforms, token.animationRig);
+  }, [uniforms, token.animationRig]);
+  const meshRef = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    updateWarpTime(uniforms, state.clock.elapsedTime);
+    if (!meshRef.current) return;
+    const breath = breathingScale(state.clock.elapsedTime, token.id, breathingEnabled);
+    meshRef.current.scale.set(breath, breath, 1);
+  });
+  // CSS `rotate()` é horário pra graus positivos; nesta cena orto com Y
+  // crescendo pra baixo (ver câmera em TokenWarpOverlay2D), negar o ângulo
+  // reproduz o mesmo sentido visual.
+  const rotationRad = token.rotation ? (-token.rotation * Math.PI) / 180 : 0;
+  return (
+    <mesh ref={meshRef} position={[cx, cy, 0]} rotation={[0, 0, rotationRad]}>
+      <planeGeometry args={[quadW, quadH, WARP_SEGMENTS, WARP_SEGMENTS]} />
+      <shaderMaterial
+        transparent
+        uniforms={uniforms}
+        vertexShader={WARP_VERTEX_SHADER}
+        fragmentShader={WARP_FRAGMENT_SHADER}
+      />
+    </mesh>
+  );
+}
+
+// Camada WebGL ÚNICA pra mesa 2D inteira (não um canvas por token — pedido
+// explícito do usuário de leveza com vários tokens animados ao mesmo
+// tempo, e navegadores têm um limite baixo de contextos WebGL simultâneos)
+// — desenha só os tokens com `animationRig`; o resto continua 100% CSS
+// (TokenEl), sem nenhum custo extra. Câmera ortográfica com Y crescendo
+// pra baixo (`top:0, bottom:stageHeight`) pra bater 1:1 com pixel CSS —
+// cada quad usa a MESMA posição em pixels que o `.token` já calcula.
+// `pointerEvents:'none'` — é só visual, por cima da camada de verdade
+// (TokenEl) que já cuida de clique/arraste/seleção.
+function TokenWarpOverlay2D({
+  tokens,
+  cellSize,
+  stageWidth,
+  stageHeight,
+  breathingEnabled,
+}: {
+  tokens: Token[];
+  cellSize: number;
+  stageWidth: number;
+  stageHeight: number;
+  breathingEnabled: boolean;
+}) {
+  if (tokens.length === 0) return null;
+  return (
+    <div
+      className="token-warp-overlay"
+      style={{ position: 'absolute', inset: 0, width: stageWidth, height: stageHeight, pointerEvents: 'none' }}
+    >
+      <Canvas
+        orthographic
+        camera={{ left: 0, right: stageWidth, top: 0, bottom: stageHeight, near: 0.1, far: 1000, position: [0, 0, 100] }}
+        gl={{ alpha: true }}
+        style={{ background: 'transparent' }}
+      >
+        <Suspense fallback={null}>
+          {tokens.map((t) => (
+            <WarpedTokenQuad key={t.id} token={t} cellSize={cellSize} breathingEnabled={breathingEnabled} />
+          ))}
+        </Suspense>
+      </Canvas>
+    </div>
+  );
+}
+
 export function BattleMap() {
   const { me } = useIdentity();
   const scenes = useTableStore((s) => s.scenes);
@@ -128,6 +258,7 @@ export function BattleMap() {
   const moveToken = useTableStore((s) => s.moveToken);
   const deleteToken = useTableStore((s) => s.deleteToken);
   const updateMap = useTableStore((s) => s.updateMap);
+  const updateScene = useTableStore((s) => s.updateScene);
   const addScene = useTableStore((s) => s.addScene);
   const addSceneFromMap2d = useTableStore((s) => s.addSceneFromMap2d);
   const addScene3d = useTableStore((s) => s.addScene3d);
@@ -1135,18 +1266,32 @@ export function BattleMap() {
             );
           })}
 
-          {Object.values(tokens)
-            .filter((t) => me.isGM || !tokenHidden(t))
-            .map((t) => (
-              <TokenEl
-                key={t.id}
-                t={t}
-                selected={selId === t.id}
-                cellSize={map.cellSize}
-                onPointerDown={onTokenPointerDown}
-                registerEl={registerTokenEl}
-              />
-            ))}
+          {(() => {
+            const visibleTokens = Object.values(tokens).filter((t) => me.isGM || !tokenHidden(t));
+            const riggedTokens = visibleTokens.filter((t) => t.image && t.animationRig);
+            return (
+              <>
+                <TokenWarpOverlay2D
+                  tokens={riggedTokens}
+                  cellSize={map.cellSize}
+                  stageWidth={W}
+                  stageHeight={H}
+                  breathingEnabled={!!scene.breathingEnabled}
+                />
+                {visibleTokens.map((t) => (
+                  <TokenEl
+                    key={t.id}
+                    t={t}
+                    selected={selId === t.id}
+                    cellSize={map.cellSize}
+                    onPointerDown={onTokenPointerDown}
+                    registerEl={registerTokenEl}
+                    breathingEnabled={!!scene.breathingEnabled}
+                  />
+                ))}
+              </>
+            );
+          })()}
 
           {measureLine && (
             <>
@@ -1419,6 +1564,16 @@ export function BattleMap() {
                 onClick={() => updateMap({ showGrid: !map.showGrid })}
               >
                 {map.showGrid ? 'Ligado' : 'Desligado'}
+              </button>
+            </div>
+
+            <div className="floating-row">
+              <span className="floating-row-label">Respiração</span>
+              <button
+                className={'small ' + (scene.breathingEnabled ? 'primary' : '')}
+                onClick={() => updateScene({ breathingEnabled: !scene.breathingEnabled })}
+              >
+                {scene.breathingEnabled ? 'Ligado' : 'Desligado'}
               </button>
             </div>
 

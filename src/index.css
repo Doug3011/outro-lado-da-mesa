@@ -1551,6 +1551,24 @@ label {
   outline-offset: 2px;
   box-shadow: 0 0 14px rgba(224, 30, 43, 0.6);
 }
+/* Animação de respiração (pulsar sutil de escala, liga por cena — ver
+   Scene.breathingEnabled) — só pra token SEM rig de puppet warp; quem tem
+   rig já respira via a escala do quad WebGL (TokenWarpOverlay2D em
+   BattleMap.tsx), em vez de duas respirações fora de sincronia. Duração
+   igual ao período da fórmula usada no shader (2π/velocidade, ver
+   breathingScale em tokenWarp.ts) pra ficar coerente entre os dois lados. */
+@keyframes rd-token-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+.token.breathing {
+  animation: rd-token-breathe 4.833s ease-in-out infinite;
+}
 /* Lanterna ligada (ver Névoa modo "Lanterna" na janela Mestre) — só um sinal
    visual de "isso tá acesa", o efeito de verdade é a névoa revelada em volta. */
 .token.lantern-on {
