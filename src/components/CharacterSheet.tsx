@@ -160,6 +160,7 @@ export function CharacterSheet({
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingRemote = useRef<Character | null>(null);
   const timer = useRef<number | undefined>(undefined);
+  const recalcTimer = useRef<number | undefined>(undefined);
   const portraitInputRef = useRef<HTMLInputElement>(null);
 
   // Só adia a atualização remota (ex.: vinda do celular) se o jogador estiver
@@ -218,7 +219,23 @@ export function CharacterSheet({
         next = syncWeaponAttacks(next, FLAT_EQUIPMENT_CATALOG);
       }
       if (next.autoCalc && RECALC_KEYS.some((k) => k in p)) {
-        next = applyDerived(next);
+        // Recalcula só depois de parar de editar (debounce), não a cada
+        // tecla — bug relatado pelo usuário: digitar NEX/atributo passa por
+        // valores intermediários (ex. "2" antes de "20", ou "" ao apagar pra
+        // redigitar); recalcular na hora usava esse valor errado como base
+        // pro "preserva o dano sofrido" de PV/PE/SAN (carryOverCurrent, ver
+        // domain/character.ts) e podia derrubar a vida visivelmente — e se o
+        // autosave de 350ms pegasse esse instante, persistia (e transmitia
+        // pra mesa) o valor errado antes do usuário terminar de digitar.
+        window.clearTimeout(recalcTimer.current);
+        recalcTimer.current = window.setTimeout(() => {
+          setDraft((latest) => {
+            if (!latest.autoCalc) return latest;
+            const applied = applyDerived(latest);
+            push(applied);
+            return applied;
+          });
+        }, 600);
       }
       if (TRILHA_KEYS.some((k) => k in p)) {
         next = syncTrilhaAbilities(next);
