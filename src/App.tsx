@@ -4,6 +4,7 @@ import { Home } from './pages/Home';
 import { Room } from './pages/Room';
 import { Prototype3D } from './pages/Prototype3D';
 import { Prototype2D } from './pages/Prototype2D';
+import { TokenAnimationEditor } from './pages/TokenAnimationEditor';
 import { MinigameTest } from './pages/MinigameTest';
 import { SettingsGear } from './components/SettingsGear';
 import { MenuMusicController } from './components/MenuMusicController';
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
       { path: '/prototipo-3d', element: <Prototype3D /> },
       { path: '/mapa-2d/:map2dId', element: <Prototype2D /> },
       { path: '/mapa-2d', element: <Prototype2D /> },
+      { path: '/animar-token/:assetId', element: <TokenAnimationEditor /> },
       { path: '/teste-minigame', element: <MinigameTest /> },
       { path: '*', element: <Navigate to="/" replace /> },
     ],

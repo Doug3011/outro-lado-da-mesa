@@ -1,5 +1,5 @@
 import { uid } from './ids';
-import type { AssetFolder, TokenAsset } from '../types';
+import type { AssetFolder, TokenAnimationRig, TokenAsset } from '../types';
 
 // Biblioteca de tokens do mestre — importada uma vez na Área do Mestre (menu
 // principal), fica salva no servidor local (fora de qualquer mesa) pronta
@@ -22,6 +22,12 @@ export const TOKEN_DRAG_MIME = 'application/x-ordem-token';
 export interface TokenDragPayload {
   id: string;
   name: string;
+  // Copiado pro Token novo ao soltar na mesa (ver BattleMap.tsx/Battle3D.tsx)
+  // — pedido do usuário: o token já chega na mesa com a animação salva,
+  // sem precisar configurar nada lá. Vai direto no payload do drag (em vez
+  // de buscar de novo no drop) porque TokenLibraryManager.tsx já tem o
+  // TokenAsset completo em mãos no momento do arraste.
+  animationRig?: TokenAnimationRig;
 }
 
 export async function fetchTokenLibrary(): Promise<TokenLibraryData> {
@@ -106,6 +112,20 @@ export async function moveTokenAsset(id: string, folderId: string | null): Promi
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folderId }),
+    });
+  } catch {
+    /* ignora */
+  }
+}
+
+// Salva o rig do editor de animação (TokenAnimationEditor.tsx) — passe
+// `null` pra apagar a animação de um token da biblioteca.
+export async function saveTokenAnimationRig(id: string, rig: TokenAnimationRig | null): Promise<void> {
+  try {
+    await fetch(`/api/tokens/items/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ animationRig: rig }),
     });
   } catch {
     /* ignora */

@@ -1,4 +1,4 @@
-import { Suspense, memo, useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { Suspense, memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type React from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { Html, OrbitControls } from '@react-three/drei';
@@ -60,6 +60,15 @@ import {
 } from './icons';
 import { hasLan } from '../lib/lan';
 import { setGmCanvas3d } from '../lib/gmCanvasRegistry';
+import {
+  applyRigToUniforms,
+  breathingScale,
+  createWarpUniforms,
+  updateWarpTime,
+  WARP_FRAGMENT_SHADER,
+  WARP_SEGMENTS,
+  WARP_VERTEX_SHADER,
+} from '../lib/tokenWarp';
 import type { PlaceObject, SkyPreset, TerrainConfig, Token, TokenSprite } from '../types';
 
 // Mesa 3D de verdade (Fase 3): mesmas abas/mecânicas da mesa 2D (dados,
@@ -205,11 +214,15 @@ type TokenProps = {
   onDragEnd: (id: string, x: number, z: number) => void;
   controlsRef: RefObject<OrbitControlsImpl | null>;
   terrain?: TerrainConfig | null;
+  // Animação de respiração (pulsar sutil de escala) — liga/desliga por cena
+  // inteira (ver Scene.breathingEnabled), combina com o rig de puppet warp
+  // de cada token quando ele tiver um (ver token.animationRig).
+  breathingEnabled: boolean;
 };
 
 // Token com imagem — mesmo truque de billboard (só gira no eixo Y) usado nos
 // objetos de cenário: fica sempre de frente pra câmera sem tombar.
-function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef, terrain }: TokenProps) {
+function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef, terrain, breathingEnabled }: TokenProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const texture = useLoader(THREE.TextureLoader, token.image as string);
@@ -218,11 +231,24 @@ function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
   const height = 1.5 * size;
   const width = height * aspect;
   const elevation = token.elevation ?? 0;
-  useFrame(() => {
+  const rig = token.animationRig;
+  // Uniforms do warp só são criados quando o token TEM um rig — sem isso,
+  // continua exatamente como antes (plano simples, meshBasicMaterial),
+  // zero custo extra pro caso comum. `useMemo` com dependência na
+  // referência de `rig` (não nos pontos individuais) é suficiente — o rig
+  // é copiado uma vez ao colocar o token na mesa e não muda depois.
+  const warpUniforms = useMemo(() => (rig ? createWarpUniforms(texture) : null), [rig, texture]);
+  useEffect(() => {
+    if (warpUniforms) applyRigToUniforms(warpUniforms, rig);
+  }, [warpUniforms, rig]);
+  useFrame((state) => {
     if (!meshRef.current) return;
     const dx = camera.position.x - token.x;
     const dz = camera.position.z - token.y;
     meshRef.current.rotation.y = Math.atan2(dx, dz);
+    const breath = breathingScale(state.clock.elapsedTime, token.id, breathingEnabled);
+    meshRef.current.scale.set(breath, breath, breath);
+    if (warpUniforms) updateWarpTime(warpUniforms, state.clock.elapsedTime);
   });
   const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd, {
     ref: meshRef,
@@ -234,8 +260,23 @@ function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
       position={[token.x, height / 2 + elevation + terrainHeight(token.x, token.y, terrain), token.y]}
       onPointerDown={onPointerDown}
     >
-      <planeGeometry args={[width, height]} />
-      <meshBasicMaterial map={texture} side={THREE.DoubleSide} alphaTest={0.3} />
+      {warpUniforms ? (
+        <>
+          <planeGeometry args={[width, height, WARP_SEGMENTS, WARP_SEGMENTS]} />
+          <shaderMaterial
+            transparent
+            side={THREE.DoubleSide}
+            uniforms={warpUniforms}
+            vertexShader={WARP_VERTEX_SHADER}
+            fragmentShader={WARP_FRAGMENT_SHADER}
+          />
+        </>
+      ) : (
+        <>
+          <planeGeometry args={[width, height]} />
+          <meshBasicMaterial map={texture} side={THREE.DoubleSide} alphaTest={0.3} />
+        </>
+      )}
       <TokenHtmlLabel token={token} y={height / 2 + 0.35} />
       {selected && (
         <mesh position={[0, -height / 2 + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -249,7 +290,7 @@ function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
 
 // Token sem imagem — uma "peça" cilíndrica na cor do token, mesma ideia de
 // miniatura de mesa.
-function TokenPlain3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef, terrain }: TokenProps) {
+function TokenPlain3D({ token, selected, editable, onSelect, onMove, onDragEnd, controlsRef, terrain, breathingEnabled }: TokenProps) {
   const size = token.size || 1;
   const height = 1.3 * size;
   const radius = 0.4 * size;
@@ -258,6 +299,11 @@ function TokenPlain3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
   const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd, {
     ref: groupRef,
     computeY: (x, z) => elevation + terrainHeight(x, z, terrain),
+  });
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const breath = breathingScale(state.clock.elapsedTime, token.id, breathingEnabled);
+    groupRef.current.scale.set(breath, breath, breath);
   });
   return (
     <group ref={groupRef} position={[token.x, elevation + terrainHeight(token.x, token.y, terrain), token.y]}>
@@ -787,6 +833,7 @@ export function Battle3D() {
         y: +p.z.toFixed(2),
         size: 1,
         ownerId: me.id,
+        animationRig: payload.animationRig,
       };
       upsertToken(t);
       setSelKind('token');
@@ -850,6 +897,7 @@ export function Battle3D() {
         onDragEnd={onTokenDragEnd}
         controlsRef={controlsRef}
         terrain={scene.terrain}
+        breathingEnabled={!!scene.breathingEnabled}
       />
     ));
 

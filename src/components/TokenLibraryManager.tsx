@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { AssetFolder, TokenAsset } from '../types';
 import {
   createTokenFolder,
@@ -12,7 +13,7 @@ import {
   uploadTokenImages,
 } from '../lib/tokenLibrary';
 import { askText } from '../state/promptDialog';
-import { CloseFloatIcon, PencilIcon, UploadIcon } from './icons';
+import { CloseFloatIcon, PencilIcon, PlayIcon, UploadIcon } from './icons';
 
 // Biblioteca de tokens do mestre (Área do Mestre, menu principal) — importa
 // imagens (uma a uma, várias de uma vez, ou uma pasta inteira do computador)
@@ -35,6 +36,7 @@ export function TokenLibraryManager({
   onShiftClickAsset?: (asset: TokenAsset) => void;
   theme?: 'energia';
 } = {}) {
+  const navigate = useNavigate();
   const [folders, setFolders] = useState<AssetFolder[]>([]);
   const [items, setItems] = useState<TokenAsset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +222,10 @@ export function TokenLibraryManager({
                       : 'Arraste pro mapa da mesa pra colocar como token'
                   }
                   onDragStart={(e) => {
-                    e.dataTransfer.setData(TOKEN_DRAG_MIME, JSON.stringify({ id: t.id, name: t.name }));
+                    e.dataTransfer.setData(
+                      TOKEN_DRAG_MIME,
+                      JSON.stringify({ id: t.id, name: t.name, animationRig: t.animationRig }),
+                    );
                     e.dataTransfer.effectAllowed = 'copy';
                   }}
                   onClick={(e) => {
@@ -239,6 +244,13 @@ export function TokenLibraryManager({
                       </option>
                     ))}
                   </select>
+                  <button
+                    className="rd-gm-icon-btn"
+                    title={t.animationRig ? 'Editar animação' : 'Editar animação (ainda sem nenhuma)'}
+                    onClick={() => navigate(`/animar-token/${t.id}`)}
+                  >
+                    <PlayIcon />
+                  </button>
                   <button className="rd-gm-icon-btn" title="Renomear" onClick={() => onRename(t)}>
                     <PencilIcon />
                   </button>
@@ -320,7 +332,10 @@ export function TokenLibraryManager({
                   : 'Arraste pro mapa da mesa pra colocar como token'
               }
               onDragStart={(e) => {
-                e.dataTransfer.setData(TOKEN_DRAG_MIME, JSON.stringify({ id: t.id, name: t.name }));
+                e.dataTransfer.setData(
+                  TOKEN_DRAG_MIME,
+                  JSON.stringify({ id: t.id, name: t.name, animationRig: t.animationRig }),
+                );
                 e.dataTransfer.effectAllowed = 'copy';
               }}
               onClick={(e) => {

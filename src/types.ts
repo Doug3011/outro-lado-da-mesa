@@ -44,6 +44,32 @@ export interface TokenSprite {
   image: string;
 }
 
+// Ponto de um rig de animação "puppet warp" (editor em
+// TokenAnimationEditor.tsx) — pedido do usuário: marcar pontos fixos
+// (âncoras, ex. a cabeça) e móveis (ex. a ponta de um chapéu) numa
+// imagem de token, deformando só a região perto do ponto móvel, de forma
+// suave, como tecido balançando. `u`/`v` são normalizados (0-1) dentro da
+// imagem, não em pixels, pra sobreviver a qualquer redimensionamento.
+export interface AnimationPoint {
+  id: string;
+  type: 'fixed' | 'moving';
+  u: number;
+  v: number;
+  // Só pontos "moving" — são os 3 controles pedidos (intensidade,
+  // velocidade, direção). `radius` NÃO é um controle manual: o editor
+  // recalcula sozinho (distância até o ponto fixo mais próximo) toda vez
+  // que algum ponto se move, e é isso que limita a deformação à região
+  // perto do ponto — ver tokenWarp.ts.
+  intensity?: number; // 0-1
+  speed?: number; // oscilações por segundo
+  direction?: number; // graus
+  radius?: number; // calculado, não editável diretamente na UI
+}
+
+export interface TokenAnimationRig {
+  points: AnimationPoint[];
+}
+
 export interface Token {
   id: string;
   label: string;
@@ -72,6 +98,12 @@ export interface Token {
   // desse token (tecla configurável, padrão L). Opcional/ausente = desligada,
   // igual sempre foi antes desse campo existir.
   lanternOn?: boolean;
+  // Rig de animação "puppet warp" — cópia feita no momento em que o token
+  // foi colocado na mesa a partir de um item da biblioteca (TokenAsset,
+  // ver src/lib/tokenLibrary.ts). Igual a `image`, editar a animação na
+  // biblioteca depois NÃO atualiza quem já foi colocado — mesmo
+  // comportamento que trocar a imagem na biblioteca já tem hoje.
+  animationRig?: TokenAnimationRig;
 }
 
 // Peça solta plantada num mapa 2D (móvel, parede, decoração, textura de
@@ -263,6 +295,11 @@ export interface Scene {
   skyPreset?: SkyPreset;
   objects3d: PlaceObject[];
   tokens: Record<string, Token>;
+  // Animação de respiração (pulsar sutil de escala) em TODOS os tokens
+  // desta cena — opcional/ausente = desligada, igual sempre foi antes
+  // desse campo existir. Combina com o rig de puppet warp de cada token
+  // (ver Token.animationRig) — os dois efeitos funcionam juntos.
+  breathingEnabled?: boolean;
 }
 
 // Biblioteca de música: arquivos ficam no servidor local do mestre (fora do
@@ -311,6 +348,10 @@ export interface TokenAsset {
   ext: string;
   folderId: string | null;
   addedAt: number;
+  // Rig de animação "puppet warp" salvo pelo editor (TokenAnimationEditor.tsx)
+  // — ausente = token sem animação configurada ainda. Copiado pro Token ao
+  // arrastar esse item pra uma mesa (ver BattleMap.tsx/Battle3D.tsx).
+  animationRig?: TokenAnimationRig;
 }
 
 // `kind` marca se o mapa é pra mesa 2D ou 3D — são mesas separadas (não um

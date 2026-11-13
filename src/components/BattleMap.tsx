@@ -561,6 +561,7 @@ export function BattleMap() {
         y,
         size,
         ownerId: me.id,
+        animationRig: payload.animationRig,
       };
       upsertToken(t);
       setSelId(t.id);

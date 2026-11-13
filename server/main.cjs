@@ -758,6 +758,23 @@ function createAssetLibrary({ apiPrefix, fileRoutePrefix, dir, libFile, mimeMap,
   return { handleApi };
 }
 
+// animationRig é um objeto ({points: [...]}), não uma string simples como
+// o `kind` de mapas — por isso o parse aceita tanto string (viria de
+// query string, caminho de upload, embora animationRig nunca seja setado
+// nesse momento) quanto objeto já pronto (caminho normal: PATCH com corpo
+// JSON, ver TokenAnimationEditor.tsx/tokenLibrary.ts).
+function parseAnimationRig(v) {
+  if (v == null) return undefined;
+  if (typeof v === 'string') {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return undefined;
+    }
+  }
+  return v;
+}
+
 const tokenLibrary = createAssetLibrary({
   apiPrefix: '/api/tokens',
   fileRoutePrefix: '/tokens',
@@ -765,6 +782,7 @@ const tokenLibrary = createAssetLibrary({
   libFile: path.join(SAVE_DIR, 'token-library.json'),
   mimeMap: IMAGE_MIME,
   defaultExt: 'png',
+  extraFields: [{ key: 'animationRig', parse: parseAnimationRig }],
 });
 
 const mapLibrary = createAssetLibrary({
