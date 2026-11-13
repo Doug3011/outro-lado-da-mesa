@@ -3,6 +3,8 @@ import { SKILLS } from '../data/ordem';
 import { EQUIPMENT_EFFECTS } from '../data/equipmentEffects';
 import { EQUIPMENT_CATALOG, type CatalogItem } from '../data/equipmentCatalog';
 import { WEAPON_MODIFICATIONS } from '../data/weaponModifications';
+import { WEAPON_CURSES } from '../data/weaponCurses';
+import { ARMOR_MODIFICATIONS } from '../data/armorModifications';
 import type { InventoryItem } from '../domain/character';
 import { uid } from '../lib/ids';
 import { EquipmentCatalogDialog } from './EquipmentCatalogDialog';
@@ -56,6 +58,10 @@ export function InventoryEditor({
         const effect = it.catalogId ? EQUIPMENT_EFFECTS[it.catalogId] : undefined;
         const catalogItem = it.catalogId ? CATALOG_BY_ID.get(it.catalogId) : undefined;
         const isWeapon = !!catalogItem?.weapon;
+        // Só coletes (leve/pesada) recebem modificação de proteção (Tabela
+        // 3.6) — escudo/utensílio/vestimenta não têm modificação própria no
+        // livro, continuam só com o efeito base de EQUIPMENT_EFFECTS.
+        const isArmor = it.catalogId === 'protecao-leve' || it.catalogId === 'protecao-pesada';
         return (
           <div className="list-item" key={it.id}>
             <div className="li-head">
@@ -158,6 +164,58 @@ export function InventoryEditor({
                 </label>
                 <div className="chip-row">
                   {WEAPON_MODIFICATIONS.map((mod) => {
+                    const on = (it.modifications ?? []).includes(mod.key);
+                    return (
+                      <span
+                        key={mod.key}
+                        className={`chip ${on ? 'on' : ''}`}
+                        title={`${mod.description} (${mod.scope})`}
+                        onClick={() => {
+                          const cur = it.modifications ?? [];
+                          const next = on ? cur.filter((k) => k !== mod.key) : [...cur, mod.key];
+                          update(it.id, { modifications: next });
+                        }}
+                      >
+                        {mod.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {isWeapon && it.equipped && (
+              <div style={{ marginTop: 6 }}>
+                <label className="faint" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  Maldições
+                </label>
+                <div className="chip-row">
+                  {WEAPON_CURSES.map((curse) => {
+                    const on = (it.curses ?? []).includes(curse.key);
+                    return (
+                      <span
+                        key={curse.key}
+                        className={`chip ${on ? 'on' : ''}`}
+                        title={`${curse.description} (${curse.element})`}
+                        onClick={() => {
+                          const cur = it.curses ?? [];
+                          const next = on ? cur.filter((k) => k !== curse.key) : [...cur, curse.key];
+                          update(it.id, { curses: next });
+                        }}
+                      >
+                        {curse.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {isArmor && it.equipped && (
+              <div style={{ marginTop: 6 }}>
+                <label className="faint" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  Modificações
+                </label>
+                <div className="chip-row">
+                  {ARMOR_MODIFICATIONS.map((mod) => {
                     const on = (it.modifications ?? []).includes(mod.key);
                     return (
                       <span

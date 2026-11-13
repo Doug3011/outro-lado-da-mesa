@@ -16,6 +16,8 @@ import { EQUIPMENT_EFFECTS, type EquipEffect } from '../data/equipmentEffects';
 import { ABILITY_EFFECTS } from '../data/abilityEffects';
 import type { CatalogItem, WeaponStats } from '../data/equipmentCatalog';
 import { WEAPON_MOD_BY_KEY, type WeaponModDef } from '../data/weaponModifications';
+import { WEAPON_CURSE_BY_KEY, type WeaponCurseDef } from '../data/weaponCurses';
+import { ARMOR_MOD_BY_KEY } from '../data/armorModifications';
 import { uid } from '../lib/ids';
 
 const ELEMENT_NAME: Record<Element, string> = Object.fromEntries(
@@ -32,7 +34,17 @@ export interface InventoryItem {
   catalogId?: string; // id do catálogo (equipmentCatalog.ts) quando adicionado de lá — permite calcular bônus automático
   equipped?: boolean; // "vestido/empunhado agora" — só itens com efeito conhecido (ver EQUIPMENT_EFFECTS) mostram a opção
   boostSkill?: string; // pra itens tipo Utensílio/Vestimenta que dão bônus numa perícia à escolha
-  modifications?: string[]; // chaves em data/weaponModifications.ts — só relevante pra item com catalogId de arma (item.weapon)
+  // Chaves de modificação: data/weaponModifications.ts pra item com
+  // catalogId de arma (item.weapon), ou data/armorModifications.ts pra
+  // item de proteção (catalogId 'protecao-leve'/'protecao-pesada') — os
+  // dois catálogos de chave não colidem, então o mesmo campo serve pros
+  // dois sem ambiguidade.
+  modifications?: string[];
+  // Maldições de arma (data/weaponCurses.ts) — separado de `modifications`
+  // de propósito: são categorias distintas no livro (Tabela 3.5 vs
+  // capítulo "Itens Amaldiçoados"), e o usuário pediu pra poder colocar as
+  // duas numa arma equipada.
+  curses?: string[];
 }
 
 export interface Ritual {
@@ -273,10 +285,17 @@ function equippedEffects(char: Character): { item: InventoryItem; effect: EquipE
   return out;
 }
 
-// Bônus de Defesa só de itens equipados (proteções, escudo...). Somado à
-// Defesa calculada em deriveStats — não mexe no campo manual `defenseBonus`.
+// Bônus de Defesa só de itens equipados (proteções, escudo...), mais o
+// bônus de modificações de proteção equipadas (ex. Reforçada, +2 — ver
+// data/armorModifications.ts). Somado à Defesa calculada em deriveStats —
+// não mexe no campo manual `defenseBonus`.
 export function equipmentDefenseBonus(char: Character): number {
-  return equippedEffects(char).reduce((a, { effect }) => a + (effect.defenseBonus ?? 0), 0);
+  const base = equippedEffects(char).reduce((a, { effect }) => a + (effect.defenseBonus ?? 0), 0);
+  const fromMods = char.inventory
+    .filter((it) => it.equipped)
+    .flatMap((it) => it.modifications ?? [])
+    .reduce((a, k) => a + (ARMOR_MOD_BY_KEY[k]?.effect.defenseBonus ?? 0), 0);
+  return base + fromMods;
 }
 
 // Bônus de Proteção só de itens equipados.
@@ -333,7 +352,12 @@ function abilityWeaponDamageBonus(char: Character, category: 'fogo' | 'disparo' 
 // syncWeaponAttacks abaixo só mantém `char.attacks` em dia com isto).
 // Dano com duas opções de empunhadura (ex. "1d6/1d8") usa sempre a maior
 // (duas mãos) — sem uma escolha explícita de empunhadura na ficha ainda.
-export function computeWeaponAttack(char: Character, item: CatalogItem, modKeys: string[]): Attack {
+export function computeWeaponAttack(
+  char: Character,
+  item: CatalogItem,
+  modKeys: string[],
+  curseKeys: string[] = [],
+): Attack {
   const w = item.weapon;
   if (!w) {
     return {
@@ -350,31 +374,41 @@ export function computeWeaponAttack(char: Character, item: CatalogItem, modKeys:
   const mods = modKeys
     .map((k) => WEAPON_MOD_BY_KEY[k])
     .filter((m): m is WeaponModDef => !!m);
+  const curses = curseKeys
+    .map((k) => WEAPON_CURSE_BY_KEY[k])
+    .filter((c): c is WeaponCurseDef => !!c);
+  // Maldição usa o mesmo formato de efeito de modificação (WeaponModEffect)
+  // — soma junto nos cálculos abaixo, só separadas na nota final.
+  const allEffects = [...mods, ...curses];
 
   const baseDamageStr = w.damage.includes('/') ? w.damage.split('/')[1] : w.damage;
   const parsed = parseDiceTerm(baseDamageStr) ?? { count: 1, sides: 6 };
-  const extraSameType = mods.reduce((a, m) => a + (m.effect.extraDieSameType ?? 0), 0);
+  const extraSameType = allEffects.reduce((a, m) => a + (m.effect.extraDieSameType ?? 0), 0);
   const diceCount = parsed.count + extraSameType;
   const flatBonus =
     (w.addsForce ? char.attributes.FOR : 0) +
-    mods.reduce((a, m) => a + (m.effect.dmgBonus ?? 0), 0) +
+    allEffects.reduce((a, m) => a + (m.effect.dmgBonus ?? 0), 0) +
     abilityWeaponDamageBonus(char, weaponCategory(w));
-  const extraDice = mods.map((m) => m.effect.extraDamageDie).filter((d): d is string => !!d);
+  const extraDice = allEffects.map((m) => m.effect.extraDamageDie).filter((d): d is string => !!d);
 
   let damage = `${diceCount}d${parsed.sides}`;
   if (flatBonus > 0) damage += `+${flatBonus}`;
   else if (flatBonus < 0) damage += `${flatBonus}`;
   for (const d of extraDice) damage += `+${d}`;
 
-  const critThreatBonus = mods.reduce((a, m) => a + (m.effect.critThreatBonus ?? 0), 0);
-  const critMultBonus = mods.reduce((a, m) => a + (m.effect.critMultBonus ?? 0), 0);
+  const critThreatBonus = allEffects.reduce((a, m) => a + (m.effect.critThreatBonus ?? 0), 0);
+  const critMultBonus = allEffects.reduce((a, m) => a + (m.effect.critMultBonus ?? 0), 0);
   const critRange = Math.max(2, (w.critRange ?? 20) - critThreatBonus);
   const critMult = (w.critMult ?? 2) + critMultBonus;
   const crit = `${critRange}/x${critMult}`;
 
-  const atkBonus = mods.reduce((a, m) => a + (m.effect.atkBonus ?? 0), 0);
+  const atkBonus = allEffects.reduce((a, m) => a + (m.effect.atkBonus ?? 0), 0);
   const testName = w.skill === 'luta' ? 'Luta' : 'Pontaria';
   const test = atkBonus ? `${testName} +${atkBonus}` : testName;
+
+  const notesParts: string[] = [];
+  if (mods.length) notesParts.push(`Modificações: ${mods.map((m) => m.name).join(', ')}`);
+  if (curses.length) notesParts.push(`Maldições: ${curses.map((c) => c.name).join(', ')}`);
 
   return {
     id: uid(),
@@ -384,7 +418,7 @@ export function computeWeaponAttack(char: Character, item: CatalogItem, modKeys:
     type: w.damageType,
     range: w.range ? RANGE_LABEL[w.range] : '—',
     crit,
-    notes: mods.length ? `Modificações: ${mods.map((m) => m.name).join(', ')}` : '',
+    notes: notesParts.join(' | '),
   };
 }
 
@@ -406,7 +440,7 @@ export function syncWeaponAttacks(char: Character, catalog: CatalogItem[]): Char
   const synced = equippedWeapons.map((it) => {
     const catalogItem = catalogById.get(it.catalogId!)!;
     const existing = stillEquipped.find((a) => a.linkedInventoryId === it.id);
-    const attack = computeWeaponAttack(char, catalogItem, it.modifications ?? []);
+    const attack = computeWeaponAttack(char, catalogItem, it.modifications ?? [], it.curses ?? []);
     return { ...attack, id: existing?.id ?? attack.id, linkedInventoryId: it.id };
   });
 
