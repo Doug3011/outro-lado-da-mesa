@@ -3,6 +3,7 @@ import { connectRoom, type Camera3D, type ProfileEntry, type RoomConnection, typ
 import { loadRoom, removeCharacter, saveCharacter, saveScenes, saveScenesNow } from '../lib/persistence';
 import { rollExpression, rollOrdemTest } from '../domain/dice';
 import type { Character } from '../domain/character';
+import type { Creature } from '../domain/creature';
 import { ELEMENT_COLOR } from '../data/ordem';
 import { uid } from '../lib/ids';
 import { saveMyCharacter } from '../lib/characterLibrary';
@@ -149,6 +150,10 @@ interface TableState {
   // o evento e não têm esse bypass) precisam do commit de verdade.
   broadcastTokenMove: (id: string, x: number, y: number) => void;
   deleteToken: (id: string) => void;
+  // Fichas de ameaças (ver domain/creature.ts) — mesmo padrão de
+  // upsertToken/deleteToken, escopado à cena ativa.
+  upsertCreature: (c: Creature) => void;
+  deleteCreature: (id: string) => void;
   updateMap: (patch: Partial<MapState>) => void;
   // Igual updateMap, mas pra campos do Scene em si (fora do map) — ex.
   // breathingEnabled, o toggle de respiração dos tokens.
@@ -429,6 +434,30 @@ export const useTableStore = create<TableState>((set, get) => {
             const tokens = { ...sc.tokens };
             delete tokens[id];
             return { ...sc, tokens };
+          }),
+        }));
+        persist();
+        break;
+      }
+      case 'creature:upsert': {
+        const { sceneId, creature } = ev.payload;
+        set(() => ({
+          scenes: patchScene(sceneId, (sc) => ({
+            ...sc,
+            creatures: { ...sc.creatures, [creature.id]: creature },
+          })),
+        }));
+        persist();
+        break;
+      }
+      case 'creature:delete': {
+        const { sceneId, id } = ev.payload;
+        set(() => ({
+          scenes: patchScene(sceneId, (sc) => {
+            const creatures = { ...sc.creatures };
+            delete creatures[id];
+            const combat = sc.combat ? { ...sc.combat, order: sc.combat.order.filter((e) => e.id !== id) } : sc.combat;
+            return { ...sc, creatures, combat };
           }),
         }));
         persist();
@@ -855,6 +884,37 @@ export const useTableStore = create<TableState>((set, get) => {
       persist();
       pushScenesToDb();
       get().conn?.send({ type: 'token:delete', payload: { sceneId, id } });
+    },
+
+    upsertCreature: (c) => {
+      const sceneId = get().activeSceneId;
+      const next = { ...c, updatedAt: Date.now() };
+      set(() => ({
+        scenes: patchScene(sceneId, (sc) => ({ ...sc, creatures: { ...sc.creatures, [next.id]: next } })),
+      }));
+      persist();
+      pushScenesToDb();
+      get().conn?.send({ type: 'creature:upsert', payload: { sceneId, creature: next } });
+    },
+
+    deleteCreature: (id) => {
+      const sceneId = get().activeSceneId;
+      set(() => ({
+        scenes: patchScene(sceneId, (sc) => {
+          const creatures = { ...sc.creatures };
+          delete creatures[id];
+          // Tira também da ordem de iniciativa, se estiver nela — senão o
+          // rastreador de combate ficaria com uma entrada apontando pra
+          // uma ficha que não existe mais.
+          const combat = sc.combat
+            ? { ...sc.combat, order: sc.combat.order.filter((e) => e.id !== id) }
+            : sc.combat;
+          return { ...sc, creatures, combat };
+        }),
+      }));
+      persist();
+      pushScenesToDb();
+      get().conn?.send({ type: 'creature:delete', payload: { sceneId, id } });
     },
 
     updateMap: (patch) => {

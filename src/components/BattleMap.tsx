@@ -23,11 +23,13 @@ import { TokenLibraryManager } from './TokenLibraryManager';
 import { CharacterPanel } from './CharacterPanel';
 import { CharacterSheet } from './CharacterSheet';
 import { GmCharacterTabs } from './GmCharacterTabs';
+import { CombatTracker } from './CombatTracker';
 import { DiceRoller } from './DiceRoller';
 import { RollLog } from './RollLog';
 import { MusicAndAmbientPanel } from './MusicAndAmbientPanel';
 import { PlayerProfilesPanel } from './PlayerProfilesPanel';
 import {
+  CombateFloatIcon,
   DadosFloatIcon,
   FichaFloatIcon,
   HistoricoFloatIcon,
@@ -293,6 +295,7 @@ export function BattleMap() {
   const [mestreOpen, setMestreOpen] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [mapasOpen, setMapasOpen] = useState(false);
+  const [combateOpen, setCombateOpen] = useState(false);
   const [fichaOpen, setFichaOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false); // janela "Mapa" do jogador (zoom/medir/token)
   // Botões "universais" (Dados/Histórico/Músicas/Perfis) — moraram no
@@ -1387,7 +1390,7 @@ export function BattleMap() {
             icon={<MestreFloatIcon />}
             active={mestreOpen}
             onActivate={() => setMestreOpen((o) => !o)}
-            topFrac={0.19}
+            topFrac={0.18}
             rightFrac={0.04}
           />
         )}
@@ -1400,7 +1403,7 @@ export function BattleMap() {
             icon={<TokensFloatIcon />}
             active={tokensOpen}
             onActivate={() => setTokensOpen((o) => !o)}
-            topFrac={0.3}
+            topFrac={0.28}
             rightFrac={0.04}
           />
         )}
@@ -1413,7 +1416,20 @@ export function BattleMap() {
             icon={<MapasFloatIcon />}
             active={mapasOpen}
             onActivate={() => setMapasOpen((o) => !o)}
-            topFrac={0.41}
+            topFrac={0.38}
+            rightFrac={0.04}
+          />
+        )}
+        {me.isGM && (
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            dock
+            shortcutKey="B"
+            label="Combate"
+            icon={<CombateFloatIcon />}
+            active={combateOpen}
+            onActivate={() => setCombateOpen((o) => !o)}
+            topFrac={0.48}
             rightFrac={0.04}
           />
         )}
@@ -1442,7 +1458,7 @@ export function BattleMap() {
           icon={<DadosFloatIcon />}
           active={dadosOpen}
           onActivate={() => setDadosOpen((o) => !o)}
-          topFrac={me.isGM ? 0.52 : 0.3}
+          topFrac={me.isGM ? 0.58 : 0.3}
           rightFrac={0.04}
         />
         <FloatingButton
@@ -1453,7 +1469,7 @@ export function BattleMap() {
           icon={<HistoricoFloatIcon />}
           active={historicoOpen}
           onActivate={() => setHistoricoOpen((o) => !o)}
-          topFrac={me.isGM ? 0.63 : 0.41}
+          topFrac={me.isGM ? 0.68 : 0.41}
           rightFrac={0.04}
         />
         {musicAvailable && (
@@ -1465,7 +1481,7 @@ export function BattleMap() {
             icon={<MusicasFloatIcon />}
             active={musicasOpen}
             onActivate={() => setMusicasOpen((o) => !o)}
-            topFrac={me.isGM ? 0.74 : 0.52}
+            topFrac={me.isGM ? 0.78 : 0.52}
             rightFrac={0.04}
           />
         )}
@@ -1478,7 +1494,7 @@ export function BattleMap() {
             icon={<PerfisFloatIcon />}
             active={perfisOpen}
             onActivate={() => setPerfisOpen((o) => !o)}
-            topFrac={0.85}
+            topFrac={0.88}
             rightFrac={0.04}
           />
         )}
@@ -1854,6 +1870,25 @@ export function BattleMap() {
                 </button>
               </div>
             </div>
+          </FloatingWindow>
+        )}
+
+        {me.isGM && (
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            dock
+            icon={<CombateFloatIcon />}
+            title="Combate"
+            open={combateOpen}
+            onClose={() => setCombateOpen(false)}
+            leftFrac={0.3}
+            topFrac={0.06}
+            defaultWidth={420}
+            defaultHeight={540}
+            minimizable
+            maximizable
+          >
+            <CombatTracker />
           </FloatingWindow>
         )}
 

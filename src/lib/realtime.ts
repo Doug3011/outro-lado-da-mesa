@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import type { Character } from '../domain/character';
+import type { Creature } from '../domain/creature';
 import type { PlayerProfile } from '../domain/profile';
 import type {
   GroundConfig,
@@ -40,6 +41,8 @@ export type RoomEvent =
   | { type: 'token:upsert'; payload: { sceneId: string; token: Token } }
   | { type: 'token:move'; payload: { sceneId: string; id: string; x: number; y: number } }
   | { type: 'token:delete'; payload: { sceneId: string; id: string } }
+  | { type: 'creature:upsert'; payload: { sceneId: string; creature: Creature } }
+  | { type: 'creature:delete'; payload: { sceneId: string; id: string } }
   | { type: 'map:update'; payload: { sceneId: string; patch: Partial<MapState> } }
   | { type: 'scene:update'; payload: { sceneId: string; patch: Partial<Scene> } }
   | { type: 'scene:upsert'; payload: Scene }

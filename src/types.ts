@@ -1,4 +1,5 @@
 import type { OrdemTestResult, ExpressionResult } from './domain/dice';
+import type { Creature } from './domain/creature';
 
 // type (nao interface) de proposito: precisa ser aceito onde o supabase-js
 // espera `{ [key: string]: any }` (presence / track).
@@ -300,6 +301,33 @@ export interface Scene {
   // desse campo existir. Combina com o rig de puppet warp de cada token
   // (ver Token.animationRig) — os dois efeitos funcionam juntos.
   breathingEnabled?: boolean;
+  // Fichas de ameaças (ver domain/creature.ts) criadas pelo mestre pra
+  // este cenário — pedido do usuário: "criar fichas de criaturas" pra
+  // organizar combates. Mesmo padrão de armazenamento de `tokens` (objeto
+  // por id, sincronizado em tempo real igual).
+  creatures?: Record<string, Creature>;
+  // Ordem de iniciativa do combate atual (jogadores + ameaças) — ver
+  // CombatTracker.tsx. Ausente/`undefined` = nenhum combate em andamento
+  // nesta cena.
+  combat?: CombatState;
+}
+
+// Rastreador de combate (iniciativa) — pedido do usuário: "quero poder
+// organizar os players e as criaturas pela iniciativa". Cada entrada
+// aponta pro id de um Character (jogador) ou Creature (ameaça) já
+// existente — não duplica os dados aqui, só a ordem e o bônus rolado.
+export interface InitiativeEntry {
+  id: string;
+  kind: 'character' | 'creature';
+  initiative: number;
+}
+
+export interface CombatState {
+  order: InitiativeEntry[];
+  // índice de quem está na vez em `order` — -1 quando o combate ainda não
+  // começou de verdade (ordem definida, mas ninguém "passou o turno" ainda).
+  turnIndex: number;
+  round: number;
 }
 
 // Biblioteca de música: arquivos ficam no servidor local do mestre (fora do

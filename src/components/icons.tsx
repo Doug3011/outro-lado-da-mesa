@@ -75,6 +75,16 @@ export function MapasFloatIcon() {
   );
 }
 
+// Botão "Combate" (fichas de ameaça + iniciativa) — espadas cruzadas.
+export function CombateFloatIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M4 4l16 16M4.5 7.5 4 4l3.5.5M20 20l.5-3.5-3.5-.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 4L4 20M19.5 7.5 20 4l-3.5.5M4 20l-.5-3.5 3.5-.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // Botão "Mapa" (zoom + medir + token) do lado do jogador, sem acesso às
 // ferramentas de mestre — lupa simples.
 export function ViewFloatIcon() {

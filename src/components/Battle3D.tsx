@@ -33,6 +33,7 @@ import { MapPickerDialog } from './MapPickerDialog';
 import { FloatingButton } from './FloatingButton';
 import { FloatingWindow } from './FloatingWindow';
 import { GmCharacterTabs } from './GmCharacterTabs';
+import { CombatTracker } from './CombatTracker';
 import { CharacterSheet } from './CharacterSheet';
 import { CharacterPanel } from './CharacterPanel';
 import { TokenLibraryManager } from './TokenLibraryManager';
@@ -42,6 +43,7 @@ import { MusicAndAmbientPanel } from './MusicAndAmbientPanel';
 import { PlayerProfilesPanel } from './PlayerProfilesPanel';
 import {
   CameraFloatIcon,
+  CombateFloatIcon,
   DadosFloatIcon,
   FichaFloatIcon,
   FlyModeIcon,
@@ -387,6 +389,7 @@ export function Battle3D() {
   const [mestreOpen, setMestreOpen] = useState(false);
   const [tokensOpen, setTokensOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [combateOpen, setCombateOpen] = useState(false);
   // Botões "universais" (Dados/Histórico/Músicas/Perfis) — moravam no painel
   // lateral antigo (Room.tsx), removido a pedido do usuário (mesmo motivo já
   // aplicado ao mapa 2D, ver BattleMap.tsx); entram agora nesse mesmo sistema
@@ -1076,7 +1079,7 @@ export function Battle3D() {
           icon={<MestreFloatIcon />}
           active={mestreOpen}
           onActivate={() => setMestreOpen((o) => !o)}
-          topFrac={0.19}
+          topFrac={0.18}
           rightFrac={0.04}
         />
         <FloatingButton
@@ -1087,7 +1090,7 @@ export function Battle3D() {
           icon={<TokensFloatIcon />}
           active={tokensOpen}
           onActivate={() => setTokensOpen((o) => !o)}
-          topFrac={0.3}
+          topFrac={0.28}
           rightFrac={0.04}
         />
         <FloatingButton
@@ -1098,7 +1101,18 @@ export function Battle3D() {
           icon={<CameraFloatIcon />}
           active={cameraOpen}
           onActivate={() => setCameraOpen((o) => !o)}
-          topFrac={0.41}
+          topFrac={0.38}
+          rightFrac={0.04}
+        />
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          dock
+          shortcutKey="B"
+          label="Combate"
+          icon={<CombateFloatIcon />}
+          active={combateOpen}
+          onActivate={() => setCombateOpen((o) => !o)}
+          topFrac={0.48}
           rightFrac={0.04}
         />
         {/* Botões "universais" (Dados/Histórico/Músicas/Perfis) — mesmos
@@ -1112,7 +1126,7 @@ export function Battle3D() {
           icon={<DadosFloatIcon />}
           active={dadosOpen}
           onActivate={() => setDadosOpen((o) => !o)}
-          topFrac={0.52}
+          topFrac={0.58}
           rightFrac={0.04}
         />
         <FloatingButton
@@ -1123,7 +1137,7 @@ export function Battle3D() {
           icon={<HistoricoFloatIcon />}
           active={historicoOpen}
           onActivate={() => setHistoricoOpen((o) => !o)}
-          topFrac={0.63}
+          topFrac={0.68}
           rightFrac={0.04}
         />
         {musicAvailable && (
@@ -1135,7 +1149,7 @@ export function Battle3D() {
             icon={<MusicasFloatIcon />}
             active={musicasOpen}
             onActivate={() => setMusicasOpen((o) => !o)}
-            topFrac={0.74}
+            topFrac={0.78}
             rightFrac={0.04}
           />
         )}
@@ -1147,7 +1161,7 @@ export function Battle3D() {
           icon={<PerfisFloatIcon />}
           active={perfisOpen}
           onActivate={() => setPerfisOpen((o) => !o)}
-          topFrac={0.85}
+          topFrac={0.88}
           rightFrac={0.04}
         />
 
@@ -1500,6 +1514,23 @@ export function Battle3D() {
             A tecla <b>1</b> alterna entre órbita e voo livre a qualquer momento, mesmo com essa
             janela fechada.
           </p>
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          dock
+          icon={<CombateFloatIcon />}
+          title="Combate"
+          open={combateOpen}
+          onClose={() => setCombateOpen(false)}
+          leftFrac={0.3}
+          topFrac={0.06}
+          defaultWidth={420}
+          defaultHeight={540}
+          minimizable
+          maximizable
+        >
+          <CombatTracker />
         </FloatingWindow>
 
         <FloatingWindow
