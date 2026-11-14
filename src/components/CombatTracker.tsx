@@ -1,6 +1,6 @@
 import { useRef, useState, type RefObject } from 'react';
 import { activeScene, useTableStore } from '../store/useTableStore';
-import { ATTRIBUTES, type AttrKey } from '../data/ordem';
+import { ATTRIBUTES, SKILLS, SKILL_BY_KEY, type AttrKey } from '../data/ordem';
 import { skillBonus } from '../domain/character';
 import {
   CREATURE_SIZES,
@@ -8,8 +8,13 @@ import {
   creatureBloodied,
   emptyCreature,
   emptyCreatureAction,
+  emptyCreatureHability,
+  emptyCreatureSkill,
+  normalizeCreature,
   type Creature,
   type CreatureAction,
+  type CreatureHability,
+  type CreatureSkill,
 } from '../domain/creature';
 import type { InitiativeEntry } from '../types';
 import { fileToDownscaledDataURL } from '../lib/image';
@@ -232,33 +237,48 @@ export function CombatTracker() {
         </p>
       )}
 
-      {Object.values(creatures).map((cr) => (
-        <CreatureCard
-          key={cr.id}
-          creature={cr}
-          expanded={editingId === cr.id}
-          onToggle={() => setEditingId(editingId === cr.id ? null : cr.id)}
-          onChange={(next) => upsertCreature(next)}
-          onDelete={() => {
-            if (confirm(`Excluir a ficha de "${cr.name}"? Isso tira ela do combate também.`)) {
-              deleteCreature(cr.id);
-              if (editingId === cr.id) setEditingId(null);
-            }
-          }}
-          onRollAction={(action) => {
-            rollOrdem({
-              label: `${cr.name} · ${action.name || 'ataque'} (teste)`,
-              attributeValue: cr.attributes[action.testAttribute],
-              bonus: action.testBonus,
-              dt: null,
-            });
-          }}
-          onRollDamage={(action) => {
-            if (action.damage) rollFree(`${cr.name} · ${action.name || 'ataque'} (dano)`, action.damage);
-          }}
-          portraitInputRef={portraitInputRef}
-        />
-      ))}
+      {Object.values(creatures).map((raw) => {
+        const cr = normalizeCreature(raw);
+        return (
+          <CreatureCard
+            key={cr.id}
+            creature={cr}
+            expanded={editingId === cr.id}
+            onToggle={() => setEditingId(editingId === cr.id ? null : cr.id)}
+            onChange={(next) => upsertCreature(next)}
+            onDelete={() => {
+              if (confirm(`Excluir a ficha de "${cr.name}"? Isso tira ela do combate também.`)) {
+                deleteCreature(cr.id);
+                if (editingId === cr.id) setEditingId(null);
+              }
+            }}
+            onRollAction={(action) => {
+              rollOrdem({
+                label: `${cr.name} · ${action.name || 'ataque'} (teste)`,
+                attributeValue: cr.attributes[action.testAttribute],
+                bonus: action.testBonus,
+                dt: null,
+              });
+            }}
+            onRollDamage={(action) => {
+              if (action.damage) rollFree(`${cr.name} · ${action.name || 'ataque'} (dano)`, action.damage);
+            }}
+            onRollSkill={(skill) => {
+              const def = SKILL_BY_KEY[skill.key];
+              rollOrdem({
+                label: `${cr.name} · ${def?.name ?? skill.key}`,
+                attributeValue: cr.attributes[def?.attr ?? 'AGI'],
+                bonus: skill.bonus,
+                dt: null,
+              });
+            }}
+            onRollHability={(h) => {
+              if (h.rollDice) rollFree(`${cr.name} · ${h.name || 'habilidade'}`, h.rollDice);
+            }}
+            portraitInputRef={portraitInputRef}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -271,6 +291,8 @@ function CreatureCard({
   onDelete,
   onRollAction,
   onRollDamage,
+  onRollSkill,
+  onRollHability,
   portraitInputRef,
 }: {
   creature: Creature;
@@ -280,6 +302,8 @@ function CreatureCard({
   onDelete: () => void;
   onRollAction: (a: CreatureAction) => void;
   onRollDamage: (a: CreatureAction) => void;
+  onRollSkill: (s: CreatureSkill) => void;
+  onRollHability: (h: CreatureHability) => void;
   portraitInputRef: RefObject<HTMLInputElement>;
 }) {
   const patch = (p: Partial<Creature>) => onChange({ ...creature, ...p });
@@ -289,6 +313,16 @@ function CreatureCard({
     patch({ actions: creature.actions.map((a) => (a.id === id ? { ...a, ...p } : a)) });
   const addAction = () => patch({ actions: [...creature.actions, emptyCreatureAction()] });
   const removeAction = (id: string) => patch({ actions: creature.actions.filter((a) => a.id !== id) });
+
+  const addSkill = (key: string) => patch({ skills: [...creature.skills, emptyCreatureSkill(key)] });
+  const patchSkill = (id: string, p: Partial<CreatureSkill>) =>
+    patch({ skills: creature.skills.map((s) => (s.id === id ? { ...s, ...p } : s)) });
+  const removeSkill = (id: string) => patch({ skills: creature.skills.filter((s) => s.id !== id) });
+
+  const addHability = () => patch({ abilities: [...creature.abilities, emptyCreatureHability()] });
+  const patchHability = (id: string, p: Partial<CreatureHability>) =>
+    patch({ abilities: creature.abilities.map((h) => (h.id === id ? { ...h, ...p } : h)) });
+  const removeHability = (id: string) => patch({ abilities: creature.abilities.filter((h) => h.id !== id) });
 
   return (
     <div className="list-item" style={{ marginBottom: 8 }}>
@@ -451,18 +485,99 @@ function CreatureCard({
             ))}
           </div>
 
-          <textarea
-            value={creature.skillsText}
-            placeholder="Perícias (texto livre, ex.: Crime 2O+5, Furtividade 2O+5)"
-            rows={2}
-            onChange={(e) => patch({ skillsText: e.target.value })}
-          />
-          <textarea
-            value={creature.abilitiesText}
-            placeholder="Habilidades passivas (texto livre)"
-            rows={2}
-            onChange={(e) => patch({ abilitiesText: e.target.value })}
-          />
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: 13 }}>Perícias</strong>
+            <select
+              value=""
+              style={{ maxWidth: 180 }}
+              onChange={(e) => {
+                if (e.target.value) addSkill(e.target.value);
+              }}
+            >
+              <option value="">+ adicionar perícia…</option>
+              {SKILLS.filter((s) => !creature.skills.some((sk) => sk.key === s.key)).map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {creature.skills.length === 0 && (
+            <p className="faint" style={{ fontSize: 12 }}>
+              Nenhuma perícia adicionada ainda.
+            </p>
+          )}
+          {creature.skills.map((sk) => {
+            const def = SKILL_BY_KEY[sk.key];
+            return (
+              <div key={sk.id} className="row" style={{ alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1 }}>
+                  {def?.name ?? sk.key}
+                  <span className="faint" style={{ fontSize: 11 }}> ({def?.attr ?? '?'}O+bônus)</span>
+                </span>
+                <input
+                  type="number"
+                  style={{ width: 56 }}
+                  value={sk.bonus}
+                  placeholder="Bônus"
+                  onChange={(e) => patchSkill(sk.id, { bonus: Number(e.target.value) })}
+                />
+                <button className="small" onClick={() => onRollSkill(sk)}>
+                  Rolar
+                </button>
+                <button className="small ghost" onClick={() => removeSkill(sk.id)}>
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+            <strong style={{ fontSize: 13 }}>Habilidades</strong>
+            <button className="small ghost" onClick={addHability}>
+              + Habilidade
+            </button>
+          </div>
+          {creature.abilities.length === 0 && (
+            <p className="faint" style={{ fontSize: 12 }}>
+              Nenhuma habilidade adicionada ainda.
+            </p>
+          )}
+          {creature.abilities.map((h) => (
+            <div key={h.id} className="list-item" style={{ padding: 8 }}>
+              <div className="row">
+                <input
+                  value={h.name}
+                  placeholder="Nome da habilidade"
+                  onChange={(e) => patchHability(h.id, { name: e.target.value })}
+                />
+                <button className="small ghost" onClick={() => removeHability(h.id)}>
+                  ✕
+                </button>
+              </div>
+              <textarea
+                value={h.description}
+                placeholder="Descrição"
+                rows={2}
+                style={{ marginTop: 6 }}
+                onChange={(e) => patchHability(h.id, { description: e.target.value })}
+              />
+              <div className="row" style={{ marginTop: 6, alignItems: 'center' }}>
+                <input
+                  style={{ maxWidth: 140 }}
+                  value={h.rollDice ?? ''}
+                  placeholder="Dado (ex.: 2d6) — opcional"
+                  onChange={(e) => patchHability(h.id, { rollDice: e.target.value || undefined })}
+                />
+                {h.rollDice && (
+                  <button className="small" onClick={() => onRollHability(h)}>
+                    Rolar
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
           <textarea
             value={creature.notes}
             placeholder="Observações"

@@ -30,6 +30,29 @@ export const CREATURE_SIZE_SPACE: Record<CreatureSize, string> = {
   Colossal: '9m',
 };
 
+// Perícia rolável de verdade (pedido do usuário: "perícias para eu girar"
+// em vez do texto livre que só documentava o bônus) — mesmo mecanismo das
+// perícias de personagem: `key` vem do catálogo SKILLS (data/ordem.ts), que
+// já sabe o atributo certo de cada perícia; aqui só guarda o bônus total
+// (o "+5" de "Crime 2O+5" no livro — o "2O" é o atributo da própria
+// criatura, não precisa guardar de novo).
+export interface CreatureSkill {
+  id: string;
+  key: string; // SkillDef.key (data/ordem.ts)
+  bonus: number;
+}
+
+// Habilidade com dado opcional pra rolar — mesmo padrão de Ability.rollDice
+// (domain/character.ts), pedido do usuário pra funcionar "igual é com os
+// players": cria a habilidade, anexa um dado (ex. "2d6") e já tem um botão
+// pra rolar direto da ficha.
+export interface CreatureHability {
+  id: string;
+  name: string;
+  description: string;
+  rollDice?: string;
+}
+
 export interface CreatureAction {
   id: string;
   cost: string; // 'Padrão' | 'Livre' | 'Completa' | 'Reação' — ou texto livre
@@ -69,9 +92,9 @@ export interface Creature {
   damageResistance: string; // texto livre, ex. "RD 10/Morte"
 
   attributes: Record<AttrKey, number>;
-  skillsText: string; // lista livre, ex. "Crime 2O+5, Furtividade 2O+5"
+  skills: CreatureSkill[];
   displacement: number; // metros por ação de movimento
-  abilitiesText: string; // habilidades passivas, texto livre
+  abilities: CreatureHability[];
   actions: CreatureAction[];
 
   notes: string;
@@ -112,13 +135,32 @@ export function emptyCreature(): Creature {
     pvTemp: 0,
     damageResistance: '',
     attributes: { AGI: 1, FOR: 1, INT: 1, PRE: 1, VIG: 1 },
-    skillsText: '',
+    skills: [],
     displacement: 9,
-    abilitiesText: '',
+    abilities: [],
     actions: [],
     notes: '',
     updatedAt: Date.now(),
   };
+}
+
+export function emptyCreatureSkill(key: string): CreatureSkill {
+  return { id: uid(), key, bonus: 0 };
+}
+
+export function emptyCreatureHability(): CreatureHability {
+  return { id: uid(), name: '', description: '', rollDice: undefined };
+}
+
+// Normaliza criaturas criadas antes desta versão (campos antigos
+// `skillsText`/`abilitiesText` em texto livre) pra não quebrar ao ler uma
+// ficha salva antes dessa mudança — vira lista vazia, o mestre reconstrói
+// clicando em "+ Perícia"/"+ Habilidade" (o texto antigo não é perdido na
+// hora, mas também não migra sozinho, já que não dá pra adivinhar atributo
+// e bônus de cada perícia a partir do texto livre com segurança).
+export function normalizeCreature(c: Creature): Creature {
+  if (Array.isArray(c.skills) && Array.isArray(c.abilities)) return c;
+  return { ...c, skills: Array.isArray(c.skills) ? c.skills : [], abilities: Array.isArray(c.abilities) ? c.abilities : [] };
 }
 
 // PV machucado (metade do máximo, arredondado pra baixo) — só exibido como
