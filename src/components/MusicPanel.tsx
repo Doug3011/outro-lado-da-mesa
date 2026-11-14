@@ -27,6 +27,7 @@ export function MusicPanel() {
   const setMusicState = useTableStore((s) => s.setMusicState);
   const code = useTableStore((s) => s.code);
   const roomMode = useTableStore((s) => s.mode);
+  const avLinkDown = useTableStore((s) => s.avLinkDown);
   const [tracks, setTracks] = useState<MusicTrack[]>([]);
   const [volume, setVolume] = useState(readVolume);
   const [blocked, setBlocked] = useState(false);
@@ -97,6 +98,12 @@ export function MusicPanel() {
           Tocando agora
         </div>
         {!music.trackId && <p className="faint">Nada tocando. Escolha uma faixa na lista abaixo.</p>}
+        {!me.isGM && roomMode !== 'lan' && avLinkDown && (
+          <p className="faint" style={{ color: 'var(--rd-sangue-bright, var(--blood-bright))' }}>
+            ⚠ Sem conexão direta com o mestre pra receber a transmissão (áudio/vídeo) — pode
+            ser a sua rede ou a dele. Tentando reconectar sozinho…
+          </p>
+        )}
         {music.trackId && blocked && (
           <button
             className="small primary"

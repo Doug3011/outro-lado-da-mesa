@@ -4,7 +4,25 @@ import { activeScene, useTableStore, type WebrtcSignal } from '../store/useTable
 import { getMixedAudioTrack } from '../lib/avMix';
 import { onGmCanvas3dChange } from '../lib/gmCanvasRegistry';
 
-const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+// Vários STUN públicos (não só um) — pedido do usuário: tentar melhorar a
+// taxa de conexão SEM adicionar um servidor TURN (já teve uma experiência
+// ruim com TURN noutro projeto). Importante ser honesto sobre o limite
+// disso: STUN só ajuda a descobrir o próprio endereço público — não existe
+// jeito de "contornar" sem retransmissor quando as DUAS pontas estão atrás
+// de NAT simétrico/firewall restritivo ao mesmo tempo (isso não é um bug,
+// é como WebRTC funciona). O que isso aqui melhora de verdade são os casos
+// hoje perdidos por um STUN só ser lento/instável, ou alguma rede bloquear
+// especificamente o servidor do Google.
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+// Quantas vezes tenta reconectar sozinho (ICE restart) antes de desistir e
+// deixar o aviso de "sem conexão direta" fixo pro jogador.
+const ICE_RESTART_MAX_ATTEMPTS = 4;
+const ICE_RESTART_DELAY_MS = 4000;
 // Sem isso, o WebRTC usa os padrões pensados pra webcam (bitrate baixo,
 // prioridade em suavidade de movimento) — péssimo pra uma cena 3D parada a
 // maior parte do tempo, onde nitidez importa muito mais que taxa de
@@ -87,6 +105,7 @@ export function AvBroadcastController() {
   const sendRoomEvent = useTableStore((s) => s.sendRoomEvent);
   const setWebrtcHandler = useTableStore((s) => s.setWebrtcHandler);
   const setRemoteAvStream = useTableStore((s) => s.setRemoteAvStream);
+  const setAvLinkDown = useTableStore((s) => s.setAvLinkDown);
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
   const is3d = activeScene({ scenes, activeSceneId }).kind === '3d';
@@ -98,6 +117,10 @@ export function AvBroadcastController() {
   const videoTrackRef = useRef<MediaStreamTrack | null>(null);
   const stopCaptureRef = useRef<(() => void) | null>(null);
   const negotiatingRef = useRef<Set<string>>(new Set());
+  // tentativas de ICE restart por jogador (zera quando reconecta) — ver
+  // onconnectionstatechange em ensurePeer.
+  const restartAttemptsRef = useRef<Map<string, number>>(new Map());
+  const restartTimersRef = useRef<Map<string, number>>(new Map());
   // jogador: a única conexão com o mestre
   const playerPcRef = useRef<RTCPeerConnection | null>(null);
 
@@ -136,6 +159,36 @@ export function AvBroadcastController() {
           }
         })();
       };
+      // Sem servidor TURN (pedido do usuário), uma conexão direta pode
+      // falhar por causa da rede de QUALQUER uma das duas pontas — isso não
+      // é tratável no código (é o próprio limite do WebRTC só-STUN), mas
+      // tentar de novo sozinho (ICE restart) resolve os casos de falha
+      // transitória/lentidão, não só NAT impossível de verdade.
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          restartAttemptsRef.current.delete(playerId);
+          const t = restartTimersRef.current.get(playerId);
+          if (t) {
+            window.clearTimeout(t);
+            restartTimersRef.current.delete(playerId);
+          }
+          return;
+        }
+        if (pc.connectionState !== 'failed') return;
+        const attempts = restartAttemptsRef.current.get(playerId) ?? 0;
+        if (attempts >= ICE_RESTART_MAX_ATTEMPTS) return;
+        restartAttemptsRef.current.set(playerId, attempts + 1);
+        const timer = window.setTimeout(() => {
+          restartTimersRef.current.delete(playerId);
+          if (peersRef.current.get(playerId) !== pc) return; // peer já foi trocado/fechado
+          try {
+            pc.restartIce();
+          } catch {
+            // conexão já deve estar fechando — ignora
+          }
+        }, ICE_RESTART_DELAY_MS);
+        restartTimersRef.current.set(playerId, timer);
+      };
       const audioTrack = getMixedAudioTrack();
       if (audioTrack) pc.addTrack(audioTrack);
       if (videoTrackRef.current) void applyVideoQuality(pc.addTrack(videoTrackRef.current));
@@ -147,6 +200,12 @@ export function AvBroadcastController() {
       if (!pc) return;
       pc.close();
       peersRef.current.delete(playerId);
+      restartAttemptsRef.current.delete(playerId);
+      const t = restartTimersRef.current.get(playerId);
+      if (t) {
+        window.clearTimeout(t);
+        restartTimersRef.current.delete(playerId);
+      }
     };
 
     const presentIds = new Set(users.filter((u) => u.id !== me.id).map((u) => u.id));
@@ -241,6 +300,12 @@ export function AvBroadcastController() {
               }
             };
             pc.ontrack = () => applyTrackSnapshot(pc!);
+            // Mesmo limite de sempre (sem TURN): avisa o jogador quando a
+            // conexão direta com o mestre falha, em vez de ficar mudo sem
+            // explicação nenhuma — o mestre já tenta reconectar sozinho
+            // (ver ICE restart em ensurePeer), isso aqui só reflete o
+            // estado atual pra tela.
+            pc.onconnectionstatechange = () => setAvLinkDown(pc!.connectionState === 'failed');
           }
           try {
             await pc.setRemoteDescription({ type: 'offer', sdp: ev.payload.sdp });
@@ -260,6 +325,7 @@ export function AvBroadcastController() {
         playerPcRef.current?.close();
         playerPcRef.current = null;
         setRemoteAvStream(null);
+        setAvLinkDown(false);
       }
     });
 
@@ -268,6 +334,7 @@ export function AvBroadcastController() {
       playerPcRef.current?.close();
       playerPcRef.current = null;
       setRemoteAvStream(null);
+      setAvLinkDown(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, me.isGM, me.id]);

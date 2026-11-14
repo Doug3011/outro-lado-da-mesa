@@ -98,6 +98,13 @@ interface TableState {
   // <video>/<audio>) perceba a mudança — efêmero, não persiste.
   remoteAvStream: MediaStream | null;
   setRemoteAvStream: (s: MediaStream | null) => void;
+  // true quando a conexão WebRTC direta com o mestre falhou (ex.: NAT/
+  // firewall restritivo de alguma das duas pontas — sem servidor TURN,
+  // pedido explícito do usuário, nem toda rede consegue conectar direto) —
+  // só pro jogador ver que o motivo de não ouvir música é a rede, não um
+  // bug mudo. Ver AvBroadcastController.tsx.
+  avLinkDown: boolean;
+  setAvLinkDown: (v: boolean) => void;
 
   connect: (code: string, me: PresenceUser, opts?: { initialScene?: Scene }) => void;
   disconnect: () => void;
@@ -622,6 +629,7 @@ export const useTableStore = create<TableState>((set, get) => {
     camera3d: null,
     ambientCue: null,
     remoteAvStream: null,
+    avLinkDown: false,
 
     connect: (code, me, opts) => {
       get().conn?.disconnect();
@@ -651,6 +659,7 @@ export const useTableStore = create<TableState>((set, get) => {
         camera3d: null,
         ambientCue: null,
         remoteAvStream: null,
+        avLinkDown: false,
       });
       rehydrateHeavySceneDataNow();
 
@@ -721,6 +730,7 @@ export const useTableStore = create<TableState>((set, get) => {
         camera3d: null,
         ambientCue: null,
         remoteAvStream: null,
+        avLinkDown: false,
       });
     },
 
@@ -814,6 +824,7 @@ export const useTableStore = create<TableState>((set, get) => {
       webrtcHandler = fn;
     },
     setRemoteAvStream: (s) => set({ remoteAvStream: s }),
+    setAvLinkDown: (v) => set({ avLinkDown: v }),
 
     upsertToken: (t) => {
       const sceneId = get().activeSceneId;
