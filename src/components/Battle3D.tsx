@@ -1975,8 +1975,15 @@ export function Battle3D() {
           // (mesa pela internet, AvBroadcastController.tsx) geralmente pega o
           // frame JÁ limpo pelo WebGL antes do compositor ler ele de volta, e
           // o jogador recebe um vídeo preto/vazio em vez da cena de verdade.
-          // Custo: um pouco de desempenho a mais no navegador do mestre.
-          gl={{ preserveDrawingBuffer: true }}
+          // Custo: um pouco de desempenho a mais no navegador do mestre — só
+          // liga quando pode haver transmissão de verdade (mesmo `active` de
+          // AvBroadcastController.tsx: mesa pela internet ou fallback local),
+          // nunca numa mesa em rede local, onde ninguém transmite canvas
+          // nenhum (cada jogador já renderiza a própria cena 3D direto).
+          // Mesa em rede local é o modo mais comum do app — evita custo de
+          // GPU à toa, que pode contribuir pra travamentos relatados pelo
+          // usuário (o PC inteiro travando, não só o app).
+          gl={{ preserveDrawingBuffer: roomMode !== null && roomMode !== 'lan' }}
           onPointerMissed={() => {
             setSelKind(null);
             setSelId(null);

@@ -11,6 +11,48 @@ const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
 // quadros. Pedido do usuário: "a resolução ficou pixelada e embaçada".
 const VIDEO_MAX_BITRATE = 4_000_000; // 4 Mbps
 
+// Teto de resolução REALMENTE capturada/transmitida — independente do
+// tamanho da janela/monitor do mestre. Bug relatado pelo usuário: o app
+// trava o PC inteiro (não só o app) pouco depois de começar a transmitir
+// o mapa 3D — sintoma típico de driver de GPU engasgando (TDR) por
+// `canvas.captureStream()` + `preserveDrawingBuffer` ficarem capturando e
+// recodificando, quadro a quadro, um canvas WebGL do tamanho da tela
+// cheia (num monitor 4K/ultrawide com devicePixelRatio alto, isso pode
+// passar de 3840×2160 reais). Em vez de capturar o canvas 3D original
+// direto, desenha uma cópia reduzida num canvas 2D à parte (mesma
+// resolução sempre, não importa o monitor) e captura DELE — o mestre
+// continua vendo a cena local na resolução cheia, sem perda nenhuma.
+const MAX_BROADCAST_WIDTH = 1280;
+const MAX_BROADCAST_HEIGHT = 720;
+const BROADCAST_FPS = 24;
+
+function createBoundedCaptureStream(source: HTMLCanvasElement): { stream: MediaStream; stop: () => void } {
+  const proxy = document.createElement('canvas');
+  proxy.width = MAX_BROADCAST_WIDTH;
+  proxy.height = MAX_BROADCAST_HEIGHT;
+  const ctx = proxy.getContext('2d', { alpha: false })!;
+  let stopped = false;
+  let timer = 0;
+  const draw = () => {
+    if (stopped) return;
+    const scale = Math.min(MAX_BROADCAST_WIDTH / source.width, MAX_BROADCAST_HEIGHT / source.height, 1);
+    const w = Math.max(1, Math.round(source.width * scale));
+    const h = Math.max(1, Math.round(source.height * scale));
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, proxy.width, proxy.height);
+    ctx.drawImage(source, (proxy.width - w) / 2, (proxy.height - h) / 2, w, h);
+    timer = window.setTimeout(draw, 1000 / BROADCAST_FPS);
+  };
+  draw();
+  return {
+    stream: proxy.captureStream(BROADCAST_FPS),
+    stop: () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    },
+  };
+}
+
 async function applyVideoQuality(sender: RTCRtpSender) {
   try {
     const params = sender.getParameters();
@@ -54,6 +96,7 @@ export function AvBroadcastController() {
   // mestre: uma conexão por jogador presente
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const videoTrackRef = useRef<MediaStreamTrack | null>(null);
+  const stopCaptureRef = useRef<(() => void) | null>(null);
   const negotiatingRef = useRef<Set<string>>(new Set());
   // jogador: a única conexão com o mestre
   const playerPcRef = useRef<RTCPeerConnection | null>(null);
@@ -145,21 +188,27 @@ export function AvBroadcastController() {
         }
         track.stop();
         videoTrackRef.current = null;
+        stopCaptureRef.current?.();
+        stopCaptureRef.current = null;
       }
       return;
     }
 
     return onGmCanvas3dChange((canvas) => {
       if (!canvas || videoTrackRef.current) return;
-      const stream = canvas.captureStream(24);
+      const { stream, stop } = createBoundedCaptureStream(canvas);
       const track = stream.getVideoTracks()[0];
-      if (!track) return;
+      if (!track) {
+        stop();
+        return;
+      }
       // "detail" em vez do padrão ("motion") — pede pro navegador priorizar
       // nitidez espacial sobre suavidade de movimento ao decidir como gastar
       // o bitrate, o jeito certo pra conteúdo tipo "tela compartilhada"
       // (mesa 3D), diferente de webcam/chamada de vídeo.
       track.contentHint = 'detail';
       videoTrackRef.current = track;
+      stopCaptureRef.current = stop;
       for (const pc of peersRef.current.values()) void applyVideoQuality(pc.addTrack(track));
     });
   }, [active, me.isGM, is3d]);
