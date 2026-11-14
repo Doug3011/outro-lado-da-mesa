@@ -7679,11 +7679,15 @@ label {
   color: #fff;
 }
 .rd-sheet-qr-pop {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 5;
-  width: 260px;
+  /* Fica no fluxo normal (não mais position:absolute) de propósito — um
+     popup flutuante sobreposto ficava cortado pelo overflow:hidden da
+     FloatingWindow sempre que o botão "Ficha no celular" caía perto do
+     fundo de uma janela pequena (ex.: as fichas extras do mestre, que
+     abrem numa janela de 380x480) — o QR inteiro sumia sem erro nenhum.
+     No fluxo normal ele empurra o resto da ficha pra baixo e fica sempre
+     alcançável rolando a janela, nunca escondido. */
+  width: min(260px, 100%);
+  margin-left: auto;
   padding: 14px;
   border-radius: var(--rd-radius);
   border: 1px solid var(--rd-sangue-line);

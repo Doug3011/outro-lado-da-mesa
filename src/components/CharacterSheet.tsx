@@ -147,6 +147,13 @@ export function CharacterSheet({
   // Card com QR+endereço ("No celular", cabeçalho) — reaproveita
   // FichaQr.tsx, só troca onde/como ele aparece.
   const [showQr, setShowQr] = useState(false);
+  const qrPopRef = useRef<HTMLDivElement>(null);
+  // Numa janela pequena (ex.: fichas extras do mestre, 380x480) o popup nasce
+  // fora da área visível, rolado pra baixo do fim da ficha — sem isso o
+  // usuário clica no botão e não vê nada, sem saber que precisa rolar.
+  useEffect(() => {
+    if (showQr) qrPopRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [showQr]);
   // Retrato: clique na miniatura já abre o seletor de arquivo (ação mais
   // comum); "url / remover" revela as outras duas opções que já existiam.
   const [showPortraitExtra, setShowPortraitExtra] = useState(false);
@@ -469,13 +476,14 @@ export function CharacterSheet({
           >
             <PhoneIcon />
           </button>
-          {showQr && (
-            <div className="rd-sheet-qr-pop">
-              <FichaQr characterId={draft.id} />
-            </div>
-          )}
         </div>
       </header>
+
+      {showQr && (
+        <div className="rd-sheet-qr-pop" ref={qrPopRef}>
+          <FichaQr characterId={draft.id} />
+        </div>
+      )}
 
       {showPortraitExtra && (
         <div className="rd-sheet-portrait-extra">
