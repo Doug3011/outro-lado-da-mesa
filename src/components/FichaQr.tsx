@@ -12,8 +12,13 @@ import { useTableStore } from '../store/useTableStore';
 // celular conversar, então o componente simplesmente não renderiza nada.
 export function FichaQr({ characterId }: { characterId: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
-  // Numa mesa pela internet (Supabase) não existe servidor local nenhum pro
-  // celular alcançar — o QR só funciona numa mesa em rede local.
+  // Mesa em rede local funciona direto (o próprio relay é local). Mesa pela
+  // internet (Supabase) também funciona, contanto que o executável esteja
+  // rodando (hasLan) — nesse caso o app abre uma ponte local pro relay só
+  // pra ficha/rolagem (ver withLanBridge em lib/realtime.ts): o celular
+  // continua falando só com o SERVIDOR LOCAL deste PC, só precisa estar na
+  // mesma rede DELE (não da mesa toda). Só "local" (BroadcastChannel entre
+  // abas, sem servidor nenhum) fica de fora mesmo.
   const roomMode = useTableStore((s) => s.mode);
 
   // `phoneIp` (não `localIp`) de propósito — ver comentário em lib/lan.ts.
@@ -23,7 +28,7 @@ export function FichaQr({ characterId }: { characterId: string }) {
   // simplesmente não carregar pra ninguém com a Radmin ativa no PC.
   const ip = LAN_INFO?.phoneIp || LAN_INFO?.localIp;
   const url =
-    hasLan && roomMode === 'lan' && LAN_INFO && ip
+    hasLan && (roomMode === 'lan' || roomMode === 'supabase') && LAN_INFO && ip
       ? `http://${ip}:${LAN_INFO.port}/ficha/${characterId}`
       : null;
 
@@ -46,16 +51,16 @@ export function FichaQr({ characterId }: { characterId: string }) {
   }, [url]);
 
   if (!url) {
-    // Distingue "mesa pela internet" (mensagem explicativa, já que o botão
-    // "No celular" continua visível e clicável) de "app rodando fora do
-    // executável" (hasLan false — nem deveria aparecer esse card, mas por
-    // segurança mantém o fallback mudo de sempre).
-    if (hasLan && roomMode && roomMode !== 'lan') {
+    // "local" (BroadcastChannel entre abas do mesmo navegador, sem servidor
+    // nenhum) é o único modo que realmente não dá pra atender — mostra o
+    // aviso só nesse caso (lan/supabase já caem no card com QR acima). Fora
+    // do executável (hasLan false) nem deveria aparecer esse card.
+    if (hasLan && roomMode === 'local') {
       return (
         <div className="ficha-qr">
           <div className="ficha-qr-text">
             <strong>Ficha no celular</strong>
-            <span className="faint">Só disponível em mesa na rede local, por enquanto.</span>
+            <span className="faint">Só disponível hospedando uma mesa de verdade (rede local ou pela internet).</span>
           </div>
         </div>
       );

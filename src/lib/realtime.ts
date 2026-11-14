@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { hasLan, LAN_INFO } from './lan';
 import type { Character } from '../domain/character';
 import type { Creature } from '../domain/creature';
 import type { PlayerProfile } from '../domain/profile';
@@ -110,6 +111,11 @@ export interface RoomConnection {
   mode: 'supabase' | 'local' | 'lan';
   send(ev: RoomEvent): void;
   disconnect(): void;
+  // Só existe numa mesa pela internet rodando no executável (ver
+  // withLanBridge abaixo) — deixa o chamador semear o espelho local com
+  // fichas já carregadas (ex.: depois do loadRoom inicial), sem isso virar
+  // um envio de verdade pro Supabase de novo.
+  mirrorToLan?(ev: RoomEvent): void;
 }
 
 interface Handlers {
@@ -132,7 +138,12 @@ export function connectRoom(
   handlers: Handlers,
 ): RoomConnection {
   if (code.includes(':')) return lanRoom(code, me, handlers);
-  return supabase ? supabaseRoom(code, me, handlers) : localRoom(code, me, handlers);
+  if (!supabase) return localRoom(code, me, handlers);
+  // Pedido do usuário: mesa pela internet (Supabase), mas ele quer que a
+  // ficha no celular continue funcionando contanto que o celular esteja na
+  // MESMA rede que O PC DELE (independe de como a mesa em si sincroniza
+  // com o resto do grupo) — ver withLanBridge.
+  return hasLan && LAN_INFO ? supabaseRoomWithLanBridge(code, me, handlers) : supabaseRoom(code, me, handlers);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -243,6 +254,109 @@ function supabaseRoom(code: string, me: PresenceUser, h: Handlers): RoomConnecti
     disconnect() {
       channel.unsubscribe();
       supabase!.removeChannel(channel);
+    },
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ponte local: mesa pela internet (Supabase) + ficha no celular              */
+/* -------------------------------------------------------------------------- */
+// Pedido do usuário: "o QR também pela internet, mas só precisando estar
+// na mesma rede do PC e do celular". A página /ficha/:id (fichaMobile.js)
+// só sabe conversar com o relay LOCAL (/lan/room, ver server/main.cjs) —
+// não tem SDK do Supabase (é HTML/JS cru, sem build). Em vez de duplicar
+// esse SDK ali, o PRÓPRIO executável que já está conectado ao Supabase
+// abre uma segunda conexão, silenciosa, nesse relay local (localhost, sem
+// precisar do IP de LAN) e espelha só os eventos que a ficha no celular
+// usa (ficha e rolagem — nada de cenário/token/mapa, que a página nem lê)
+// nos dois sentidos:
+//   Supabase -> relay local: pra "roomState" local saber de fichas de
+//   OUTROS jogadores também (ex.: mestre vendo a ficha de um jogador),
+//   não só a própria.
+//   relay local -> Supabase: edições feitas pelo celular (ou rolagens)
+//   precisam chegar no resto do grupo, que está no Supabase.
+// Sem `__hello`, essa conexão nunca aparece na lista de presença (ver
+// broadcastPresence em server/main.cjs, que filtra `me` nulo) — é só um
+// espelho, não um "usuário" na mesa.
+const LAN_BRIDGE_EVENTS = new Set<RoomEvent['type']>(['sheet:upsert', 'sheet:delete', 'roll']);
+
+function supabaseRoomWithLanBridge(code: string, me: PresenceUser, h: Handlers): RoomConnection {
+  const port = LAN_INFO!.port;
+  let bridgeWs: WebSocket | null = null;
+  let bridgeOpen = false;
+  let bridgeQueue: RoomEvent[] = [];
+  let bridgeClosed = false;
+
+  const sendToBridge = (ev: RoomEvent) => {
+    if (!LAN_BRIDGE_EVENTS.has(ev.type)) return;
+    if (bridgeOpen && bridgeWs) bridgeWs.send(JSON.stringify(ev));
+    else bridgeQueue.push(ev);
+  };
+
+  const openBridge = () => {
+    bridgeWs = new WebSocket(`ws://localhost:${port}/lan/room`);
+    bridgeWs.onopen = () => {
+      bridgeOpen = true;
+      for (const ev of bridgeQueue) bridgeWs?.send(JSON.stringify(ev));
+      bridgeQueue = [];
+    };
+    bridgeWs.onmessage = (ev) => {
+      let data: unknown;
+      try {
+        data = JSON.parse(ev.data as string);
+      } catch {
+        return;
+      }
+      const msg = data as { __presence?: unknown; type?: string };
+      if (msg.__presence || !msg.type) return;
+      if (!LAN_BRIDGE_EVENTS.has(msg.type as RoomEvent['type'])) return;
+      // veio do celular (é o único outro cliente possível desse relay local
+      // sem __hello nosso) — aplica na própria tela e ecoa pro resto do
+      // grupo via Supabase (inner.send, não sendToBridge — sem isso virava
+      // loop infinito voltando pra esse mesmo relay).
+      h.onEvent(data as RoomEvent);
+      inner.send(data as RoomEvent);
+    };
+    bridgeWs.onclose = () => {
+      bridgeOpen = false;
+      if (!bridgeClosed) setTimeout(openBridge, 2000);
+    };
+    bridgeWs.onerror = () => {
+      try {
+        bridgeWs?.close();
+      } catch {
+        /* ignora */
+      }
+    };
+  };
+  openBridge();
+
+  const inner = supabaseRoom(code, me, {
+    ...h,
+    onEvent: (ev) => {
+      h.onEvent(ev);
+      sendToBridge(ev);
+    },
+  });
+
+  return {
+    mode: inner.mode,
+    send(ev) {
+      inner.send(ev);
+      sendToBridge(ev);
+    },
+    mirrorToLan(ev) {
+      sendToBridge(ev);
+    },
+    disconnect() {
+      inner.disconnect();
+      bridgeClosed = true;
+      bridgeQueue = [];
+      try {
+        bridgeWs?.close();
+      } catch {
+        /* ignora */
+      }
     },
   };
 }

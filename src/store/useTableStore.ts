@@ -694,6 +694,14 @@ export const useTableStore = create<TableState>((set, get) => {
         });
         persist();
         rehydrateHeavySceneDataNow();
+        // Semeia a ponte local (mesa pela internet + ficha no celular, ver
+        // withLanBridge em realtime.ts) com as fichas já carregadas — sem
+        // isso, uma ficha que não recebeu nenhum sheet:upsert DESDE que
+        // essa ponte abriu (ex.: ninguém mexeu nela nesta sessão ainda)
+        // não apareceria pro celular mesmo já existindo na mesa.
+        for (const c of loaded.characters) {
+          get().conn?.mirrorToLan?.({ type: 'sheet:upsert', payload: c });
+        }
       });
 
       setTimeout(() => {
