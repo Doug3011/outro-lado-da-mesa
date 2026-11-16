@@ -461,8 +461,9 @@ avise quando quiser que eu publique.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 11. Inventário: regras corretas + redesign
-- [~] 3.1 Dados/regras — EM ANDAMENTO (limite de carga corrigido; resto
-      do campo de dados ainda falta, ver notas)
+- [x] 3.1 Dados/regras (ArmorStats, rangeStepBonus, rdBonus/slotsDelta,
+      limite de carga real 5×Força) — falta só a penalidade real de
+      Sobrecarregado, que fica junto do toggle (3.4)
 - [~] 3.3 Categoria final calculada — função pura criada, ainda não
       ligada à UI
 - [ ] 3.4 Toggle "Limite de inventário: ativado/desativado" (inclui a
@@ -485,10 +486,26 @@ avise quando quiser que eu publique.
     pág. 144 — não é um valor fixo igual pra todas). Ainda não está
     ligada a nenhuma tela (isso é passo futuro, junto do redesign
     visual da aba Inventário).
-  - Ainda faltam: `ArmorStats` em `equipmentCatalog.ts` (Proteção Leve/
-    Pesada/Escudo), `rangeStepBonus` na Mira Telescópica
-    (`weaponModifications.ts`), `rdBonus`/`slotsDelta` nas modificações
-    de proteção que mudam espaço/RD (`armorModifications.ts`), e a
-    penalidade de verdade de Sobrecarregado (-5 Defesa, -5 perícia,
-    -3m deslocamento) + o toggle de ativar/desativar o limite.
+  - `npx tsc --noEmit` e `npm run build` limpos.
+- Notas/progresso (passo 2 — campos estruturados que faltavam):
+  - `equipmentCatalog.ts`: `CatalogItem` ganhou `armor?: ArmorStats`
+    ({defense}), preenchido nas 3 entradas de proteção (Tabela 3.6):
+    Leve +5, Pesada +10, Escudo +2.
+  - `weaponModifications.ts`: `WeaponModEffect` ganhou `rangeStepBonus`
+    (Mira Telescópica: +1 categoria de alcance, pág. 60) e `slotsDelta`
+    (Discreta: -1 espaço).
+  - `armorModifications.ts`: `ArmorModEffect` ganhou `rdBonus`
+    (Blindada: RD 5) e `slotsDelta` (Blindada +1, Discreta -1, Reforçada
+    +1 — todas as 3 que mudam espaço, igual o livro descreve).
+  - São só dados novos opcionais — nenhuma UI/cálculo os lê ainda (isso
+    entra no redesign visual, 3.2, e no cálculo de categoria final, 3.3,
+    como próximos passos). Testado (CDP): o Catálogo do livro (dentro do
+    wizard de criação, aba Inventário) ainda abre normalmente e adiciona
+    "Proteção Leve" ao inventário sem erro de JS, confirmando que os
+    campos novos não quebraram a leitura do catálogo.
+  - Ainda faltam pra fechar a Tarefa 11: ligar `finalItemCategory` (já
+    criada no passo 1) à UI, aplicar a penalidade real de Sobrecarregado
+    (-5 Defesa, -5 perícia, -3m deslocamento), o toggle de ativar/
+    desativar o limite (3.4), e o redesign visual da aba Inventário +
+    editor de item baseado nos mockups (3.2).
   - `npx tsc --noEmit` e `npm run build` limpos.
