@@ -428,9 +428,16 @@ avise quando quiser que eu publique.
       291 da numeração do PDF). Falta ainda: ficha de pré-transformação
       do Enpap-X ("existido comum", pág. 240 — referenciada mas não
       transcrita; Enpap-X já importado é só a forma final).
-- [ ] Lote 6 (NPCs/animais mundanos restantes do Capítulo 7: Soldado de
-      Aluguel, Assassino, Comandante, Mercenário, Iniciado, Investido,
-      Chefe de Polícia, Javaporco, Sucuri, Onça-pintada etc.)
+- [x] Lote 6 (13, últimas do Capítulo 7): Capanga, Soldado de Aluguel,
+      Assassino, Comandante Mercenário, Iniciado, Investido, Policial de
+      Elite, Chefe de Polícia, Enxame de Abelhas, Enxame de Ratos,
+      Javaporco, Onça-Pintada, Sucuri — testado (Bestiário · 77,
+      Assassino PV90 conferido, zero erros de JS).
+      **Capítulo 7 do livro base completo: 49 criaturas paranormais
+      (lotes 1-5) + 19 NPCs/animais mundanos (6 já existiam desde antes
+      + 13 deste lote) = 68 fichas do livro base, mais as 9 só do
+      Sobrevivendo ao Horror (dentro das 15 originais) = Bestiário com
+      77 criaturas "Livro oficial" no total depois de importar tudo.**
 - [ ] Testado (biblioteca + os 6 itens de sempre) após cada lote
 - Notas: transcrição conferida ficha a ficha contra o PDF; qualquer dado
   ilegível/contraditório vira nota "revisar", nunca um número inventado.
