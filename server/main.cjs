@@ -158,6 +158,9 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/scenery') || urlObj.pathname.startsWith('/scenery/')) {
     if (sceneryLibrary.handleApi(req, res, urlObj)) return;
   }
+  if (urlObj.pathname.startsWith('/api/quadro-imagens') || urlObj.pathname.startsWith('/quadro-imagens/')) {
+    if (boardImageLibrary.handleApi(req, res, urlObj)) return;
+  }
   if (urlObj.pathname.startsWith('/api/models') || urlObj.pathname.startsWith('/models/')) {
     if (modelLibrary.handleApi(req, res, urlObj)) return;
   }
@@ -189,6 +192,7 @@ const SAVE_DIR = path.join(process.env.APPDATA || os.homedir(), 'OutroLado');
 const SAVE_FILE = path.join(SAVE_DIR, 'save.json');
 
 const DEFAULT_MUSIC = { trackId: null, playing: false, startedAt: 0, positionAtStart: 0, loop: true };
+const DEFAULT_BOARD = { items: [], links: [], strokes: [] };
 
 let roomState = {
   characters: {},
@@ -196,6 +200,11 @@ let roomState = {
   activeSceneId: '',
   profiles: {},
   music: { ...DEFAULT_MUSIC },
+  // Quadro de investigação — mesmo padrão de persistência de music/scenes
+  // (estado de mesa, não de cena). Nunca carrega bytes de imagem (só
+  // `imageId`, ver boardImageLibrary abaixo), então não preocupa o
+  // `maxPayload`/tamanho do save.json do jeito que cenário 3D preocupa.
+  board: { ...DEFAULT_BOARD },
   // câmera livre do mestre numa mesa 3D — só em memória, nunca vai pro
   // save.json (é view efêmera, não estado da mesa), mas fica disponível pra
   // quem conectar no meio da sessão já ver o enquadramento atual em vez de
@@ -213,6 +222,7 @@ function loadState() {
       activeSceneId: data.activeSceneId || '',
       profiles: data.profiles || {},
       music: data.music ? { ...DEFAULT_MUSIC, ...data.music } : { ...DEFAULT_MUSIC },
+      board: data.board ? { ...DEFAULT_BOARD, ...data.board } : { ...DEFAULT_BOARD },
       camera3d: null,
     };
     console.log('Save carregado: ' + SAVE_FILE);
@@ -310,6 +320,55 @@ function applyToState(ev) {
     case 'music:state':
       roomState.music = ev.payload;
       break;
+    case 'board:item:upsert': {
+      const item = ev.payload.item;
+      const i = roomState.board.items.findIndex((x) => x.id === item.id);
+      // sempre pro topo da pilha (fim do array) — mesmo motivo do client
+      // (useTableStore.ts): "a que você pega vai pro topo".
+      if (i >= 0) roomState.board.items.splice(i, 1);
+      roomState.board.items.push(item);
+      break;
+    }
+    case 'board:item:move': {
+      const it = roomState.board.items.find((x) => x.id === ev.payload.id);
+      if (it) {
+        it.x = ev.payload.x;
+        it.y = ev.payload.y;
+      }
+      return; // "ao vivo" — não persiste a cada chamada, só no upsert final
+    }
+    case 'board:item:resize': {
+      const it = roomState.board.items.find((x) => x.id === ev.payload.id);
+      if (it) it.sc = ev.payload.sc;
+      return; // idem — "ao vivo"
+    }
+    case 'board:item:delete': {
+      // Mesma checagem do lado do cliente (useTableStore.ts) — "o host
+      // ignora" pedido pelo usuário pra apagar prova. Igual lá, isso é
+      // confiança no que o cliente alega (sem conta/autenticação, mesmo
+      // nível do resto do relay), não autenticação de verdade.
+      const it = roomState.board.items.find((x) => x.id === ev.payload.id);
+      if (!it) break;
+      if (it.type !== 'note' && !ev.payload.bySenderIsGM) return;
+      roomState.board.items = roomState.board.items.filter((x) => x.id !== ev.payload.id);
+      roomState.board.links = roomState.board.links.filter((l) => l.a !== ev.payload.id && l.b !== ev.payload.id);
+      break;
+    }
+    case 'board:link:add': {
+      const l = ev.payload.link;
+      const exists = roomState.board.links.some((x) => (x.a === l.a && x.b === l.b) || (x.a === l.b && x.b === l.a));
+      if (!exists) roomState.board.links.push(l);
+      break;
+    }
+    case 'board:link:delete':
+      roomState.board.links = roomState.board.links.filter((l) => l.id !== ev.payload.id);
+      break;
+    case 'board:stroke:add':
+      roomState.board.strokes.push(ev.payload.stroke);
+      break;
+    case 'board:stroke:delete':
+      roomState.board.strokes = roomState.board.strokes.filter((k) => k.id !== ev.payload.id);
+      break;
     case 'place3d:update': {
       // BUG achado numa varredura (ground/objects3d eram os únicos campos
       // aplicados aqui) — groundSize/terrain/sky/skyPreset do mestre nunca
@@ -347,6 +406,7 @@ function stateForClient(isGM) {
       activeSceneId: roomState.activeSceneId,
       profiles: isGM ? Object.values(roomState.profiles) : undefined,
       music: roomState.music,
+      board: roomState.board,
       camera3d: roomState.camera3d,
       authoritative: true,
     },
@@ -823,6 +883,23 @@ const sceneryLibrary = createAssetLibrary({
   libFile: path.join(SAVE_DIR, 'scenery-library.json'),
   mimeMap: IMAGE_MIME,
   defaultExt: 'png',
+});
+
+// Provas ENVIADAS do Quadro de investigação (rede local) — pedido do
+// usuário: quando o mestre clica "Enviar", a imagem (já no tamanho final,
+// redimensionada no cliente) sobe aqui UMA VEZ; o BoardItem só guarda o
+// `imageId`, nunca os bytes (ver src/types.ts/InvestigationBoard.tsx). O
+// vault (provas AINDA não enviadas, ocultas) nunca passa por aqui — fica só
+// no IndexedDB do próprio mestre, ver src/lib/boardImages.ts. Mesma fábrica
+// genérica de sempre; sem `extraFields` (não tem metadado extra por prova
+// aqui — título/tipo já vivem no BoardItem, não na biblioteca).
+const boardImageLibrary = createAssetLibrary({
+  apiPrefix: '/api/quadro-imagens',
+  fileRoutePrefix: '/quadro-imagens',
+  dir: path.join(SAVE_DIR, 'quadro-imagens'),
+  libFile: path.join(SAVE_DIR, 'quadro-imagens-library.json'),
+  mimeMap: IMAGE_MIME,
+  defaultExt: 'webp',
 });
 
 // Content-Type dos formatos de modelo 3D de verdade aceitos no editor de

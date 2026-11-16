@@ -85,6 +85,21 @@ export function CombateFloatIcon() {
   );
 }
 
+// Botão "Quadro" (quadro de investigação) — três pontos ligados por fio,
+// igual a referência visual (Quadro-Investigacao.dc.html).
+export function QuadroFloatIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="4" width="18" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 9l5 5 5-4" stroke="#FF5A60" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="7" cy="9" r="1.3" fill="currentColor" />
+      <circle cx="12" cy="14" r="1.3" fill="currentColor" />
+      <circle cx="17" cy="10" r="1.3" fill="currentColor" />
+      <path d="M9 22h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // Botão "Mapa" (zoom + medir + token) do lado do jogador, sem acesso às
 // ferramentas de mestre — lupa simples.
 export function ViewFloatIcon() {

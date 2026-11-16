@@ -28,6 +28,7 @@ import { DiceRoller } from './DiceRoller';
 import { RollLog } from './RollLog';
 import { MusicAndAmbientPanel } from './MusicAndAmbientPanel';
 import { PlayerProfilesPanel } from './PlayerProfilesPanel';
+import { InvestigationBoard } from './InvestigationBoard';
 import {
   CombateFloatIcon,
   DadosFloatIcon,
@@ -39,6 +40,7 @@ import {
   MestreFloatIcon,
   MusicasFloatIcon,
   PerfisFloatIcon,
+  QuadroFloatIcon,
   TokensFloatIcon,
   ViewFloatIcon,
 } from './icons';
@@ -296,6 +298,24 @@ export function BattleMap() {
   const [tokensOpen, setTokensOpen] = useState(false);
   const [mapasOpen, setMapasOpen] = useState(false);
   const [combateOpen, setCombateOpen] = useState(false);
+  // Quadro de investigação — badge no botão conta provas novas (fresh)
+  // criadas por OUTRA pessoa desde a última vez que abri a janela; abrir
+  // "confirma" todas as atuais (limpa o badge), mas a etiqueta "NOVA" no
+  // item em si só some quando alguém mexe nele (InvestigationBoard.tsx) —
+  // são dois contadores de propósito diferentes.
+  const [quadroOpen, setQuadroOpen] = useState(false);
+  const board = useTableStore((s) => s.board);
+  const seenFreshBoardIdsRef = useRef<Set<string>>(new Set());
+  const quadroBadge = board.items.filter(
+    (it) => it.fresh && it.createdBy !== me.id && !seenFreshBoardIdsRef.current.has(it.id),
+  ).length;
+  const toggleQuadro = () => {
+    setQuadroOpen((o) => {
+      const next = !o;
+      if (next) for (const it of board.items) if (it.fresh) seenFreshBoardIdsRef.current.add(it.id);
+      return next;
+    });
+  };
   const [fichaOpen, setFichaOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false); // janela "Mapa" do jogador (zoom/medir/token)
   // Botões "universais" (Dados/Histórico/Músicas/Perfis) — moraram no
@@ -1446,6 +1466,22 @@ export function BattleMap() {
             rightFrac={0.04}
           />
         )}
+        {/* Quadro de investigação — visível pra mestre E jogador (sem
+            `me.isGM &&`, diferente de Combate/Mapas/etc.), por isso entra
+            no meio dos botões "universais" abaixo em vez de ficar na
+            pilha exclusiva do mestre. */}
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          dock
+          shortcutKey="Q"
+          label="Quadro"
+          icon={<QuadroFloatIcon />}
+          active={quadroOpen}
+          onActivate={toggleQuadro}
+          badge={quadroBadge}
+          topFrac={me.isGM ? 0.56 : 0.27}
+          rightFrac={0.04}
+        />
         {/* Botões "universais" (Dados/Histórico/Músicas/Perfis) — ver
             comentário do estado `dadosOpen` acima; disponíveis pra
             mestre e jogador (Perfis só pra mestre), igual eram as abas
@@ -1458,7 +1494,7 @@ export function BattleMap() {
           icon={<DadosFloatIcon />}
           active={dadosOpen}
           onActivate={() => setDadosOpen((o) => !o)}
-          topFrac={me.isGM ? 0.58 : 0.3}
+          topFrac={me.isGM ? 0.64 : 0.36}
           rightFrac={0.04}
         />
         <FloatingButton
@@ -1469,7 +1505,7 @@ export function BattleMap() {
           icon={<HistoricoFloatIcon />}
           active={historicoOpen}
           onActivate={() => setHistoricoOpen((o) => !o)}
-          topFrac={me.isGM ? 0.68 : 0.41}
+          topFrac={me.isGM ? 0.72 : 0.44}
           rightFrac={0.04}
         />
         {musicAvailable && (
@@ -1481,7 +1517,7 @@ export function BattleMap() {
             icon={<MusicasFloatIcon />}
             active={musicasOpen}
             onActivate={() => setMusicasOpen((o) => !o)}
-            topFrac={me.isGM ? 0.78 : 0.52}
+            topFrac={me.isGM ? 0.8 : 0.52}
             rightFrac={0.04}
           />
         )}
@@ -1891,6 +1927,27 @@ export function BattleMap() {
             <CombatTracker />
           </FloatingWindow>
         )}
+
+        {/* Quadro de investigação — mesma janela pra mestre e jogador (sem
+            `me.isGM &&`); o "Arquivo do mestre" dentro dela é que branch-a
+            por papel (ver InvestigationBoard.tsx, mesmo espírito de
+            GmCharacterTabs/CharacterPanel na janela "Ficha"). */}
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          dock
+          icon={<QuadroFloatIcon />}
+          title="Quadro de investigação"
+          open={quadroOpen}
+          onClose={() => setQuadroOpen(false)}
+          leftFrac={0.06}
+          topFrac={0.04}
+          defaultWidth={920}
+          defaultHeight={640}
+          minimizable
+          maximizable
+        >
+          <InvestigationBoard />
+        </FloatingWindow>
 
         {!me.isGM && (
           <FloatingWindow

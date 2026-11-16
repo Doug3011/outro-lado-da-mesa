@@ -41,6 +41,7 @@ import { DiceRoller } from './DiceRoller';
 import { RollLog } from './RollLog';
 import { MusicAndAmbientPanel } from './MusicAndAmbientPanel';
 import { PlayerProfilesPanel } from './PlayerProfilesPanel';
+import { InvestigationBoard } from './InvestigationBoard';
 import {
   CameraFloatIcon,
   CombateFloatIcon,
@@ -52,6 +53,7 @@ import {
   MusicasFloatIcon,
   OrbitModeIcon,
   PerfisFloatIcon,
+  QuadroFloatIcon,
   ResetFrameIcon,
   SceneDecalToolIcon,
   SceneGroundToolIcon,
@@ -400,6 +402,21 @@ export function Battle3D() {
   const [historicoOpen, setHistoricoOpen] = useState(false);
   const [musicasOpen, setMusicasOpen] = useState(false);
   const [perfisOpen, setPerfisOpen] = useState(false);
+  // Quadro de investigação — mesmo estado+badge reaproveitado pelos dois
+  // branches (mestre/jogador), ver comentário igual em BattleMap.tsx.
+  const [quadroOpen, setQuadroOpen] = useState(false);
+  const board = useTableStore((s) => s.board);
+  const seenFreshBoardIdsRef = useRef<Set<string>>(new Set());
+  const quadroBadge = board.items.filter(
+    (it) => it.fresh && it.createdBy !== me.id && !seenFreshBoardIdsRef.current.has(it.id),
+  ).length;
+  const toggleQuadro = () => {
+    setQuadroOpen((o) => {
+      const next = !o;
+      if (next) for (const it of board.items) if (it.fresh) seenFreshBoardIdsRef.current.add(it.id);
+      return next;
+    });
+  };
   // Abas de ficha abertas na janela flutuante "Ficha" — mesmo padrão de
   // BattleMap.tsx (GmCharacterTabs abre, cada ficha vira sua própria
   // FloatingWindow irmã, ver mais abaixo no JSX).
@@ -953,12 +970,24 @@ export function Battle3D() {
           <FloatingButton
             containerRef={floatingLayerRef}
             dock
+            shortcutKey="Q"
+            label="Quadro"
+            icon={<QuadroFloatIcon />}
+            active={quadroOpen}
+            onActivate={toggleQuadro}
+            badge={quadroBadge}
+            topFrac={0.22}
+            rightFrac={0.04}
+          />
+          <FloatingButton
+            containerRef={floatingLayerRef}
+            dock
             shortcutKey="D"
             label="Dados"
             icon={<DadosFloatIcon />}
             active={dadosOpen}
             onActivate={() => setDadosOpen((o) => !o)}
-            topFrac={0.3}
+            topFrac={0.32}
             rightFrac={0.04}
           />
           <FloatingButton
@@ -969,7 +998,7 @@ export function Battle3D() {
             icon={<HistoricoFloatIcon />}
             active={historicoOpen}
             onActivate={() => setHistoricoOpen((o) => !o)}
-            topFrac={0.41}
+            topFrac={0.42}
             rightFrac={0.04}
           />
           {musicAvailable && (
@@ -999,6 +1028,23 @@ export function Battle3D() {
             defaultHeight={560}
           >
             <CharacterPanel />
+          </FloatingWindow>
+
+          <FloatingWindow
+            containerRef={floatingLayerRef}
+            dock
+            icon={<QuadroFloatIcon />}
+            title="Quadro de investigação"
+            open={quadroOpen}
+            onClose={() => setQuadroOpen(false)}
+            leftFrac={0.06}
+            topFrac={0.04}
+            defaultWidth={920}
+            defaultHeight={640}
+            minimizable
+            maximizable
+          >
+            <InvestigationBoard />
           </FloatingWindow>
 
           <FloatingWindow
@@ -1115,6 +1161,21 @@ export function Battle3D() {
           topFrac={0.48}
           rightFrac={0.04}
         />
+        {/* Quadro de investigação — visível pra mestre E jogador, por isso
+            entra no meio dos botões "universais" abaixo (mesmo tratamento
+            do mapa 2D, ver BattleMap.tsx). */}
+        <FloatingButton
+          containerRef={floatingLayerRef}
+          dock
+          shortcutKey="Q"
+          label="Quadro"
+          icon={<QuadroFloatIcon />}
+          active={quadroOpen}
+          onActivate={toggleQuadro}
+          badge={quadroBadge}
+          topFrac={0.56}
+          rightFrac={0.04}
+        />
         {/* Botões "universais" (Dados/Histórico/Músicas/Perfis) — mesmos
             componentes/posições do mapa 2D (ver BattleMap.tsx), substituindo
             o painel lateral antigo (Room.tsx) removido a pedido do usuário. */}
@@ -1126,7 +1187,7 @@ export function Battle3D() {
           icon={<DadosFloatIcon />}
           active={dadosOpen}
           onActivate={() => setDadosOpen((o) => !o)}
-          topFrac={0.58}
+          topFrac={0.64}
           rightFrac={0.04}
         />
         <FloatingButton
@@ -1137,7 +1198,7 @@ export function Battle3D() {
           icon={<HistoricoFloatIcon />}
           active={historicoOpen}
           onActivate={() => setHistoricoOpen((o) => !o)}
-          topFrac={0.68}
+          topFrac={0.72}
           rightFrac={0.04}
         />
         {musicAvailable && (
@@ -1149,7 +1210,7 @@ export function Battle3D() {
             icon={<MusicasFloatIcon />}
             active={musicasOpen}
             onActivate={() => setMusicasOpen((o) => !o)}
-            topFrac={0.78}
+            topFrac={0.8}
             rightFrac={0.04}
           />
         )}
@@ -1531,6 +1592,23 @@ export function Battle3D() {
           maximizable
         >
           <CombatTracker />
+        </FloatingWindow>
+
+        <FloatingWindow
+          containerRef={floatingLayerRef}
+          dock
+          icon={<QuadroFloatIcon />}
+          title="Quadro de investigação"
+          open={quadroOpen}
+          onClose={() => setQuadroOpen(false)}
+          leftFrac={0.06}
+          topFrac={0.04}
+          defaultWidth={920}
+          defaultHeight={640}
+          minimizable
+          maximizable
+        >
+          <InvestigationBoard />
         </FloatingWindow>
 
         <FloatingWindow

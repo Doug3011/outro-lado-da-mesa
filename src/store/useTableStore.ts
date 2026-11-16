@@ -557,11 +557,15 @@ export const useTableStore = create<TableState>((set, get) => {
         const { item } = ev.payload;
         set((st) => {
           const exists = st.board.items.some((it) => it.id === item.id);
+          // Upsert sempre manda o item pro TOPO da pilha (fim do array,
+          // ver InvestigationBoard.tsx) — pedido do usuário: "a que você
+          // pega vai pro topo"; aqui garante que isso também reflete em
+          // quem recebe, não só em quem mexeu.
           return {
             board: {
               ...st.board,
               items: exists
-                ? st.board.items.map((it) => (it.id === item.id ? item : it))
+                ? [...st.board.items.filter((it) => it.id !== item.id), item]
                 : [...st.board.items, item],
             },
           };
@@ -1202,13 +1206,16 @@ export const useTableStore = create<TableState>((set, get) => {
       get().conn?.send({ type: 'ambient:play', payload: { clipId, nonce } });
     },
 
+    // Sempre manda o item pro topo da pilha (fim do array = topo visual,
+    // ver InvestigationBoard.tsx) — pedido do usuário: "a que você pega
+    // vai pro topo da pilha".
     upsertBoardItem: (item) => {
       set((st) => {
         const exists = st.board.items.some((it) => it.id === item.id);
         return {
           board: {
             ...st.board,
-            items: exists ? st.board.items.map((it) => (it.id === item.id ? item : it)) : [...st.board.items, item],
+            items: exists ? [...st.board.items.filter((it) => it.id !== item.id), item] : [...st.board.items, item],
           },
         };
       });
