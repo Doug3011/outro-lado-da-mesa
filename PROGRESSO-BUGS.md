@@ -122,10 +122,30 @@ melhorar a reconexão (sem TURN) — ver plano.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 3. Ficha de personagem — tela cheia de escolha de origem
-- [ ] Implementado (lista + descrição/perícias/poder sem selecionar +
+- [x] Implementado (lista + descrição/perícias/poder sem selecionar +
       "Escolher esta origem" + fechar sem escolher)
-- [ ] Testado
+- [x] Testado (CDP, wizard E ficha já criada)
 - Notas/meio do caminho:
+  - Novo `src/components/OriginPickerDialog.tsx` — tela cheia (lista das
+    46 origens à esquerda, clique só pré-visualiza nome/perícias/poder
+    sem escolher; "Escolher esta origem" confirma, "Fechar sem escolher"
+    sai sem mudar nada). Visual reaproveita o card-list já estabelecido
+    de Classe (`.rd-cw-class-card`), só com CSS novo pro layout de
+    lista+detalhe lado a lado (`.rd-op-*` em `index.css`).
+  - `CharacterWizard.tsx`: o combobox apertado (`SearchSelect`) virou um
+    botão que abre o diálogo; `CharacterSheet.tsx`: o `<input>` de texto
+    livre (não validado contra as origens) virou o mesmo botão/diálogo,
+    já pré-selecionando a origem atual ao abrir.
+  - Testado: no wizard, abri o diálogo, pré-visualizei "Atleta" (nome +
+    perícias + poder aparecem corretos sem selecionar), fechei sem
+    escolher (campo continuou vazio), reabri, confirmei — campo e nota
+    de poder atualizaram certo. Terminei de criar o agente e, na ficha
+    já criada, abri o mesmo diálogo pelo campo Origem — veio com
+    "Atleta" pré-marcado (".on") — troquei pra "Criminoso" e confirmei,
+    campo da ficha atualizou. Zero erros de JS nos dois fluxos.
+  - Reconferido sem regressão: Ficha, Mestre, Tokens, Mapas, Combate,
+    Quadro e Músicas abrem sem erro de JS numa mesa nova.
+  - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 4. Vincular token à ficha — bug dos tokens salvos não aparecendo
 - [ ] Causa raiz encontrada

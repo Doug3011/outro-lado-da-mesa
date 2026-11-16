@@ -52,6 +52,7 @@ import { GENERAL_POWERS } from '../data/generalPowers';
 import { InventoryEditor } from './InventoryEditor';
 import { FichaQr } from './FichaQr';
 import { TokenLinkDialog } from './TokenLinkDialog';
+import { OriginPickerDialog } from './OriginPickerDialog';
 import { GearIcon, LinkTokenIcon, PdIcon, PhoneIcon } from './icons';
 
 // Catálogo "achatado" (sem os grupos) — syncWeaponAttacks só precisa
@@ -131,6 +132,7 @@ export function CharacterSheet({
   // Token que já representa esse personagem no cenário ativo (ver
   // TokenLinkDialog.tsx) — ausente/`null` = ainda sem token vinculado.
   const [showTokenLink, setShowTokenLink] = useState(false);
+  const [showOriginPicker, setShowOriginPicker] = useState(false);
   const linkedToken = useMemo(() => {
     if (scenes.length === 0) return null;
     const scene = activeScene({ scenes, activeSceneId });
@@ -419,7 +421,9 @@ export function CharacterSheet({
           </label>
           <label className="rd-sheet-field">
             <span className="rd-sheet-field-label">Origem</span>
-            <input value={draft.origem} onChange={(e) => patch({ origem: e.target.value })} />
+            <button type="button" onClick={() => setShowOriginPicker(true)}>
+              {draft.origem || 'Escolher origem…'}
+            </button>
           </label>
           <label className="rd-sheet-field">
             <span className="rd-sheet-field-label">Classe</span>
@@ -1539,6 +1543,16 @@ export function CharacterSheet({
 
       {showTokenLink && (
         <TokenLinkDialog character={draft} mode="manage" onClose={() => setShowTokenLink(false)} />
+      )}
+      {showOriginPicker && (
+        <OriginPickerDialog
+          value={draft.origem}
+          onPick={(name) => {
+            patch({ origem: name });
+            setShowOriginPicker(false);
+          }}
+          onClose={() => setShowOriginPicker(false)}
+        />
       )}
     </div>
   );

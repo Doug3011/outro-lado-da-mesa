@@ -12,12 +12,12 @@ import {
   type ClassKey,
   type Element,
 } from '../data/ordem';
-import { ORIGIN_BY_NAME, ORIGINS } from '../data/origins';
+import { ORIGIN_BY_NAME } from '../data/origins';
 import { createCharacter, suggestedStats, type Character, type InventoryItem } from '../domain/character';
 import { fileToDownscaledDataURL } from '../lib/image';
 import { TRILHAS_BY_CLASS, unlockedTrilhaPowers } from '../data/trilhas';
 import { InventoryEditor } from './InventoryEditor';
-import { SearchSelect } from './SearchSelect';
+import { OriginPickerDialog } from './OriginPickerDialog';
 import {
   ArrowRightIcon,
   BackChevronIcon,
@@ -84,6 +84,7 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
   const [nome, setNome] = useState('');
   const [jogador, setJogador] = useState(defaultPlayer);
   const [origem, setOrigem] = useState('');
+  const [originPickerOpen, setOriginPickerOpen] = useState(false);
   const [image, setImage] = useState('');
   const [nex, setNex] = useState(5);
   const [attrs, setAttrs] = useState<Record<AttrKey, number>>({
@@ -222,8 +223,10 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
   // engrenagem de configurações, os diálogos de prompt), mesmo tendo um
   // z-index maior. Foi isso que causava o botão "Continuar" (canto inferior
   // do wizard) roubando clique pra engrenagem, que fica no mesmo canto.
-  return createPortal(
-    <div className="rd-cw">
+  return (
+    <>
+      {createPortal(
+        <div className="rd-cw">
       <div className="rd-cw-bg" aria-hidden="true">
         <div className="rd-cw-glow" />
         <div className="rd-cw-sigil-spin">
@@ -343,7 +346,13 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
                   </label>
                   <label className="rd-cw-field">
                     <span>Origem</span>
-                    <SearchSelect value={origem} onChange={setOrigem} options={ORIGINS} placeholder="ex.: Militar" />
+                    <button
+                      type="button"
+                      className="rd-input rd-cw-origin-pick-btn"
+                      onClick={() => setOriginPickerOpen(true)}
+                    >
+                      {origem || 'Escolher origem…'}
+                    </button>
                   </label>
                 </div>
 
@@ -744,8 +753,20 @@ export function CharacterWizard({ ownerId, defaultPlayer = '', onDone, onCancel 
           </button>
         )}
       </div>
-    </div>,
-    document.body,
+        </div>,
+        document.body,
+      )}
+      {originPickerOpen && (
+        <OriginPickerDialog
+          value={origem}
+          onPick={(name) => {
+            setOrigem(name);
+            setOriginPickerOpen(false);
+          }}
+          onClose={() => setOriginPickerOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
