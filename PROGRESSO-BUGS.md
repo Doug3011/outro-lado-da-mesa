@@ -251,6 +251,61 @@ melhorar a reconexão (sem TURN) — ver plano.
 - Notas: SPA sem renderização no servidor, mesmo HTML em toda URL
   testada (`/`, `/robots.txt`, `/sitemap.xml`, `/ameacas`).
 
-## Relatório final (preencher no fim)
-- O que mudou:
-- O que o usuário deve testar:
+## Relatório final
+
+Todas as 6 tarefas viáveis foram feitas, testadas (CDP, instância
+isolada) e commitadas UMA DE CADA VEZ (6 commits separados). Nada foi
+publicado/subido — só commits locais, como combinado.
+
+### O que mudou
+
+1. **Quadro de investigação**: clique agora seleciona o item (contorno
+   dourado) em vez de depender só da "borracha"; lixeira sempre visível
+   na barra + tecla Delete apagam o selecionado; jogador tentando
+   apagar uma prova (só mestre pode) recebe um aviso em vez de nada
+   acontecer. A causa do "sumiço" era a anotação bloqueando quase todo
+   clique sobre ela — corrigido.
+2. **Transmissão 3D/música caindo**: reconexão mais insistente dos dois
+   lados (mestre E jogador), sem adicionar servidor TURN (como você
+   pediu). Quando esgota as tentativas de reconectar sozinho, fecha e
+   recria a conexão do zero em vez de ficar morta pro resto da sessão.
+   Continua sendo possível falhar em redes muito restritas — isso é
+   limite de verdade do WebRTC sem TURN, não um bug.
+3. **Escolha de origem**: tela cheia nova (lista + perícias/poder antes
+   de confirmar), tanto na criação quanto na ficha já pronta.
+4. **Vincular token**: tokens salvos na biblioteca agora aparecem pra
+   escolher, na criação da ficha e na ficha já criada.
+5. **Área do Mestre**: botão "Mapas" removido; aba "Criaturas" nova
+   (biblioteca de monstros com busca + filtro por elemento de verdade);
+   ficha de monstro redesenhada (cabeçalho, elemento, barra de vida,
+   abas) tanto na biblioteca quanto dentro da mesa.
+6. **Importar monstro**: dentro da mesa, puxa uma ficha da biblioteca
+   pra cena (com token, se tiver retrato).
+7. **Importar do CRIS**: **não implementado** — testei de verdade
+   (`crisordemparanormal.com`, `/robots.txt`, `/sitemap.xml`, `/ameacas`)
+   e as 4 URLs devolvem o mesmo HTML de 37 caracteres: é um app que só
+   roda com JavaScript no navegador, sem nada pra ler só com o link.
+   Como combinado, não implementei nenhuma alternativa nem adicionei
+   botão — só esse aviso mesmo.
+
+### O que testar
+
+- **Quadro**: selecionar uma prova/nota (clique, inclusive no meio do
+  texto da anotação) e apagar pela lixeira e pelo Delete; tentar apagar
+  uma prova sendo jogador (deve avisar, não apagar).
+- **3D/música**: usar numa mesa de verdade por um tempo pra ver se
+  reconecta sozinho quando a internet oscila (não dá pra simular queda
+  de rede de verdade com segurança aqui — testei forçando os estados
+  via DevTools, mas o teste de campo real é seu).
+- **Origem**: criar uma ficha nova e trocar a origem de uma já existente.
+- **Token**: vincular um token salvo (não um já solto no mapa) a uma
+  ficha nova e a uma já existente.
+- **Criaturas**: Área do Mestre → Criaturas — criar, editar, filtrar
+  por elemento, buscar por nome, excluir; dentro da mesa, Combate →
+  Importar monstro.
+- Geral: música, cenário 3D/2D, fichas e tokens continuam funcionando
+  normalmente (reconferidos depois de cada tarefa, mas vale o seu
+  próprio teste).
+
+Nenhum commit foi publicado (`git push`)/lançado como versão nova —
+avise quando quiser que eu publique.
