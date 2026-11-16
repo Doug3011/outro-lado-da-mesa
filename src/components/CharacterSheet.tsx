@@ -1428,6 +1428,7 @@ export function CharacterSheet({
             <InventoryEditor
               inventory={draft.inventory}
               onChange={(inventory) => patch({ inventory })}
+              attacks={draft.attacks}
               limitEnabled={draft.inventoryLimitEnabled !== false}
               onToggleLimit={() => patch({ inventoryLimitEnabled: draft.inventoryLimitEnabled === false })}
               loadHint={`Espaços usados: ${slotsUsed} · Limite (5 × Força, mínimo 2${

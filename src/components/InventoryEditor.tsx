@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { SKILLS } from '../data/ordem';
 import { EQUIPMENT_EFFECTS } from '../data/equipmentEffects';
 import { EQUIPMENT_CATALOG, type CatalogItem } from '../data/equipmentCatalog';
-import { WEAPON_MODIFICATIONS } from '../data/weaponModifications';
-import { WEAPON_CURSES } from '../data/weaponCurses';
-import { ARMOR_MODIFICATIONS } from '../data/armorModifications';
-import type { InventoryItem } from '../domain/character';
+import { WEAPON_MODIFICATIONS, type WeaponModDef } from '../data/weaponModifications';
+import { WEAPON_CURSES, type WeaponCurseDef } from '../data/weaponCurses';
+import { ARMOR_MODIFICATIONS, type ArmorModDef } from '../data/armorModifications';
+import { categoryToNum, finalItemCategory, numToCategory, type Attack, type InventoryItem } from '../domain/character';
 import { uid } from '../lib/ids';
 import { EquipmentCatalogDialog } from './EquipmentCatalogDialog';
 
 const CATALOG_BY_ID = new Map(EQUIPMENT_CATALOG.flatMap((g) => g.items).map((i) => [i.id, i]));
+const RANGE_LABEL: Record<string, string> = { curto: 'Curto', médio: 'Médio', longo: 'Longo', extremo: 'Extremo' };
 
 // Ícone do botão "Catálogo do livro" — substitui o emoji 📖 (movido de
 // CharacterSheet.tsx pra cá quando o editor de inventário virou compartilhado
@@ -27,6 +28,54 @@ function BookIcon() {
   );
 }
 
+// Lista de chips com descrição completa carregada embaixo da(s)
+// selecionada(s) — mesmo mecanismo pra modificação de arma, maldição de
+// arma e modificação de proteção, só o texto/efeito já vem pronto de cada
+// Def (WeaponModDef/WeaponCurseDef/ArmorModDef: name + description, o
+// texto oficial do livro — nada inventado aqui). Pedido do usuário (b):
+// "ao selecionar uma modificação ou maldição, ela fica destacada e a
+// descrição completa aparece carregada embaixo".
+function ModChipList<T extends { key: string; name: string; description: string }>({
+  label,
+  defs,
+  selected,
+  onToggle,
+  tone,
+}: {
+  label: string;
+  defs: T[];
+  selected: string[];
+  onToggle: (key: string) => void;
+  tone?: 'curse';
+}) {
+  const active = defs.filter((d) => selected.includes(d.key));
+  return (
+    <div className={`inv-fx-block${tone === 'curse' ? ' curse' : ''}`}>
+      <label className="faint inv-fx-label">{label}</label>
+      <div className="chip-row">
+        {defs.map((d) => {
+          const on = selected.includes(d.key);
+          return (
+            <span key={d.key} className={`chip ${on ? 'on' : ''}`} onClick={() => onToggle(d.key)}>
+              {d.name}
+            </span>
+          );
+        })}
+      </div>
+      {active.length > 0 && (
+        <div className="inv-fx-descs">
+          {active.map((d) => (
+            <div className="inv-fx-desc" key={d.key}>
+              <span className="inv-fx-desc-name">{d.name}</span>
+              <span className="inv-fx-desc-text">{d.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Editor de inventário compartilhado — usado tanto na ficha pronta
 // (CharacterSheet.tsx, aba "Inventário") quanto na etapa "Inventário" da
 // criação de personagem (CharacterWizard.tsx). Pedido do usuário: poder
@@ -35,12 +84,20 @@ function BookIcon() {
 // escudo, utensílio/vestimenta — ver data/equipmentEffects.ts) podem ser
 // "equipados" pra aplicar o bônus automaticamente na ficha (Defesa/
 // Proteção/perícia), em vez do jogador ter que somar na mão.
+//
+// Redesign visual (Tarefa 11.3.2) baseado nos mockups do usuário
+// ("Ficha do agente — aba Inventário" e "— editar item arma") — campos
+// separados por tipo de item, categoria final calculada, descrição de
+// mod/maldição ao selecionar e preview do ataque já calculado (ver
+// `attacks`, que é só exibição: o cálculo de verdade já é feito em
+// `computeWeaponAttack`/`syncWeaponAttacks`, domain/character.ts).
 export function InventoryEditor({
   inventory,
   onChange,
   loadHint,
   limitEnabled,
   onToggleLimit,
+  attacks,
 }: {
   inventory: InventoryItem[];
   onChange: (next: InventoryItem[]) => void;
@@ -52,12 +109,32 @@ export function InventoryEditor({
   // para de valer (ver isOverloaded em domain/character.ts).
   limitEnabled?: boolean;
   onToggleLimit?: () => void;
+  // Ataques já sincronizados da ficha (char.attacks, via syncWeaponAttacks)
+  // — usado só pra mostrar o preview "na aba Combate" de uma arma equipada
+  // (procurado por linkedInventoryId). Opcional: sem isso, o preview não
+  // aparece (CharacterWizard.tsx ainda não tem uma ficha de verdade pra
+  // sincronizar nessa etapa).
+  attacks?: Attack[];
 }) {
   const [showCatalog, setShowCatalog] = useState(false);
+  const [lastRemoved, setLastRemoved] = useState<{ item: InventoryItem; index: number } | null>(null);
 
   const update = (id: string, patch: Partial<InventoryItem>) =>
     onChange(inventory.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  const remove = (id: string) => onChange(inventory.filter((it) => it.id !== id));
+  const remove = (id: string) => {
+    const index = inventory.findIndex((it) => it.id === id);
+    if (index === -1) return;
+    setLastRemoved({ item: inventory[index], index });
+    onChange(inventory.filter((it) => it.id !== id));
+    window.setTimeout(() => setLastRemoved((cur) => (cur?.item.id === id ? null : cur)), 6000);
+  };
+  const undoRemove = () => {
+    if (!lastRemoved) return;
+    const next = inventory.slice();
+    next.splice(lastRemoved.index, 0, lastRemoved.item);
+    onChange(next);
+    setLastRemoved(null);
+  };
   const add = (it: InventoryItem) => onChange([...inventory, it]);
 
   return (
@@ -75,9 +152,20 @@ export function InventoryEditor({
         // Só coletes (leve/pesada) recebem modificação de proteção (Tabela
         // 3.6) — escudo/utensílio/vestimenta não têm modificação própria no
         // livro, continuam só com o efeito base de EQUIPMENT_EFFECTS.
-        const isArmor = it.catalogId === 'protecao-leve' || it.catalogId === 'protecao-pesada';
+        const isArmorMods = it.catalogId === 'protecao-leve' || it.catalogId === 'protecao-pesada';
+        // Pedido (a): mostrar Defesa/Dano/Crítico/Alcance/Tipo em campos
+        // próprios (lidos do catálogo), não só dentro do texto de notes —
+        // vale pra qualquer item com estatística estruturada (inclusive
+        // escudo, que não entra em isArmorMods).
+        const w = catalogItem?.weapon;
+        const armorStats = catalogItem?.armor;
+        const modCount = (it.modifications ?? []).length;
+        const curseCount = (it.curses ?? []).length;
+        const finalCat = finalItemCategory(categoryToNum(it.category), modCount, curseCount);
+        const catChanged = modCount > 0 || curseCount > 0;
+        const attack = attacks?.find((a) => a.linkedInventoryId === it.id);
         return (
-          <div className="list-item" key={it.id}>
+          <div className="list-item inv-item" key={it.id}>
             <div className="li-head">
               <input
                 value={it.name}
@@ -109,7 +197,7 @@ export function InventoryEditor({
                 />
               </div>
               <div>
-                <label>Categoria</label>
+                <label>Categoria base</label>
                 <input
                   value={it.category}
                   placeholder="I / II / III"
@@ -117,6 +205,53 @@ export function InventoryEditor({
                 />
               </div>
             </div>
+
+            <div className="inv-cat-final">
+              Categoria final: <strong>{numToCategory(finalCat)}</strong>
+              {catChanged && (
+                <span className="faint">
+                  {' '}
+                  ({it.category || '0'}
+                  {modCount > 0 ? ` + ${modCount} mod.` : ''}
+                  {curseCount > 0 ? ` + ${curseCount} maldiç${curseCount === 1 ? 'ão' : 'ões'}` : ''})
+                </span>
+              )}
+            </div>
+
+            {w && (
+              <div className="inv-stats-grid">
+                <div className="inv-stat">
+                  <label>Dano</label>
+                  <span>{w.damage}</span>
+                </div>
+                <div className="inv-stat">
+                  <label>Crítico</label>
+                  <span>{w.critRange ?? 20}</span>
+                </div>
+                <div className="inv-stat">
+                  <label>Multiplicador</label>
+                  <span>x{w.critMult ?? 2}</span>
+                </div>
+                <div className="inv-stat">
+                  <label>Alcance</label>
+                  <span>{w.range ? RANGE_LABEL[w.range] : 'Corpo a corpo'}</span>
+                </div>
+                <div className="inv-stat">
+                  <label>Tipo de dano</label>
+                  <span>{w.damageType}</span>
+                </div>
+              </div>
+            )}
+
+            {armorStats && (
+              <div className="inv-stats-grid">
+                <div className="inv-stat">
+                  <label>Defesa</label>
+                  <span>+{armorStats.defense}</span>
+                </div>
+              </div>
+            )}
+
             <input
               style={{ marginTop: 6 }}
               value={it.notes}
@@ -171,83 +306,50 @@ export function InventoryEditor({
                 </label>
               </div>
             )}
-            {isWeapon && it.equipped && (
-              <div style={{ marginTop: 6 }}>
-                <label className="faint" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                  Modificações
-                </label>
-                <div className="chip-row">
-                  {WEAPON_MODIFICATIONS.map((mod) => {
-                    const on = (it.modifications ?? []).includes(mod.key);
-                    return (
-                      <span
-                        key={mod.key}
-                        className={`chip ${on ? 'on' : ''}`}
-                        title={`${mod.description} (${mod.scope})`}
-                        onClick={() => {
-                          const cur = it.modifications ?? [];
-                          const next = on ? cur.filter((k) => k !== mod.key) : [...cur, mod.key];
-                          update(it.id, { modifications: next });
-                        }}
-                      >
-                        {mod.name}
-                      </span>
-                    );
-                  })}
-                </div>
+
+            {isWeapon && it.equipped && attack && (
+              <div className="inv-preview">
+                <span className="inv-preview-label">Na aba Combate</span>
+                <span className="inv-preview-line">
+                  <strong>{attack.test || 'Pontaria'}</strong> · {attack.damage} {attack.type} · crítico {attack.crit}
+                  {attack.range !== '—' ? ` · ${attack.range}` : ''}
+                </span>
               </div>
             )}
+
             {isWeapon && it.equipped && (
-              <div style={{ marginTop: 6 }}>
-                <label className="faint" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                  Maldições
-                </label>
-                <div className="chip-row">
-                  {WEAPON_CURSES.map((curse) => {
-                    const on = (it.curses ?? []).includes(curse.key);
-                    return (
-                      <span
-                        key={curse.key}
-                        className={`chip ${on ? 'on' : ''}`}
-                        title={`${curse.description} (${curse.element})`}
-                        onClick={() => {
-                          const cur = it.curses ?? [];
-                          const next = on ? cur.filter((k) => k !== curse.key) : [...cur, curse.key];
-                          update(it.id, { curses: next });
-                        }}
-                      >
-                        {curse.name}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
+              <ModChipList
+                label="Modificações"
+                defs={WEAPON_MODIFICATIONS as (WeaponModDef & { key: string })[]}
+                selected={it.modifications ?? []}
+                onToggle={(key) => {
+                  const cur = it.modifications ?? [];
+                  update(it.id, { modifications: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] });
+                }}
+              />
             )}
-            {isArmor && it.equipped && (
-              <div style={{ marginTop: 6 }}>
-                <label className="faint" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                  Modificações
-                </label>
-                <div className="chip-row">
-                  {ARMOR_MODIFICATIONS.map((mod) => {
-                    const on = (it.modifications ?? []).includes(mod.key);
-                    return (
-                      <span
-                        key={mod.key}
-                        className={`chip ${on ? 'on' : ''}`}
-                        title={`${mod.description} (${mod.scope})`}
-                        onClick={() => {
-                          const cur = it.modifications ?? [];
-                          const next = on ? cur.filter((k) => k !== mod.key) : [...cur, mod.key];
-                          update(it.id, { modifications: next });
-                        }}
-                      >
-                        {mod.name}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
+            {isWeapon && it.equipped && (
+              <ModChipList
+                label="Maldições"
+                tone="curse"
+                defs={WEAPON_CURSES as (WeaponCurseDef & { key: string })[]}
+                selected={it.curses ?? []}
+                onToggle={(key) => {
+                  const cur = it.curses ?? [];
+                  update(it.id, { curses: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] });
+                }}
+              />
+            )}
+            {isArmorMods && it.equipped && (
+              <ModChipList
+                label="Modificações"
+                defs={ARMOR_MODIFICATIONS as (ArmorModDef & { key: string })[]}
+                selected={it.modifications ?? []}
+                onToggle={(key) => {
+                  const cur = it.modifications ?? [];
+                  update(it.id, { modifications: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] });
+                }}
+              />
             )}
           </div>
         );
@@ -262,6 +364,14 @@ export function InventoryEditor({
       </div>
       {showCatalog && (
         <EquipmentCatalogDialog onAdd={(entry) => add(itemFromCatalog(entry))} onClose={() => setShowCatalog(false)} />
+      )}
+      {lastRemoved && (
+        <div className="inv-undo-toast">
+          <span>{lastRemoved.item.name || 'Item'} removido</span>
+          <button className="small ghost" onClick={undoRemove}>
+            Desfazer
+          </button>
+        </div>
       )}
     </div>
   );

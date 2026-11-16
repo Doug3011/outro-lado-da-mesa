@@ -323,6 +323,28 @@ export function finalItemCategory(baseCategory: number, modCount: number, curseC
   return baseCategory + modCount + curseIncrease;
 }
 
+const CATEGORY_ROMAN = ['0', 'I', 'II', 'III', 'IV'];
+
+// Converte o texto livre de `InventoryItem.category` (ex. "I", "ii",
+// "0", "") pra número, pra poder somar em finalItemCategory. Texto que
+// não bate com nenhum algarismo romano conhecido (item ainda não
+// catalogado) vira 0 — não trava a conta, só não soma nada extra.
+export function categoryToNum(category: string): number {
+  const idx = CATEGORY_ROMAN.indexOf(category.trim().toUpperCase());
+  if (idx >= 0) return idx;
+  const n = Number(category);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+// Inverso de categoryToNum, pra exibir — acima de IV o livro permite
+// categorias "soltas" (ver comentário de finalItemCategory), mostradas
+// como "IV+N".
+export function numToCategory(n: number): string {
+  if (n < 0) return '0';
+  if (n < CATEGORY_ROMAN.length) return CATEGORY_ROMAN[n];
+  return `IV+${n - 4}`;
+}
+
 // Itens do inventário marcados como "equipado" que têm efeito automático
 // conhecido (ver data/equipmentEffects.ts) — base de equipmentDefenseBonus/
 // equipmentProtectionBonus/equipmentSkillBonus abaixo.

@@ -464,12 +464,13 @@ avise quando quiser que eu publique.
 - [x] 3.1 Dados/regras (ArmorStats, rangeStepBonus, rdBonus/slotsDelta,
       limite de carga real 5×Força) — falta só a penalidade real de
       Sobrecarregado, que fica junto do toggle (3.4)
-- [~] 3.3 Categoria final calculada — função pura criada e testada,
-      ainda não ligada à UI (entra junto do redesign visual, 3.2)
+- [x] 3.3 Categoria final calculada — função pura criada, testada E
+      ligada à UI (badge "Categoria final" em cada item)
 - [x] 3.4 Toggle "Limite de inventário: ativado/desativado" + penalidade
       real de Sobrecarregado
-- [ ] 3.2 Visual novo (lista + editor de item, baseado nos mockups)
-- [ ] Testado (os 6 itens de sempre) após cada sub-passo
+- [x] 3.2 Visual novo (lista + editor de item, baseado nos mockups) —
+      **TAREFA 11 CONCLUÍDA**
+- [x] Testado (CDP, instância isolada) após cada sub-passo
 - Notas: o código já tinha bem mais estrutura que os mockups (catálogo
   real, mods/maldições com efeito numérico) — isto é conserto de regras +
   preenchimento de lacunas + visual, não uma reescrita do zero.
@@ -589,3 +590,76 @@ avise quando quiser que eu publique.
     Tarefa 11 por completo — a 3.3 (categoria final) já está pronta
     como função pura, só falta aparecer na tela, o que entra junto do
     3.2.
+- Notas/progresso (passo 5 — redesign visual da aba Inventário, fecha a
+  sub-tarefa 3.2 e a Tarefa 11 por completo):
+  - `domain/character.ts`: duas funções novas de apoio —
+    `categoryToNum(category: string)` (converte o texto livre de
+    `InventoryItem.category`, ex. "I"/"ii"/"0", pra número) e
+    `numToCategory(n)` (inverso, pra exibir — acima de IV mostra
+    "IV+N"). Usadas só pra alimentar `finalItemCategory` (já existia)
+    a partir do campo de texto livre que a ficha sempre teve.
+  - `InventoryEditor.tsx` (redesign completo, mas sem perder nenhuma
+    função que já existia — equipar, catálogo, perícia de utensílio/
+    vestimenta, toggle de limite): pra cada item, agora mostra:
+    - **Categoria final** (item d do pedido): base + mods + maldições
+      já calculada (`finalItemCategory`), com a conta explicada do lado
+      ("I + 1 mod. + 1 maldição" etc.).
+    - **Campos separados** (item a): armas mostram Dano/Crítico
+      (margem)/Multiplicador/Alcance/Tipo de dano num grid próprio,
+      lidos direto do catálogo (`CatalogItem.weapon`) — não mais só
+      dentro do texto de Observações. Proteções (e escudo) mostram
+      Defesa num campo próprio (`CatalogItem.armor`). Proficiência/
+      Empunhadura/Munição não têm campo estruturado no catálogo hoje
+      (só prosa) — não inventei campo de dado novo pra isso, só o que
+      já existe estruturado entrou em campo próprio.
+    - **Descrição ao selecionar mod/maldição** (item b): um componente
+      novo (`ModChipList`, compartilhado pelos 3 tipos — modificação de
+      arma, maldição de arma, modificação de proteção) mostra o texto
+      oficial completo (`description`, já existente nos catálogos) de
+      cada uma que estiver marcada, embaixo da lista de chips.
+    - **Preview "na aba Combate"** (parte visual do item c — o CÁLCULO
+      já existia): pra arma equipada, mostra o resultado de
+      `syncWeaponAttacks` (procurado em `attacks` por
+      `linkedInventoryId`, prop nova opcional) — teste, dano, tipo,
+      crítico e alcance JÁ com mods/maldições aplicados, igual aparece
+      de verdade na aba Combate (mesma fonte de dados, só outra tela).
+    - **Desfazer ao remover**: guarda o último item removido + índice;
+      toast com botão "Desfazer" por 6s (mesmo padrão `setTimeout` já
+      usado em outras partes do app).
+  - `CharacterSheet.tsx`: passa a prop nova `attacks={draft.attacks}`
+    pro preview funcionar. `CharacterWizard.tsx` não precisou de
+    mudança — o preview e o toggle de limite são opcionais e só não
+    aparecem ali (a ficha ainda não existe salva com `attacks`
+    sincronizados nessa etapa).
+  - `index.css`: classes novas (`.inv-cat-final`, `.inv-stats-grid`/
+    `.inv-stat`, `.inv-preview`, `.inv-fx-block`/`.inv-fx-desc` —
+    modificação em vermelho `var(--blood)`, maldição em roxo
+    `var(--purple)`, igual o mockup separa visualmente as duas — e
+    `.inv-undo-toast`). Reaproveitei as variáveis de cor e fonte que o
+    app JÁ tinha (`--blood`/`--bg-2`/`--bg-3`/`--line`/`--text-dim`,
+    Oswald/Inter Tight/IBM Plex Mono — as MESMAS fontes dos mockups,
+    já carregadas) em vez de copiar valores hexadecimais do mockup que
+    não combinassem com o resto da ficha — o pedido era "reimplemente
+    nos componentes do app", não importar um tema visual à parte.
+  - Testado (CDP, instância isolada, criação de ficha completa até a
+    ficha salva): adicionei uma Pistola do catálogo na etapa Inventário
+    do assistente — grid mostrou Dano 1d12/Crítico 18/Multiplicador x2/
+    Alcance Curto/Tipo balístico certinhos, Categoria final "I". Equipei
+    a arma, selecionei a modificação "Mira Telescópica" e a maldição
+    "Energética" — a descrição completa de cada uma carregou embaixo
+    (texto oficial do livro), e a Categoria final virou "IV (I + 1 mod.
+    + 1 maldição)" (1+1+2, bate a regra). Terminei a criação do agente
+    e, na ficha já salva, a aba Inventário mostrou o preview "Na aba
+    Combate": "Pontaria · 1d12 balístico · crítico 18/x2 · Médio" — o
+    alcance já saiu "Médio" (subiu de Curto por causa da Mira
+    Telescópica, confirmando que o preview usa o cálculo de verdade, não
+    só o dado cru do catálogo). Confirmei na aba Combate de verdade
+    (lendo o `.value` dos inputs, não o texto — são campos editáveis):
+    os mesmos valores apareceram lá — "Pistola", "Pontaria", "1d12",
+    "balístico", "18/x2", "Médio". Testei remover o item (toast
+    "Pistola removido" + botão "Desfazer" apareceu, item saiu da lista)
+    e cliquei "Desfazer" — item voltou. Zero erros de JS em toda a
+    sequência (criação completa do agente + edição de inventário +
+    checagem da aba Combate).
+  - `npx tsc --noEmit` e `npm run build` limpos.
+  - **TAREFA 11 CONCLUÍDA POR COMPLETO** (3.1, 3.3, 3.4 e 3.2).
