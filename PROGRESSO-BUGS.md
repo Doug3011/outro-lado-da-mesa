@@ -663,3 +663,58 @@ avise quando quiser que eu publique.
     checagem da aba Combate).
   - `npx tsc --noEmit` e `npm run build` limpos.
   - **TAREFA 11 CONCLUÍDA POR COMPLETO** (3.1, 3.3, 3.4 e 3.2).
+
+## Relatório final (lote 2 — Capítulo 7 + Inventário)
+
+Tarefas 9, 10 e 11 concluídas, testadas (CDP, instância isolada) e
+commitadas uma de cada vez (17 commits separados neste lote). Nada foi
+publicado (`git push`/release) — só commits locais, como sempre.
+
+### O que mudou
+
+1. **Aviso de VD** (Tarefa 9): não existe tabela de "construção de
+   ameaça por VD" em nenhum dos dois livros — em vez de inventar
+   valores, a ficha de monstro agora avisa isso perto do campo VD e
+   lembra o uso real (comparar soma de VD do combate com soma de NEX do
+   grupo).
+2. **Bestiário do Capítulo 7** (Tarefa 10): todas as 68 criaturas/NPCs/
+   animais do Capítulo 7 do livro base (49 paranormais + 19 mundanos)
+   entraram na biblioteca via "Importar do livro", marcadas "Livro
+   oficial" (badge + filtro novo, em AND com elemento/busca). Somado às
+   9 exclusivas do Sobrevivendo ao Horror, o botão importa 77 criaturas
+   no total. Alguns campos pontuais ficaram marcados "revisar" na
+   própria ficha (nunca inventados) onde a extração automática do PDF
+   saiu ilegível — veja a Tarefa 10 acima pra lista completa.
+3. **Inventário — regras corretas** (Tarefa 11): o limite de carga
+   agora é o de verdade do livro (5 espaços por ponto de Força, mínimo
+   2, nunca "Força + 5"), com a penalidade real de Sobrecarregado (-5
+   Defesa, -5 em perícias com penalidade de carga, -3m de deslocamento)
+   e um botão pra ativar/desativar esse limite por ficha. A categoria
+   final de um item agora soma certo (mod +1, primeira maldição +2,
+   seguintes +1 — não um valor fixo igual pra todas).
+4. **Inventário — redesign visual** (Tarefa 11): a aba Inventário
+   ganhou campos separados pra arma (Dano/Crítico/Multiplicador/
+   Alcance/Tipo) e proteção (Defesa), a categoria final calculada e
+   explicada por item, a descrição oficial completa de cada modificação/
+   maldição selecionada, um preview do ataque já calculado "Na aba
+   Combate" dentro do próprio editor, e desfazer ao remover um item.
+
+### O que testar
+
+- **Criaturas**: Área do Mestre → Criaturas → "Importar do livro" (77
+  no total) → filtro "Livro oficial" e por elemento → abrir algumas
+  fichas (Kerberos, O Diabo, Anjo, Degolificada etc.) e comparar com o
+  livro, principalmente as marcadas "revisar".
+- **Ficha de monstro**: campo VD mostra o aviso novo (tooltip + texto).
+- **Inventário**: criar/abrir uma ficha, equipar uma arma, adicionar
+  modificação + maldição, confirmar que a categoria final e o preview
+  "Na aba Combate" batem com o que aparece na aba Combate de verdade;
+  forçar carga além do limite (editar "Espaços" de um item) e ver a
+  Defesa/perícia/deslocamento caírem; desativar o toggle de limite e
+  confirmar que a penalidade some; remover um item e usar "Desfazer".
+- Geral: música, cenário 3D/2D, fichas, tokens e quadro continuam
+  funcionando normalmente (reconferidos depois de cada tarefa/lote,
+  mas vale o seu próprio teste).
+
+Nenhum commit foi publicado (`git push`)/lançado como versão nova —
+avise quando quiser que eu publique.
