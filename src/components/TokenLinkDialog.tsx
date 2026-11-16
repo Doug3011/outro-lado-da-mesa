@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { activeScene, useTableStore } from '../store/useTableStore';
 import { useIdentity } from '../hooks/useIdentity';
 import { randomColor, uid } from '../lib/ids';
+import { urlToDownscaledDataURL } from '../lib/image';
+import { fetchTokenLibrary, tokenAssetUrl } from '../lib/tokenLibrary';
 import type { Character } from '../domain/character';
-import type { Token } from '../types';
+import type { Token, TokenAsset } from '../types';
 
 // Escolhe (ou cria) o token que representa este personagem na mesa — pedido
 // do usuário: "na hora da criação da ficha você vai lá e adiciona um token
@@ -41,6 +44,51 @@ export function TokenLinkDialog({
   const tokens = scene ? Object.values(scene.tokens) : [];
   const linked = tokens.find((t) => t.characterId === character.id) ?? null;
   const available = tokens.filter((t) => !t.characterId);
+
+  // Biblioteca de tokens salvos (Área do Mestre, `/api/tokens`) — esse
+  // diálogo nunca buscava daqui, só olhava pros tokens JÁ soltos no mapa da
+  // cena ativa. Causa raiz do bug "tokens salvos não aparecem pra vincular".
+  const [library, setLibrary] = useState<TokenAsset[]>([]);
+  const [linkingLibraryId, setLinkingLibraryId] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchTokenLibrary().then((data) => {
+      if (!cancelled) setLibrary(data.items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Cria um token novo a partir de um item salvo na biblioteca, já
+  // vinculado a esse personagem — mesmo caminho de "baixar e reduzir a
+  // imagem" usado ao arrastar um token da biblioteca pro mapa (ver
+  // BattleMap.tsx/Battle3D.tsx), só que a posição é automática (centro do
+  // mapa) em vez de onde o mouse soltou.
+  const linkFromLibrary = (asset: TokenAsset) => {
+    if (!scene) return;
+    setLinkingLibraryId(asset.id);
+    const pos =
+      scene.kind === '3d'
+        ? { x: 0, y: 0 }
+        : { x: Math.floor(scene.map.cols / 2), y: Math.floor(scene.map.rows / 2) };
+    void urlToDownscaledDataURL(tokenAssetUrl(asset.id), 320).then((image) => {
+      const t: Token = {
+        id: uid(),
+        label: character.name,
+        color: randomColor(character.id),
+        image: image || undefined,
+        ...pos,
+        size: 1,
+        ownerId: me.id,
+        characterId: character.id,
+        hp: { current: character.pv.current, max: character.pv.max },
+        animationRig: asset.animationRig,
+      };
+      upsertToken(t);
+      onClose();
+    });
+  };
 
   // Vincula um token já plantado no mapa (sem dono ainda) — mantém label e
   // imagem do token como estavam (pode já ter sido customizado antes do
@@ -168,6 +216,32 @@ export function TokenLinkDialog({
               ) : (
                 <p className="faint" style={{ fontSize: 12 }}>
                   Nenhum token sem dono nesse cenário ainda.
+                </p>
+              )}
+
+              <div className="rd-divider" style={{ margin: '14px 0 10px' }} />
+              <p className="faint" style={{ fontSize: 12, marginTop: 0, marginBottom: 8 }}>
+                Biblioteca de tokens
+              </p>
+              {library.length > 0 ? (
+                <div className="asset-grid">
+                  {library.map((a) => (
+                    <button
+                      key={a.id}
+                      className="asset-card"
+                      disabled={linkingLibraryId === a.id}
+                      onClick={() => linkFromLibrary(a)}
+                    >
+                      <div className="asset-thumb" style={{ backgroundImage: `url(${tokenAssetUrl(a.id)})` }} />
+                      <span className="asset-name" title={a.name}>
+                        {linkingLibraryId === a.id ? 'Criando…' : a.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="faint" style={{ fontSize: 12 }}>
+                  Nenhum token salvo na biblioteca ainda (Área do Mestre → Tokens).
                 </p>
               )}
             </>

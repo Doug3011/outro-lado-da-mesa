@@ -148,10 +148,31 @@ melhorar a reconexão (sem TURN) — ver plano.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 4. Vincular token à ficha — bug dos tokens salvos não aparecendo
-- [ ] Causa raiz encontrada
-- [ ] Corrigido (na criação E na ficha já criada)
-- [ ] Testado
+- [x] Causa raiz encontrada
+- [x] Corrigido (na criação E na ficha já criada)
+- [x] Testado
 - Notas/meio do caminho:
+  - Causa raiz confirmada (já suspeitada na investigação inicial):
+    `TokenLinkDialog.tsx` só olhava pros tokens JÁ soltos no mapa da cena
+    ativa (`scene.tokens`) — nunca chamava `fetchTokenLibrary()`. Usado
+    idêntico nos dois lugares (criação e ficha já criada), um fix aqui
+    resolveu os dois de uma vez.
+  - Adicionada seção "Biblioteca de tokens" no diálogo, buscando
+    `fetchTokenLibrary()` (mesmo import de `TokenLibraryManager.tsx`).
+    Escolher um item baixa e reduz a imagem (`urlToDownscaledDataURL`,
+    mesmo caminho de arrastar um token da biblioteca pro mapa) e cria um
+    `Token` novo na cena ativa já vinculado ao personagem.
+  - Testado via CDP: subi uma mesa, enviei uma imagem pra Biblioteca de
+    Tokens (Área do Mestre), saí da mesa, criei uma ficha nova — o
+    diálogo pós-criação ("Vincular a um token?") já mostrou o token
+    salvo na seção nova; cliquei nele e o botão da ficha virou "Trocar
+    token (Agente Teste Token)", confirmando o vínculo. Reabri o mesmo
+    diálogo pela ficha já criada (modo "Token de ..."): mostrou "Token
+    atual: Agente Teste Token" + Desvincular, e a Biblioteca de tokens
+    continuou disponível pra trocar por outro salvo. Zero erros de JS.
+  - Reconferido sem regressão: Ficha, Mestre, Tokens, Mapas, Combate,
+    Quadro e Músicas abrem sem erro numa mesa nova.
+  - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 5. Área do Mestre — design novo + Fichas de Monstros + remover Mapas
 - [ ] Design novo aplicado na Área do Mestre (menu inicial)
