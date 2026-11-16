@@ -5,7 +5,11 @@ import type { Character } from '../domain/character';
 import type { Creature } from '../domain/creature';
 import type { PlayerProfile } from '../domain/profile';
 import type {
+  BoardItem,
+  BoardLink,
+  BoardStroke,
   GroundConfig,
+  InvestigationBoardState,
   MapState,
   MusicState,
   NotifyEntry,
@@ -44,6 +48,26 @@ export type RoomEvent =
   | { type: 'token:delete'; payload: { sceneId: string; id: string } }
   | { type: 'creature:upsert'; payload: { sceneId: string; creature: Creature } }
   | { type: 'creature:delete'; payload: { sceneId: string; id: string } }
+  // Quadro de investigação — estado de MESA (não de cena, como os eventos
+  // acima), ver InvestigationBoardState em types.ts. Nunca carrega bytes de
+  // imagem (só `imageId`) pra nunca estourar o teto de broadcast; `move`/
+  // `resize` são as variantes "ao vivo" (throttled no emissor, sem persistir
+  // a cada chamada — mesmo padrão de token:move/place3d:update), o commit
+  // final (com persistência) vai por `board:item:upsert` no soltar.
+  | { type: 'board:item:upsert'; payload: { item: BoardItem } }
+  | { type: 'board:item:move'; payload: { id: string; x: number; y: number } }
+  | { type: 'board:item:resize'; payload: { id: string; sc: number } }
+  // `bySenderIsGM` é preenchido com o PRÓPRIO me.isGM de quem manda — quem
+  // recebe (useTableStore.ts e, em rede local, server/main.cjs) ignora o
+  // apagar se o item não é nota e essa flag não é true. Mesmo nível de
+  // confiança que o resto do app (cliente alega o próprio papel, sem conta/
+  // autenticação) — é "o host ignora" pedido pelo usuário, não autenticação
+  // de verdade.
+  | { type: 'board:item:delete'; payload: { id: string; bySenderIsGM: boolean } }
+  | { type: 'board:link:add'; payload: { link: BoardLink } }
+  | { type: 'board:link:delete'; payload: { id: string } }
+  | { type: 'board:stroke:add'; payload: { stroke: BoardStroke } }
+  | { type: 'board:stroke:delete'; payload: { id: string } }
   | { type: 'map:update'; payload: { sceneId: string; patch: Partial<MapState> } }
   | { type: 'scene:update'; payload: { sceneId: string; patch: Partial<Scene> } }
   | { type: 'scene:upsert'; payload: Scene }
@@ -99,6 +123,7 @@ export type RoomEvent =
         activeSceneId: string;
         profiles?: ProfileEntry[]; // preenchido só quando o emissor é mestre
         music?: MusicState;
+        board?: InvestigationBoardState;
         camera3d?: Camera3D | null;
         // true quando vem do servidor local (save em arquivo) — nesse caso
         // o cliente confia no cenário recebido mesmo já tendo algo carregado

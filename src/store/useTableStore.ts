@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { connectRoom, type Camera3D, type ProfileEntry, type RoomConnection, type RoomEvent } from '../lib/realtime';
-import { loadRoom, removeCharacter, saveCharacter, saveScenes, saveScenesNow } from '../lib/persistence';
+import { loadRoom, removeCharacter, saveBoard, saveCharacter, saveScenes, saveScenesNow } from '../lib/persistence';
 import { rollExpression, rollOrdemTest } from '../domain/dice';
 import type { Character } from '../domain/character';
 import type { Creature } from '../domain/creature';
@@ -12,9 +12,14 @@ import { placeToScene, type Place } from '../lib/placeLibrary';
 import { map2dToScene, type Map2D } from '../lib/map2dLibrary';
 import { loadHeavySceneData, saveHeavySceneData } from '../lib/localSceneCache';
 import {
+  DEFAULT_BOARD_STATE,
   DEFAULT_MUSIC_STATE,
   makeScene,
+  type BoardItem,
+  type BoardLink,
+  type BoardStroke,
   type GroundConfig,
+  type InvestigationBoardState,
   type MapState,
   type MusicState,
   type NotifyEntry,
@@ -33,6 +38,7 @@ interface Cache {
   activeSceneId: string;
   rollLog: RollLogEntry[];
   notifications: NotifyEntry[];
+  board: InvestigationBoardState;
 }
 
 const cacheKey = (code: string) => `ordem:room:${code}`;
@@ -195,6 +201,24 @@ interface TableState {
 
   setMusicState: (next: MusicState) => void;
   playAmbient: (clipId: string) => void;
+
+  // Quadro de investigação — estado de MESA (igual music), ver
+  // InvestigationBoardState em types.ts. move/resize são variantes "ao
+  // vivo" (chamador já throttla antes de chamar, mesmo padrão de
+  // moveObject3dLive — ver comentário acima); upsert/addLink/addStroke
+  // fazem o commit final, com persist().
+  board: InvestigationBoardState;
+  upsertBoardItem: (item: BoardItem) => void;
+  moveBoardItemLive: (id: string, x: number, y: number) => void;
+  resizeBoardItemLive: (id: string, sc: number) => void;
+  // Não deixa mandar o apagar se quem chama não é mestre e o item não é
+  // nota — mesmo guard de sender que setCamera3d/playAmbient já fazem (a
+  // UI já esconde o botão; isso é só rede de segurança, não autenticação).
+  deleteBoardItem: (id: string) => void;
+  addBoardLink: (link: BoardLink) => void;
+  deleteBoardLink: (id: string) => void;
+  addBoardStroke: (stroke: BoardStroke) => void;
+  deleteBoardStroke: (id: string) => void;
 }
 
 export const activeScene = (s: Pick<TableState, 'scenes' | 'activeSceneId'>): Scene =>
@@ -239,6 +263,7 @@ export const useTableStore = create<TableState>((set, get) => {
       activeSceneId: s.activeSceneId,
       rollLog: s.rollLog.slice(0, 120),
       notifications: s.notifications.slice(0, 120),
+      board: s.board,
     };
     try {
       localStorage.setItem(cacheKey(s.code), JSON.stringify(cache));
@@ -277,6 +302,11 @@ export const useTableStore = create<TableState>((set, get) => {
   const pushScenesToDb = () => {
     const s = get();
     if (s.code) void saveScenes(s.code, s.scenes, s.activeSceneId);
+  };
+
+  const pushBoardToDb = () => {
+    const s = get();
+    if (s.code) saveBoard(s.code, s.board);
   };
 
   // aplica uma mutação a um cenário pelo id, devolvendo o novo array de cenas
@@ -523,6 +553,87 @@ export const useTableStore = create<TableState>((set, get) => {
       case 'music:state':
         set({ music: ev.payload });
         break;
+      case 'board:item:upsert': {
+        const { item } = ev.payload;
+        set((st) => {
+          const exists = st.board.items.some((it) => it.id === item.id);
+          return {
+            board: {
+              ...st.board,
+              items: exists
+                ? st.board.items.map((it) => (it.id === item.id ? item : it))
+                : [...st.board.items, item],
+            },
+          };
+        });
+        persist();
+        break;
+      }
+      case 'board:item:move': {
+        const { id, x, y } = ev.payload;
+        set((st) => ({
+          board: { ...st.board, items: st.board.items.map((it) => (it.id === id ? { ...it, x, y } : it)) },
+        }));
+        break;
+      }
+      case 'board:item:resize': {
+        const { id, sc } = ev.payload;
+        set((st) => ({
+          board: { ...st.board, items: st.board.items.map((it) => (it.id === id ? { ...it, sc } : it)) },
+        }));
+        break;
+      }
+      case 'board:item:delete': {
+        const { id, bySenderIsGM } = ev.payload;
+        set((st) => {
+          const it = st.board.items.find((x) => x.id === id);
+          if (!it) return st;
+          // Rede de segurança do lado de quem RECEBE — mesmo nível de
+          // confiança que o resto do app (cliente alega o próprio papel),
+          // ver comentário em RoomEvent (realtime.ts). A UI já esconde o
+          // botão de apagar prova pra jogador; isso cobre quem mandar a
+          // mensagem direto, driblando a UI.
+          if (it.type !== 'note' && !bySenderIsGM) return st;
+          return {
+            board: {
+              ...st.board,
+              items: st.board.items.filter((x) => x.id !== id),
+              links: st.board.links.filter((l) => l.a !== id && l.b !== id),
+            },
+          };
+        });
+        persist();
+        break;
+      }
+      case 'board:link:add': {
+        const { link } = ev.payload;
+        set((st) => {
+          const exists = st.board.links.some(
+            (l) => (l.a === link.a && l.b === link.b) || (l.a === link.b && l.b === link.a),
+          );
+          return exists ? st : { board: { ...st.board, links: [...st.board.links, link] } };
+        });
+        persist();
+        break;
+      }
+      case 'board:link:delete': {
+        const { id } = ev.payload;
+        set((st) => ({ board: { ...st.board, links: st.board.links.filter((l) => l.id !== id) } }));
+        persist();
+        break;
+      }
+      case 'board:stroke:add': {
+        const { stroke } = ev.payload;
+        set((st) => ({ board: { ...st.board, strokes: [...st.board.strokes, stroke] } }));
+        persist();
+        break;
+      }
+      case 'board:stroke:delete': {
+        const { id } = ev.payload;
+        set((st) => ({ board: { ...st.board, strokes: st.board.strokes.filter((k) => k.id !== id) } }));
+        persist();
+        break;
+      }
       case 'place3d:update': {
         const { sceneId, ground, groundSize, terrain, sky, skyPreset, objects3d } = ev.payload;
         set(() => ({
@@ -569,6 +680,7 @@ export const useTableStore = create<TableState>((set, get) => {
               // perfis só são compartilhados entre mestres
               profiles: g.me?.isGM ? Object.values(g.playerProfiles) : undefined,
               music: g.music,
+              board: g.board,
               camera3d: g.me?.isGM ? g.camera3d : undefined,
             },
           });
@@ -602,8 +714,12 @@ export const useTableStore = create<TableState>((set, get) => {
             }
           }
           const music = ev.payload.music ?? st.music;
+          const boardUntouched =
+            st.board.items.length === 0 && st.board.links.length === 0 && st.board.strokes.length === 0;
+          const trustBoard = ev.payload.authoritative || boardUntouched;
+          const board = trustBoard && ev.payload.board ? ev.payload.board : st.board;
           const camera3d = !st.me?.isGM && ev.payload.camera3d ? ev.payload.camera3d : st.camera3d;
-          return { characters, scenes, activeSceneId, playerProfiles, music, camera3d };
+          return { characters, scenes, activeSceneId, playerProfiles, music, board, camera3d };
         });
         persist();
         break;
@@ -626,6 +742,7 @@ export const useTableStore = create<TableState>((set, get) => {
     activeCharacterId: null,
     playerProfiles: {},
     music: DEFAULT_MUSIC_STATE,
+    board: DEFAULT_BOARD_STATE,
     camera3d: null,
     ambientCue: null,
     remoteAvStream: null,
@@ -654,6 +771,7 @@ export const useTableStore = create<TableState>((set, get) => {
         playerProfiles: Object.fromEntries(gmProfiles.map((p) => [p.ownerId, p])),
         rollLog: cached?.rollLog ?? [],
         notifications: cached?.notifications ?? [],
+        board: cached?.board ?? DEFAULT_BOARD_STATE,
         users: [me],
         music: DEFAULT_MUSIC_STATE,
         camera3d: null,
@@ -694,11 +812,14 @@ export const useTableStore = create<TableState>((set, get) => {
           const untouched =
             st.scenes.length <= 1 && Object.keys(activeScene(st).tokens).length === 0;
           const useLoaded = untouched && loaded.scenes.length > 0;
+          const boardUntouched =
+            st.board.items.length === 0 && st.board.links.length === 0 && st.board.strokes.length === 0;
           return {
             characters,
             scenes: useLoaded ? loaded.scenes : st.scenes,
             activeSceneId:
               useLoaded && loaded.activeSceneId ? loaded.activeSceneId : st.activeSceneId,
+            board: boardUntouched && loaded.board ? loaded.board : st.board,
           };
         });
         persist();
@@ -1079,6 +1200,94 @@ export const useTableStore = create<TableState>((set, get) => {
       const nonce = uid();
       set({ ambientCue: { clipId, nonce } });
       get().conn?.send({ type: 'ambient:play', payload: { clipId, nonce } });
+    },
+
+    upsertBoardItem: (item) => {
+      set((st) => {
+        const exists = st.board.items.some((it) => it.id === item.id);
+        return {
+          board: {
+            ...st.board,
+            items: exists ? st.board.items.map((it) => (it.id === item.id ? item : it)) : [...st.board.items, item],
+          },
+        };
+      });
+      persist();
+      pushBoardToDb();
+      get().conn?.send({ type: 'board:item:upsert', payload: { item } });
+    },
+
+    // "Ao vivo" — só estado+rede, sem persist() a cada chamada (mesmo motivo
+    // de moveObject3dLive: o chamador já throttla antes de chamar isso, mas
+    // persistir a cada ~45ms travaria a UI do mesmo jeito). O commit final
+    // (com persist) é upsertBoardItem, no soltar.
+    moveBoardItemLive: (id, x, y) => {
+      set((st) => ({
+        board: { ...st.board, items: st.board.items.map((it) => (it.id === id ? { ...it, x, y } : it)) },
+      }));
+      get().conn?.send({ type: 'board:item:move', payload: { id, x, y } });
+    },
+
+    resizeBoardItemLive: (id, sc) => {
+      set((st) => ({
+        board: { ...st.board, items: st.board.items.map((it) => (it.id === id ? { ...it, sc } : it)) },
+      }));
+      get().conn?.send({ type: 'board:item:resize', payload: { id, sc } });
+    },
+
+    deleteBoardItem: (id) => {
+      const st0 = get();
+      const it = st0.board.items.find((x) => x.id === id);
+      if (!it) return;
+      // Mesma checagem feita do lado de quem recebe (useTableStore.ts,
+      // case 'board:item:delete', e server/main.cjs em rede local) — aqui é
+      // só pra não aplicar otimisticamente na própria tela de quem não
+      // devia nem ter chamado isso (a UI já esconde o botão pra jogador).
+      const bySenderIsGM = !!st0.me?.isGM;
+      if (it.type !== 'note' && !bySenderIsGM) return;
+      set((st) => ({
+        board: {
+          ...st.board,
+          items: st.board.items.filter((x) => x.id !== id),
+          links: st.board.links.filter((l) => l.a !== id && l.b !== id),
+        },
+      }));
+      persist();
+      pushBoardToDb();
+      get().conn?.send({ type: 'board:item:delete', payload: { id, bySenderIsGM } });
+    },
+
+    addBoardLink: (link) => {
+      set((st) => {
+        const exists = st.board.links.some(
+          (l) => (l.a === link.a && l.b === link.b) || (l.a === link.b && l.b === link.a),
+        );
+        return exists ? st : { board: { ...st.board, links: [...st.board.links, link] } };
+      });
+      persist();
+      pushBoardToDb();
+      get().conn?.send({ type: 'board:link:add', payload: { link } });
+    },
+
+    deleteBoardLink: (id) => {
+      set((st) => ({ board: { ...st.board, links: st.board.links.filter((l) => l.id !== id) } }));
+      persist();
+      pushBoardToDb();
+      get().conn?.send({ type: 'board:link:delete', payload: { id } });
+    },
+
+    addBoardStroke: (stroke) => {
+      set((st) => ({ board: { ...st.board, strokes: [...st.board.strokes, stroke] } }));
+      persist();
+      pushBoardToDb();
+      get().conn?.send({ type: 'board:stroke:add', payload: { stroke } });
+    },
+
+    deleteBoardStroke: (id) => {
+      set((st) => ({ board: { ...st.board, strokes: st.board.strokes.filter((k) => k.id !== id) } }));
+      persist();
+      pushBoardToDb();
+      get().conn?.send({ type: 'board:stroke:delete', payload: { id } });
     },
   };
 });

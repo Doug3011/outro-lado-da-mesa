@@ -481,6 +481,60 @@ export const DEFAULT_MUSIC_STATE: MusicState = {
   loop: true,
 };
 
+// Quadro de investigação — pedido do usuário: cortiça compartilhada pra
+// organizar provas, ligar com fio, desenhar e anotar, vista por mestre e
+// jogadores. Estado de MESA (não de cena, como tokens/creatures) — igual
+// music/playerProfiles, vive direto no TableState (useTableStore.ts).
+//
+// `imageId` nunca carrega os bytes da imagem — só a referência; cada
+// cliente busca a imagem à parte (servidor local em LAN, Supabase Storage
+// pela internet — ver lib/boardImages.ts) pra nunca estourar o teto de
+// 256KB do broadcast em tempo real. O "vault" (provas guardadas, ocultas,
+// antes do mestre clicar ENVIAR) não é um tipo de rede — fica só no
+// IndexedDB do próprio mestre, nunca sincroniza.
+export type BoardItemType = 'photo' | 'doc' | 'note';
+
+export interface BoardItem {
+  id: string;
+  type: BoardItemType;
+  x: number;
+  y: number;
+  rot: number;
+  sc: number; // escala 0.6–3 — notas não redimensionam, sempre 1
+  title?: string; // foto/documento
+  text?: string; // nota
+  color?: string; // nota (cor do post-it)
+  imageId?: string; // foto/documento com imagem enviada
+  fresh?: boolean; // mostra a etiqueta "NOVA"; some quando qualquer um mexe no item
+  createdBy: string; // me.id de quem criou — base do desfazer por-usuário
+}
+
+export interface BoardLink {
+  id: string;
+  a: string; // BoardItem.id
+  b: string; // BoardItem.id
+  createdBy: string;
+}
+
+export interface BoardStroke {
+  id: string;
+  color: string;
+  points: [number, number][];
+  createdBy: string;
+}
+
+export interface InvestigationBoardState {
+  items: BoardItem[]; // ordem do array = ordem de empilhamento, igual tokens
+  links: BoardLink[];
+  strokes: BoardStroke[];
+}
+
+export const DEFAULT_BOARD_STATE: InvestigationBoardState = {
+  items: [],
+  links: [],
+  strokes: [],
+};
+
 export function makeScene(name: string, kind: SceneKind = '2d'): Scene {
   return {
     id: Math.random().toString(36).slice(2, 10),

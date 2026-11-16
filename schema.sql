@@ -6,6 +6,7 @@ create table if not exists public.rooms (
   code text primary key,
   scenes jsonb,             -- lista de cenarios: [{ id, name, map, tokens }]
   active_scene_id text,     -- cenario ativo da sala
+  board jsonb,              -- quadro de investigacao: { items, links, strokes }
   updated_at timestamptz default now()
 );
 

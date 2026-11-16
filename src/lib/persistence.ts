@@ -7,13 +7,14 @@
 
 import { supabase } from './supabase';
 import type { Character } from '../domain/character';
-import type { Scene } from '../types';
+import type { InvestigationBoardState, Scene } from '../types';
 import { loadHeavySceneData, saveHeavySceneData } from './localSceneCache';
 
 export interface LoadedRoom {
   characters: Character[];
   scenes: Scene[];
   activeSceneId: string;
+  board?: InvestigationBoardState;
 }
 
 export async function loadRoom(code: string): Promise<LoadedRoom | null> {
@@ -21,17 +22,22 @@ export async function loadRoom(code: string): Promise<LoadedRoom | null> {
   try {
     const [chars, room] = await Promise.all([
       supabase.from('characters').select('data').eq('room_code', code),
-      supabase.from('rooms').select('scenes, active_scene_id').eq('code', code).maybeSingle(),
+      supabase.from('rooms').select('scenes, active_scene_id, board').eq('code', code).maybeSingle(),
     ]);
     if (chars.error || room.error) {
       console.warn('[persistence] leitura parcial', chars.error || room.error);
     }
-    const rd = (room.data ?? {}) as unknown as { scenes?: Scene[]; active_scene_id?: string };
+    const rd = (room.data ?? {}) as unknown as {
+      scenes?: Scene[];
+      active_scene_id?: string;
+      board?: InvestigationBoardState;
+    };
     const scenes = await Promise.all((rd.scenes ?? []).map(rehydrateHeavySceneData));
     return {
       characters: (chars.data ?? []).map((r) => r.data as Character),
       scenes,
       activeSceneId: rd.active_scene_id ?? '',
+      board: rd.board,
     };
   } catch (err) {
     console.warn('[persistence] loadRoom falhou (rode o schema.sql?)', err);
@@ -127,4 +133,25 @@ export function saveScenesNow(code: string, scenes: Scene[], activeSceneId: stri
     scenesTimer = null;
   }
   return upsertRoomScenes(code, scenes, activeSceneId);
+}
+
+// Quadro de investigação — mesa pela internet. Em rede local isso já
+// persiste de graça via save.json (server/main.cjs); aqui é só pra mesa
+// Supabase sobreviver a um reconnect/relançar do app, pedido explícito do
+// usuário ("o quadro pertence à mesa... salve junto com os outros dados").
+// Nunca carrega bytes de imagem (só `imageId`), então não tem o mesmo
+// risco de tamanho que `scenes` tem — não precisa de debounce tão
+// generoso, mas reaproveito o mesmo de 1200ms por consistência.
+let boardTimer: ReturnType<typeof setTimeout> | null = null;
+export function saveBoard(code: string, board: InvestigationBoardState): void {
+  if (!supabase) return;
+  if (boardTimer) clearTimeout(boardTimer);
+  boardTimer = setTimeout(() => {
+    void supabase!
+      .from('rooms')
+      .upsert({ code, board, updated_at: new Date().toISOString() })
+      .then(({ error }) => {
+        if (error) console.warn('[persistence] saveBoard', error);
+      });
+  }, 1200);
 }
