@@ -411,7 +411,10 @@ avise quando quiser que eu publique.
       Espiral, Enraizado, Escutado, Esqueleto de Lodo, Marionete, Múmia
       Xipófaga — testado (Bestiário · 35, O Diabo PV1666/DEF66
       conferidos, zero erros de JS)
-- [ ] Lote 3
+- [x] Lote 3 (11): Nidere, Sempiternal, Succ, O Deus da Morte, Anjo,
+      Bicho-Papão, Espreitador, EstrangEiro, Existido, Lembrado, Ocioso —
+      testado (Bestiário · 46, O Deus da Morte PV2000/DEF60 conferidos,
+      zero erros de JS)
 - [ ] Lote 4
 - [ ] Lote 5 (NPCs/animais mundanos restantes: Soldado de Aluguel,
       Assassino, Comandante, Mercenário, Iniciado, Investido, Chefe de
