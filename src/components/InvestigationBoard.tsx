@@ -67,13 +67,12 @@ function pathOfPoints(pts: [number, number][]): string {
 }
 
 const TOOL_HINTS: Record<Tool, (linking: boolean, isGM: boolean) => string> = {
-  mover: () => 'Arraste provas e anotações para organizar o quadro',
+  mover: () => 'Arraste para organizar; clique para selecionar e use a lixeira (ou Delete) para apagar',
   ligar: (linking) =>
     linking ? 'Agora clique na outra prova para esticar o fio' : 'Clique em uma prova e depois em outra para ligar com fio',
   desenhar: () => 'Desenhe e circule direto no quadro',
   nota: () => 'Clique em um espaço vazio para colar uma anotação',
-  borracha: (_l, isGM) =>
-    isGM ? 'Clique em fios, desenhos, anotações ou provas para apagar' : 'Clique em fios, desenhos ou anotações para apagar',
+  borracha: () => 'Clique em um fio ou desenho para apagar',
 };
 
 interface VaultEntry {
@@ -105,6 +104,7 @@ export function InvestigationBoard() {
   const [liveDrag, setLiveDrag] = useState<{ id: string; x: number; y: number } | null>(null);
   const [liveResize, setLiveResize] = useState<{ id: string; sc: number } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const [vault, setVault] = useState<VaultEntry[]>([]);
   const [editingText, setEditingText] = useState<Record<string, string>>({});
@@ -181,7 +181,8 @@ export function InvestigationBoard() {
   // quadro por baixo, ver onBoardPointerDown) ----
   const onItemPointerDown = (e: React.PointerEvent, it: BoardItem) => {
     if (tool === 'mover') {
-      if ((e.target as HTMLElement).tagName === 'TEXTAREA') return; // deixa focar a nota pra digitar
+      setSelectedId(it.id);
+      if ((e.target as HTMLElement).tagName === 'TEXTAREA') return; // deixa focar a nota pra digitar, sem iniciar arraste
       const boardEl = boardRef.current;
       if (!boardEl) return;
       const p = pt(e, boardEl);
@@ -208,14 +209,46 @@ export function InvestigationBoard() {
         setLinkFrom(null);
         setCursor(null);
       }
-    } else if (tool === 'borracha') {
-      if (it.type === 'note' || me.isGM) {
-        const removedLinks = board.links.filter((l) => l.a === it.id || l.b === it.id);
-        deleteBoardItem(it.id);
-        pushUndo({ kind: 'delete-item', item: it, links: removedLinks });
-      }
     }
   };
+
+  // ---- apagar item selecionado (lixeira sempre visível + tecla Delete) ----
+  const deleteSelected = () => {
+    const id = selectedId;
+    if (!id) return;
+    const it = byId(id);
+    if (!it) {
+      setSelectedId(null);
+      return;
+    }
+    if (it.type !== 'note' && !me.isGM) {
+      showToast('Só o mestre pode apagar provas do quadro');
+      return;
+    }
+    const removedLinks = board.links.filter((l) => l.a === it.id || l.b === it.id);
+    deleteBoardItem(it.id);
+    pushUndo({ kind: 'delete-item', item: it, links: removedLinks });
+    setSelectedId(null);
+  };
+  const deleteSelectedRef = useRef(deleteSelected);
+  deleteSelectedRef.current = deleteSelected;
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const activeTag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || (document.activeElement as HTMLElement | null)?.isContentEditable) return;
+      if (!selectedId) return;
+      e.preventDefault();
+      deleteSelectedRef.current();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (selectedId && !board.items.some((it) => it.id === selectedId)) setSelectedId(null);
+  }, [board.items, selectedId]);
 
   const onResizeHandleDown = (e: React.PointerEvent, it: BoardItem) => {
     e.stopPropagation();
@@ -263,6 +296,8 @@ export function InvestigationBoard() {
     } else if (tool === 'ligar' && !onItemEl && linkFrom != null) {
       setLinkFrom(null);
       setCursor(null);
+    } else if (tool === 'mover' && !onItemEl) {
+      setSelectedId(null);
     }
   };
 
@@ -458,6 +493,19 @@ export function InvestigationBoard() {
             <path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" />
           </svg>
         </button>
+        <button
+          type="button"
+          className="inv-tool-btn inv-trash-btn"
+          aria-label="Apagar item selecionado"
+          title="Apagar item selecionado (Delete)"
+          disabled={!selectedId}
+          style={!selectedId ? { opacity: 0.35 } : undefined}
+          onClick={deleteSelected}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+          </svg>
+        </button>
         <div style={{ position: 'relative' }}>
           <button
             type="button"
@@ -525,8 +573,7 @@ export function InvestigationBoard() {
                     width: w,
                     transform: `rotate(${it.rot}deg)`,
                     zIndex: board.items.findIndex((x) => x.id === it.id) + 1,
-                    cursor:
-                      tool === 'mover' ? 'grab' : tool === 'ligar' ? 'crosshair' : tool === 'borracha' && (it.type === 'note' || me.isGM) ? 'not-allowed' : undefined,
+                    cursor: tool === 'mover' ? 'grab' : tool === 'ligar' ? 'crosshair' : undefined,
                   }}
                   onPointerDown={(e) => onItemPointerDown(e, it)}
                 >
@@ -556,13 +603,13 @@ export function InvestigationBoard() {
                         spellCheck={false}
                         value={editingText[it.id] ?? it.text ?? ''}
                         onChange={(e) => onNoteTextChange(it, e.target.value)}
-                        onPointerDown={(e) => e.stopPropagation()}
                       />
                     </div>
                   )}
                   <span className="inv-pin" style={{ background: `radial-gradient(circle at 35% 30%, #fff, ${PIN_COLOR[it.type]} 45%, #000 140%)` }} />
                   {it.fresh && <span className="inv-fresh-badge">NOVA</span>}
                   {linkFrom === it.id && <span className="inv-linking-outline" />}
+                  {selectedId === it.id && <span className="inv-selected-outline" />}
                   {canResize && <span className="inv-resize-handle" onPointerDown={(e) => onResizeHandleDown(e, it)} />}
                   {liveResize && liveResize.id === it.id && <span className="inv-resize-label">{Math.round(liveResize.sc * 100)}%</span>}
                 </div>
