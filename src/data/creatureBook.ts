@@ -1,13 +1,19 @@
 // Ameaças prontas pra importar na biblioteca (Área do Mestre → Criaturas →
 // "Importar do livro"). Números (VD, atributos, Defesa, PV, testes, dano,
 // resistências) transcritos de verdade dos livros do usuário — Ordem
-// Paranormal RPG v1.3 (cap. 7, "Ameaças", pág. 284-289: Bandido, Policial,
-// Cão de Guarda, Jacaré, Líder de Culto) e Sobrevivendo ao Horror v1.3
-// (cap. 3, "Ameaças Paranormais", pág. 126-157 e 162: Sepultado, Mescla,
-// Derretido, Quibungo, Profundo, Rascunho, Memento Mori, Medusa, Amigo
-// Imaginário, Caçador de Gente). Os textos de flavor aqui são resumos
-// próprios (não cópia literal da prosa do livro); os NÚMEROS de jogo são
-// fiéis ao impresso.
+// Paranormal RPG v1.3 (cap. 7, "Ameaças": pág. 284-289 pros NPCs mundanos
+// — Bandido, Policial, Cão de Guarda, Jacaré, Líder de Culto —, e pág.
+// 182-282 pro bestiário PARANORMAL do próprio livro base — Aberração de
+// Carne, Aniquilação, Kerberos, Anjo etc.; uma nota antiga aqui dizia que
+// o livro base não tinha bestiário paranormal próprio, o que estava
+// ERRADO — só tinha sido lida a parte mundana do capítulo) e Sobrevivendo
+// ao Horror v1.3 (cap. 3, "Ameaças Paranormais", pág. 126-157 e 162:
+// Sepultado, Mescla, Derretido, Quibungo, Profundo, Rascunho, Memento
+// Mori, Medusa, Amigo Imaginário, Caçador de Gente). Os textos de flavor
+// aqui são resumos próprios (não cópia literal da prosa do livro); os
+// NÚMEROS de jogo são fiéis ao impresso — quando algo saiu ilegível na
+// extração automática do PDF, o campo `notes` da criatura avisa "revisar"
+// em vez de inventar o valor.
 //
 // Observação sobre os bônus de teste/resistência: o livro escreve os
 // bônus como "NO+M" (rola N d20 e fica com o maior, soma M) — aqui
@@ -352,6 +358,316 @@ const BOOK: BookCreature[] = [
         description: '',
       },
     ],
+  },
+
+  // ---------- Ordem Paranormal RPG (livro base), cap. 7 — bestiário
+  // paranormal (pág. 182-282 do livro impresso, index ~191-291 do PDF) —
+  // ao contrário do que uma nota antiga neste arquivo dizia, o livro BASE
+  // tem sim um bestiário de criaturas paranormais únicas (não só NPCs
+  // mundanos); esta seção cobre esse bestiário em lotes, conferidos ficha
+  // a ficha contra o PDF. Lote 1/N: Aberração de Carne, Aniquilação,
+  // Carente, Dama de Sangue, Enpap-X, Kerberos, Minotauro, Mulher Afogada.
+  {
+    name: 'Aberração de Carne',
+    vd: 40,
+    descriptor: 'Criatura paranormal',
+    size: 'Grande',
+    flavor: 'Experimento fracassado pra juntar dois corpos em um só — a dor agoniante das duas cobaias, ainda conscientes durante o processo, virou uma fúria desoladora alimentada pelo Sangue.',
+    el: 'sangue',
+    tags: 'Sangue',
+    perception: 5,
+    initiative: 0,
+    defense: 19,
+    fortitude: 10,
+    reflexes: 0,
+    will: 0,
+    pvMax: 70,
+    damageResistance: 'Balístico, impacto e perfuração 5, Sangue 10; Vulnerável a Morte',
+    attributes: { AGI: 1, FOR: 3, INT: 0, PRE: 1, VIG: 3 },
+    skills: [],
+    displacement: 9,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 15; 3d6 de dano mental (metade se passar no teste de Vontade); NEX 30%+ é imune.', rollDice: '3d6' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão (como vibrações). Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      { name: 'Agarrão (Reação)', description: 'Se acertar um ataque de Pancada, pode tentar agarrar o alvo (teste de manobra +12). Mantém até dois alvos agarrados por vez.' },
+      {
+        name: 'Abocanhar (Movimento)',
+        description:
+          'Leva até dois alvos agarrados pra dentro da boca central. No início de cada turno da aberração em que a vítima continuar agarrada, ela sofre dano de perfuração (Fortitude DT 15 reduz à metade). Um personagem adjacente pode gastar uma ação padrão e um teste de Atletismo (DT 20) pra tentar tirar outro personagem de dentro da boca.',
+        rollDice: '3d6',
+      },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Pancada', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 10, damage: '2d6+6', damageType: 'Impacto', crit: '', description: '' },
+    ],
+  },
+  {
+    name: 'Aniquilação',
+    vd: 380,
+    descriptor: 'Criatura paranormal (lendária)',
+    size: 'Colossal',
+    flavor: 'A maior criatura já registrada na história da Realidade — uma aberração de mais de dez metros, braços dentro de braços, espinhos e uma bocarra colossal. Não há registro de alguém que a tenha derrotado de verdade.',
+    el: 'sangue',
+    tags: 'Sangue, Lendária',
+    perception: 20,
+    initiative: 20,
+    defense: 58,
+    fortitude: 30,
+    reflexes: 25,
+    will: 20,
+    pvMax: 1200,
+    damageResistance: 'Dano 50 (todos os tipos); Vulnerável a Morte',
+    attributes: { AGI: 4, FOR: 5, INT: 3, PRE: 4, VIG: 5 },
+    skills: [{ key: 'atletismo', bonus: 20 }],
+    displacement: 15,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 45; 9d8 de dano mental (metade se passar). O limiar de NEX pra imunidade não ficou legível na extração do PDF — revisar contra o livro físico.', rollDice: '9d8' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      { name: 'Agarrão (Reação)', description: 'Se acertar um ataque de Tentáculos Espinhentos, pode tentar agarrar o alvo (teste de manobra +50). Mantém até quatro alvos agarrados por vez.' },
+      { name: 'Instinto Aniquilador (Reação)', description: 'Sempre que um personagem em alcance curto se move mais de 3m, a Aniquilação faz um ataque de Tentáculos Espinhentos contra ele.' },
+      { name: 'Apertar e Destruir (Livre)', description: 'No início do turno, aperta os personagens agarrados com os tentáculos, causando 40 pontos de dano de Sangue a cada um.' },
+      {
+        name: 'Bater as Asas (Movimento)',
+        description: 'Som ensurdecedor: cada personagem em alcance longo sofre dano mental, é empurrado 6m e fica atordoado por 1 rodada (Fortitude DT 40 reduz o dano à metade e evita os efeitos).',
+        rollDice: '8d6',
+      },
+      {
+        name: 'Estrangulamento Final (Movimento)',
+        description: 'Desloca-se 15m; qualquer personagem que fique adjacente durante esse deslocamento fica agarrado e asfixiado (Reflexos DT 30 evita). Pode escapar gastando uma ação padrão e um teste de Reflexos (DT 30).',
+      },
+      {
+        name: 'Tempestade de Espinhos (Completa)',
+        description: 'Uma vez por cena: todos os personagens em alcance médio sofrem dano de Sangue (Reflexos DT 40 reduz à metade). Perde o Disparo de Espinhos até o fim da cena depois de usar esta habilidade.',
+        rollDice: '20d6+20',
+      },
+      { name: 'Enigma de Medo', description: 'Desconhecido. Quando resolvido, a Aniquilação perde sua resistência a dano e a habilidade Tempestade de Espinhos.' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Garras', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 40, damage: '4d10+30', damageType: 'Sangue', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Tentáculos Espinhentos', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 40, damage: '2d12+30', damageType: 'Sangue', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Disparo de Espinhos', range: 'À distância (x3, médio)', testAttribute: 'AGI', testBonus: 40, damage: '2d10+20', damageType: 'Sangue', crit: '', description: '' },
+    ],
+    notes: 'O limiar de NEX pra imunidade à Presença Perturbadora não apareceu no texto extraído do PDF — revisar contra o livro físico.',
+  },
+  {
+    name: 'Carente',
+    vd: 300,
+    descriptor: 'Criatura paranormal (Medo, baseada em história de terror)',
+    size: 'Grande',
+    flavor: 'Nascida da inveja de um ser que nunca sentiu amor, o carente finge ser uma criança perdida batendo à porta chamando pela mãe — e devora os órgãos de quem atende ao chamado.',
+    el: 'sangue',
+    tags: 'Sangue, Morte, Medo',
+    perception: 10,
+    initiative: 15,
+    defense: 40,
+    fortitude: 25,
+    reflexes: 25,
+    will: 15,
+    pvMax: 700,
+    damageResistance: 'Balístico, impacto, perfuração e Sangue 20; Vulnerável a Morte',
+    attributes: { AGI: 4, FOR: 4, INT: 2, PRE: 3, VIG: 4 },
+    skills: [
+      { key: 'atletismo', bonus: 20 },
+      { key: 'enganacao', bonus: 15 },
+    ],
+    displacement: 12,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 35; 7d8 de dano mental (metade se passar); NEX 90%+ é imune.', rollDice: '7d8' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      { name: 'Regeneração de Sangue', description: 'Cura Acelerada 20. Se ficar inconsciente ou sofrer dano de Energia, perde esta habilidade até o fim da cena.' },
+      {
+        name: 'Forma Infantil (Movimento)',
+        description: 'Contorce-se de volta ao corpo da criança pra passar em espaços pequenos. Não consegue abrir a primeira porta pra entrar num lugar; depois que essa porta é aberta e ele deixa a forma infantil, ignora essa restrição.',
+      },
+      { name: 'Rasteira de Tentáculo (Reação)', description: 'Uma vez por rodada, quando fica adjacente a dois ou mais seres, faz um ataque de Tentáculo contra um deles; se acertar, a vítima fica caída e é empurrada 6m.' },
+      { name: 'Sugada Mortal (Livre)', description: 'Usando o Ferrão de Sangue, suga fluidos e apodrece órgãos internos — um ser atingido pelo ferrão fica debilitado e enjoado até o fim da cena (Fortitude DT 35 evita).' },
+      { name: 'Você É Minha Mamãe? (Movimento)', description: 'Abraça um ser adjacente, que fica paralisado até ser solto (Reflexos DT 25 evita). O carente pode manter o abraço indefinidamente, mas é forçado a soltar o alvo se sofrer dano de Energia.' },
+      { name: 'Carência', description: 'Qualquer ser que já esteve envolvido na gestação de outro ser recebe um bônus em testes de ataque contra o carente, e o carente recebe o mesmo bônus em ataques contra esse ser (valor exato do bônus ilegível na extração do PDF — revisar).' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Garras de Sangue', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 35, damage: '2d8+20', damageType: 'Sangue', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Ferrão de Sangue', range: 'Corpo a corpo', testAttribute: 'FOR', testBonus: 35, damage: '2d12+20', damageType: 'Sangue', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Tentáculo', range: 'Corpo a corpo', testAttribute: 'FOR', testBonus: 35, damage: '2d8+20', damageType: 'Sangue', crit: '', description: '' },
+    ],
+    notes: 'Valor exato do bônus da habilidade "Carência" (marcado "+O" no livro) não ficou legível na extração do PDF — revisar contra o livro físico.',
+  },
+  {
+    name: 'Dama de Sangue',
+    vd: 60,
+    descriptor: 'Criatura paranormal (Medo, folclore de orquídeas)',
+    size: 'Enorme',
+    flavor: 'Nasce de um corpo humano sacrificado em ritual de Sangue, com sementes de orquídea alojadas na coluna — sete tentáculos com flores e espinhos, cada um com um poder próprio.',
+    el: 'sangue',
+    tags: 'Sangue, Morte, Medo',
+    perception: 10,
+    initiative: 0,
+    defense: 20,
+    fortitude: 10,
+    reflexes: 5,
+    will: 0,
+    pvMax: 105,
+    damageResistance: 'Balístico, impacto e perfuração 10, Sangue 20; Vulnerável a Morte',
+    attributes: { AGI: 2, FOR: 3, INT: 1, PRE: 2, VIG: 2 },
+    skills: [],
+    displacement: 12,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 20; 3d6 de dano mental (metade se passar); NEX 35%+ é imune.', rollDice: '3d6' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      {
+        name: 'Consumir',
+        description: 'Quando invocada, não possui as habilidades das flores abaixo. Sempre que consome um corpo adjacente (ação padrão), recebe uma habilidade na ordem da ficha. Enquanto não consumir sete corpos, usa suas ações pra se mover até um corpo e consumi-lo.',
+      },
+      { name: 'Arremessar (Flor Rosa, Movimento)', description: 'Ergue um personagem em alcance curto e o arremessa a um ponto também em alcance curto — sofre dano de impacto e fica caído (Reflexos DT 15 evita tudo). A flor murcha e a habilidade se perde se a dama entrar em contato com fertilizante.', rollDice: '2d6' },
+      { name: 'Chuva de Ácido (Flor Vermelha, Movimento)', description: 'Todos em alcance curto sofrem dano químico (Fortitude DT 15 reduz à metade). Murcha (reduzindo as resistências a dano em 5) se entrar em contato com agrotóxico.', rollDice: '4d4' },
+      { name: 'Espinhos (Flor Amarela, Movimento)', description: 'Dispara espinhos em até três alvos em alcance médio — cada um sofre dano de perfuração (Reflexos DT 15 reduz à metade). Murcha se sofrer 10 de dano de fogo de um único efeito.', rollDice: '2d8' },
+      { name: 'Grito Devastador (Flor Roxa, Movimento)', description: 'Grito que causa confusão: todos em alcance curto ficam confusos (Vontade DT 15 evita; pode repetir o teste no final do turno). Murcha se entrar em contato com o bulbo de bravo purpulis.' },
+      { name: 'Miasma Fétido (Flor Azul, Padrão)', description: 'Expele miasma fétido: todos em alcance curto ficam enjoados por 1d4+1 rodadas (Fortitude DT 15 reduz a 1 rodada). Murcha (reduzindo o deslocamento em 6m) se sofrer dano de eletricidade ou Energia.' },
+      { name: 'Prisão de Tentáculos (Flor Verde, Padrão)', description: 'Penetra o solo com os tentáculos e agarra um personagem em alcance curto até os tentáculos (20 PV, acertados automaticamente) serem destruídos. Murcha (reduzindo a Defesa em 5) se for molhada em água corrente.' },
+      { name: 'Enigma de Medo', description: 'O texto deste enigma saiu embaralhado na extração automática do PDF (layout artístico) — revisar contra o livro físico.' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Tentáculo', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 10, damage: '2d6+5', damageType: 'Impacto', crit: '', description: '' },
+    ],
+    notes: 'Texto do Enigma de Medo saiu embaralhado na extração automática do PDF — revisar contra o livro físico.',
+  },
+  {
+    name: 'Enpap-X',
+    vd: 180,
+    descriptor: 'Criatura paranormal (transformação, Medo)',
+    size: 'Grande',
+    flavor: 'Nasce da dor e tortura de um prisioneiro marcado pelos feitos terríveis do seu soberano — libertado das correntes e ferido, se transforma numa monstruosidade de quatro braços movida só por vingança.',
+    el: 'sangue',
+    tags: 'Sangue, Conhecimento, Medo, Transformação',
+    perception: 10,
+    initiative: 10,
+    defense: 36,
+    fortitude: 15,
+    reflexes: 15,
+    will: 10,
+    pvMax: 360,
+    damageResistance: 'Balístico, impacto e perfuração 10, Sangue 20; Vulnerável a Morte',
+    attributes: { AGI: 2, FOR: 4, INT: 1, PRE: 2, VIG: 3 },
+    skills: [],
+    displacement: 12,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 25; 6d6 de dano mental (metade se passar); NEX 60%+ é imune.', rollDice: '6d6' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      { name: 'Acorrentar (Livre)', description: 'Se acertar um ataque de Correntes em um alvo Médio ou menor, pode tentar agarrá-lo à distância (teste de manobra +17). No início do turno, estrangula cada agarrado assim. Mantém até dois agarrados ao mesmo tempo.', rollDice: '4d6' },
+      { name: 'Forma Desencadeada (Reação)', description: 'Ao fazer um acerto crítico com Socão ou Correntes, pode derrubar o alvo ou empurrá-lo 3m na direção oposta.' },
+      { name: 'Crescer (Reação)', description: 'Sempre que acerta um personagem com Socão, recebe um bônus cumulativo de +1d6 em suas próximas rolagens de dano até o fim do turno.' },
+      { name: 'Marcas do Terror (Movimento)', description: 'As marcas no corpo brilham: todos em alcance curto sofrem dano mental (Vontade DT 25 reduz à metade). Quem passar no teste fica imune a esta habilidade até o fim da cena.', rollDice: '4d6' },
+      {
+        name: 'Transformação',
+        description: 'O enpap-X começa o combate como um "existido comum" (ficha na pág. 240 do livro, ainda não transcrita — revisar/completar num lote futuro). Quando reduzido a 0 PV, em vez de morrer, se transforma: passa a usar esta ficha (inclusive a Presença Perturbadora) e recupera todos os PV.',
+      },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Socão', range: 'Corpo a corpo (x4)', testAttribute: 'FOR', testBonus: 20, damage: '2d10+10', damageType: 'Impacto', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Correntes', range: 'À distância (x3, curto)', testAttribute: 'AGI', testBonus: 15, damage: '2d8+10', damageType: 'Impacto', crit: '', description: '' },
+    ],
+    notes: 'A ficha de pré-transformação ("existido comum", pág. 240 do livro) ainda não foi transcrita — esta entrada é só a forma final (pós-transformação, VD 180). Revisar/completar quando a pág. 240 for coberta num lote futuro.',
+  },
+  {
+    name: 'Kerberos',
+    vd: 340,
+    descriptor: 'Criatura paranormal (lendária)',
+    size: 'Enorme',
+    flavor: 'O cão de três cabeças, guardião do portão do inferno — manifestado só em "Infernos" (áreas de Sangue com a Membrana devastada), protegendo a origem da distorção paranormal da região.',
+    el: 'sangue',
+    tags: 'Sangue, Lendária',
+    perception: 20,
+    initiative: 15,
+    defense: 46,
+    fortitude: 25,
+    reflexes: 20,
+    will: 15,
+    pvMax: 1150,
+    damageResistance: 'Balístico, impacto, perfuração e Sangue 20; Vulnerável a Morte',
+    attributes: { AGI: 4, FOR: 5, INT: 0, PRE: 3, VIG: 5 },
+    skills: [{ key: 'atletismo', bonus: 25 }],
+    displacement: 18,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 35; 10d6 de dano mental (metade se passar); NEX 99%+ é imune.', rollDice: '10d6' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      { name: 'Devorar (Livre)', description: 'Uma vez por cena, quando reduz os PV de um personagem a 0 com a Mordida, pode devorá-lo, matando-o instantaneamente e recuperando PV iguais à metade dos PV totais da vítima. A vítima tem direito a um teste de Fortitude (DT 40) pra evitar.' },
+      { name: 'Derrubar e Devorar (Completa)', description: 'Usa a manobra derrubar contra um personagem a até 3m (teste de manobra +45). Se vencer, desfere três ataques de Mordida contra ele, com o dano de cada um aumentado para 4d12+40.' },
+      { name: 'Ataque Flexível', description: 'Movido por sede de Sangue, pode fazer até quatro ataques por rodada combinando corpo a corpo e à distância, mas nunca o mesmo ataque mais de três vezes na mesma rodada.' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Mordida', range: 'Corpo a corpo', testAttribute: 'FOR', testBonus: 40, damage: '4d12+30', damageType: 'Sangue', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Disparo de Espinhos', range: 'À distância (médio)', testAttribute: 'AGI', testBonus: 35, damage: '4d8+20', damageType: 'Sangue', crit: '', description: '' },
+    ],
+  },
+  {
+    name: 'Minotauro',
+    vd: 280,
+    descriptor: 'Criatura paranormal (lendária, mitologia grega)',
+    size: 'Grande',
+    flavor: 'Animal bípede furioso, infectado de Sangue, com um machado fundido ao braço — mantido em cativeiro por investigadores paranormais há milênios por motivos nunca esclarecidos.',
+    el: 'sangue',
+    tags: 'Sangue, Lendária',
+    perception: 20,
+    initiative: 15,
+    defense: 44,
+    fortitude: 20,
+    reflexes: 15,
+    will: 10,
+    pvMax: 750,
+    damageResistance: 'Balístico, impacto, perfuração e Sangue 20; Vulnerável a Morte',
+    attributes: { AGI: 4, FOR: 5, INT: 1, PRE: 3, VIG: 5 },
+    skills: [{ key: 'atletismo', bonus: 20 }],
+    displacement: 12,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 35; 8d6 de dano mental (metade se passar); NEX 80%+ é imune.', rollDice: '8d6' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      {
+        name: 'Cravar Chifres (Livre)',
+        description: 'Se fizer uma investida com os Chifres e acertar, crava os chifres no alvo, que fica agarrado; enquanto mantém o agarrão não pode atacar com os Chifres. No final de cada turno da vítima ainda agarrada, ela sofre dano de Sangue.',
+        rollDice: '4d12+20',
+      },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Chifres', range: 'Corpo a corpo', testAttribute: 'FOR', testBonus: 30, damage: '6d12+20', damageType: 'Perfuração', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Machado', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 32, damage: '4d12+20', damageType: 'Corte', crit: '', description: '' },
+    ],
+  },
+  {
+    name: 'Mulher Afogada',
+    vd: 140,
+    descriptor: 'Criatura paranormal (Medo, folclore, forma líquida)',
+    size: 'Grande',
+    flavor: 'Lenda urbana sobre mulheres mortas em afogamentos trágicos — se move em forma de Sangue líquido pelos encanamentos de casas assombradas, puxando vítimas pra dentro dos canos.',
+    el: 'sangue',
+    tags: 'Sangue, Medo, Folclore',
+    perception: 5,
+    initiative: 10,
+    defense: 28,
+    fortitude: 10,
+    reflexes: 10,
+    will: 5,
+    pvMax: 240,
+    damageResistance: 'Balístico, Energia, impacto e perfuração 10, Sangue 20; Vulnerável a Morte',
+    attributes: { AGI: 4, FOR: 3, INT: 2, PRE: 2, VIG: 3 },
+    skills: [],
+    displacement: 9,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 25; 4d8 de dano mental (metade se passar); NEX 50%+ é imune.', rollDice: '4d8' },
+      { name: 'Percepção às Cegas', description: 'Usa sentidos diferentes da visão. Escuridão e invisibilidade não a afetam. Alcance curto.' },
+      {
+        name: 'Forma de Sangue',
+        description: 'Por padrão é encontrada na forma líquida de Sangue — ganha resistência a balístico, corte, impacto, perfuração e Sangue 20; deslocamento 36m (pode percorrer canos, frestas e orifícios como qualquer líquido); e as habilidades Afogar em Sangue, Arrancar Sangue e Invadir Órgãos. Perde esta habilidade quando é invocada na forma física (depois que seu Enigma de Medo é desvendado).',
+      },
+      { name: 'Sugar Sangue (Movimento)', description: 'Devora o corpo de um personagem adjacente que tenha morrido nesta cena, recuperando 40 PV.' },
+      { name: 'Afogar em Sangue (Padrão, só forma líquida)', description: 'Invade nariz/boca de um alvo em alcance curto, afogando-o com Sangue — fica asfixiado. No início de cada turno pode fazer um teste de Fortitude (DT 24); se passar, encerra a condição e a mulher afogada é expelida pra um espaço adjacente.' },
+      { name: 'Arrancar Sangue (Reação, só forma líquida)', description: 'Toda vez que é arrancada de um corpo que estava asfixiando com Afogar em Sangue, carrega parte do sangue da vítima e deixa-a fraca.', rollDice: '6d6' },
+      { name: 'Invadir Órgãos (Movimento, só forma líquida)', description: 'Invade órgãos vitais de um personagem que esteja asfixiando com Afogar em Sangue; a vítima sofre dano de Sangue e fica enjoada.', rollDice: '6d6' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Mordida', range: 'Corpo a corpo', testAttribute: 'FOR', testBonus: 15, damage: '4d8+8', damageType: 'Perfuração', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Garras', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 15, damage: '4d6+6', damageType: 'Corte', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Jato de Sangue', range: 'À distância (curto)', testAttribute: 'AGI', testBonus: 10, damage: '4d8+8', damageType: 'Sangue', crit: '', description: '' },
+    ],
+    notes: 'Deslocamento aqui é o da forma física (9m) — na forma líquida (padrão de como é encontrada) o deslocamento real é 36m, ver a habilidade "Forma de Sangue".',
   },
 
   // ---------- Sobrevivendo ao Horror, cap. 3 — Ameaças Paranormais ----------

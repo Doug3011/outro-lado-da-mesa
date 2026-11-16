@@ -402,7 +402,10 @@ avise quando quiser que eu publique.
 
 ## 10. Bestiário completo do Capítulo 7 → biblioteca ("Livro oficial")
 - [x] Campo `source`/`official` no modelo de Creature + badge + filtro
-- [ ] Lote 1 (criaturas paranormais, ~8-10)
+- [x] Lote 1 (criaturas paranormais, 8): Aberração de Carne, Aniquilação,
+      Carente, Dama de Sangue, Enpap-X, Kerberos, Minotauro, Mulher
+      Afogada — testado (Bestiário · 23, Kerberos PV1150/DEF46
+      conferidos, zero erros de JS)
 - [ ] Lote 2
 - [ ] Lote 3
 - [ ] Lote 4
