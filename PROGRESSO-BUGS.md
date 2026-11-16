@@ -421,11 +421,16 @@ avise quando quiser que eu publique.
       Energia, Sukkalgir, Telopsia, Tempestuoso, Viajante — testado
       (Bestiário · 62, Máscara do Desespero PV1200 conferido, zero
       erros de JS)
-- [ ] Lote 5 (criaturas paranormais restantes + ficha de
-      pré-transformação do Enpap-X, pág. 240, ainda faltando)
-- [ ] Lote 6 (NPCs/animais mundanos restantes: Soldado de Aluguel,
-      Assassino, Comandante, Mercenário, Iniciado, Investido, Chefe de
-      Polícia, Javaporco, Sucuri, Onça-pintada etc.)
+- [x] Lote 5 (2, últimas do bestiário paranormal): Anfitrião (VD413,
+      multifacetada) e Degolificada (VD320, multi-elemental) — testado
+      (Bestiário · 64, Anfitrião PV1413 conferido, zero erros de JS).
+      Bestiário paranormal do livro base completo (49 criaturas, 191 a
+      291 da numeração do PDF). Falta ainda: ficha de pré-transformação
+      do Enpap-X ("existido comum", pág. 240 — referenciada mas não
+      transcrita; Enpap-X já importado é só a forma final).
+- [ ] Lote 6 (NPCs/animais mundanos restantes do Capítulo 7: Soldado de
+      Aluguel, Assassino, Comandante, Mercenário, Iniciado, Investido,
+      Chefe de Polícia, Javaporco, Sucuri, Onça-pintada etc.)
 - [ ] Testado (biblioteca + os 6 itens de sempre) após cada lote
 - Notas: transcrição conferida ficha a ficha contra o PDF; qualquer dado
   ilegível/contraditório vira nota "revisar", nunca um número inventado.

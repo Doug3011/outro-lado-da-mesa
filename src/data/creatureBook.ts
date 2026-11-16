@@ -2011,6 +2011,98 @@ const BOOK: BookCreature[] = [
     notes: 'Também tem deslocamento de Escalada (9m), além do normal.',
   },
 
+  // Lote 5/N (último do bestiário paranormal do livro base): Anfitrião e
+  // Degolificada — as duas últimas fichas antes da seção de ameaças
+  // mundanas do Capítulo 7.
+  {
+    name: 'Anfitrião',
+    vd: 413,
+    descriptor: 'Criatura paranormal (lendária, multifacetada)',
+    size: 'Médio',
+    flavor: 'A personificação do caos e da irracionalidade — inicia o combate dividido em cinco facetas (Amphitruo, Aeneas, Liber, Silenus e Plautus), cada uma com um método próprio de destruição.',
+    el: 'energia',
+    tags: 'Energia, Conhecimento, Lendária, Multifacetada',
+    perception: 25,
+    initiative: 35,
+    defense: 59,
+    fortitude: 25,
+    reflexes: 35,
+    will: 25,
+    pvMax: 1413,
+    damageResistance: 'Imune a condições de paralisia e a dano e efeitos de Energia (o livro repete "dano" duas vezes nesse trecho — revisar); Vulnerável a Conhecimento',
+    attributes: { AGI: 7, FOR: 5, INT: 6, PRE: 6, VIG: 5 },
+    skills: [],
+    displacement: 12,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 45; 10d8 de dano mental. O limiar de NEX pra imunidade não ficou legível na extração do PDF — revisar contra o livro físico.', rollDice: '10d8' },
+      { name: 'Potência de Energia', description: 'Modificador pra testes baseados em Agilidade e Intelecto é +35; pros demais atributos, +25.' },
+      {
+        name: 'Ato 1',
+        description: 'Inicia o combate dividido em 5 facetas — Amphitruo, Aeneas, Liber, Silenus e Plautus —, cada uma com as mesmas estatísticas do Anfitrião mas com 250 PV e resistência a dano 20, só podendo usar habilidades/ataques com seu próprio nome. Quando todas forem destruídas, o Anfitrião volta à forma única e inicia o Ato 2.',
+      },
+      { name: 'Ato 2', description: 'Volta à forma única com todos os PV, podendo usar todas as habilidades (inclusive das cinco facetas) e fazer 3 ações padrão por rodada, desde que diferentes.' },
+      { name: 'Trilha Sonora (Ato 2)', description: 'No início de cada turno do Anfitrião, durante o Ato 2, todos em alcance longo sofrem 2d10 de dano mental.', rollDice: '2d10' },
+      {
+        name: 'Roleta Maluca (Ato 2)',
+        description: 'No começo do turno do Anfitrião, cada ser em alcance longo sofre um efeito aleatório (1d6, efeitos iguais são cumulativos): 1 -5 na Defesa até o fim da cena; 2 ação completa sem sentido ou 4d10 de dano mental no final do turno; 3 4d20 de dano de Energia; 4 penalidade em Pontaria até o fim da cena (valor exato "-O" ilegível na extração — revisar); 5 penalidade em Luta até o fim da cena (idem); 6 nada acontece.',
+      },
+      { name: 'Transformar a Morte', description: 'O caos ilógico do Anfitrião é a única coisa capaz de enfrentar a onipresença temporal do Deus da Morte e resolver seu Enigma de Medo.' },
+      { name: 'Teatro (Padrão, Amphitruo)', description: 'Envia a imagem de um texto incompreensível pra mente do alvo, que deve decorá-lo em segundos e recitá-lo com perfeição ou sofre 10d6 de dano mental (Artes DT 35 ou Vontade DT 45 evita).', rollDice: '10d6' },
+      { name: 'Queimar (Padrão, Aeneas)', description: 'Dispara chamas num cone em alcance médio — todos na área sofrem 10d6+20 de dano de Energia (Reflexos DT 45 reduz à metade).', rollDice: '10d6+20' },
+      { name: 'Romance Forçado (Livre, Liber)', description: 'Se acerta o Corte Caótico, pode escolher outro ser que consiga ver — os dois decidem entre si quem sofre o dano do ataque (antes do dano ser definido).' },
+      { name: 'Eu Sou o Caos (Livre, Plautus)', description: 'Se acerta a Lança e Adaga num ser desprevenido ou flanqueado, causa +4d12 de dano de Energia.' },
+      { name: 'Afogamento (Livre, Silenus)', description: 'Quem sofre dano do Corte de Água fica asfixiado (Fortitude DT 35 evita); pode repetir o teste no fim de cada turno pra encerrar a condição.' },
+      { name: 'Teletransporte (Movimento)', description: 'Se transporta pra outro ponto em alcance médio.' },
+      { name: 'Enigma de Medo', description: 'A única forma justa de enfrentá-lo é sob a proteção soberana do Equilíbrio, oferecida pela Máscara do Desespero. Quando resolvido, remove a imunidade a dano do Anfitrião.' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Corte Caótico (Liber)', range: 'Corpo a corpo', testAttribute: 'AGI', testBonus: 45, damage: '3d12+20', damageType: 'Energia', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Lança e Adaga (Plautus)', range: 'Corpo a corpo (x2)', testAttribute: 'AGI', testBonus: 45, damage: '2d12+20', damageType: 'Energia', crit: '', description: '' },
+      { cost: 'Padrão', name: 'Corte de Água (Silenus)', range: 'Corpo a corpo', testAttribute: 'AGI', testBonus: 45, damage: '5d12+20', damageType: 'Energia', crit: '', description: '' },
+    ],
+    notes: 'VD e PV saíram parcialmente ilegíveis na extração do PDF ("0413"/"01413") — reconstruí como VD 413 e PV 1413, batendo com o "706 machucado" impresso (metade de 1413, arredondado). A lista de imunidades e o limiar de NEX pra imunidade à Presença Perturbadora também ficaram pouco claros — revisar contra o livro físico. As ações de ataque (Corte Caótico, Lança e Adaga, Corte de Água) só podem ser usadas pela faceta correspondente durante o Ato 1.',
+  },
+  {
+    name: 'Degolificada',
+    vd: 320,
+    descriptor: 'Criatura paranormal (Medo, multi-elemental)',
+    size: 'Médio',
+    flavor: 'Uma manifestação direta do Outro Lado formada por todos os elementos paranormais conhecidos — figura fantasmagórica flutuante, cabelo preto imenso com vontade própria, rosto sem olhos e boca costurada pela própria pele.',
+    el: 'energia',
+    tags: 'Energia, Conhecimento, Sangue, Morte, Medo, Multi-elemental',
+    perception: 15,
+    initiative: 0,
+    defense: 45,
+    fortitude: 20,
+    reflexes: 15,
+    will: 25,
+    pvMax: 850,
+    damageResistance: 'Imune a dano até a origem de sua manifestação ser confrontada',
+    attributes: { AGI: 3, FOR: 5, INT: 3, PRE: 4, VIG: 4 },
+    skills: [],
+    displacement: 6,
+    abilities: [
+      { name: 'Presença Perturbadora', description: 'DT 40; 9d6 de dano mental (metade se passar); NEX 95%+ é imune.', rollDice: '9d6' },
+      { name: 'Criatura de Medo', description: 'Imune a dano até que se resolva o mistério de sua origem (ver Enigma de Medo).' },
+      { name: 'Agarrar e Estrangular (Livre)', description: 'Se acerta a Pancada num ser Médio ou menor, pode tentar agarrá-lo (teste de manobra +35) — enquanto agarrado, também fica asfixiado. Mantém até dois agarrados por vez.' },
+      {
+        name: 'Grito Rasgado (Livre)',
+        description: 'Uma vez por cena: rompe a vedação da boca e grita — cada ser em alcance médio sofre 4d10+10 de dano mental e um efeito aleatório (1d4: 1 surdo permanente dos dois ouvidos; 2 surdo permanente de um ouvido; 3 surdo dos dois ouvidos até o fim da cena; 4 surdo de um ouvido até o fim da cena), Vontade DT 35 reduz o dano à metade e evita o efeito.',
+        rollDice: '4d10+10',
+      },
+      { name: 'Desfiguramento Capilar (Movimento)', description: 'Usa os cabelos e os olhos vazios pra perturbar quem estiver agarrado: cada vítima sofre 10d6+20 de dano de perfuração (Fortitude DT 35 reduz à metade) e 6d10 de dano mental (Vontade DT 35 reduz à metade).' },
+      {
+        name: 'Metamorfose da Degolificada',
+        description:
+          'Em certas circunstâncias, assume uma forma mais poderosa ligada a um elemento: Conturbada (Energia) — se enlouquece um alvo, vira espectro de Energia, atravessa paredes, ignora cobertura, ataques passam a causar dano de Energia, +resistência a Energia 20. Devoradora (Sangue) — se mata um alvo e o mantém agarrado até o próximo turno, o absorve: ganha ataque de Mordida (+35, 10d10+20 Sangue) e +resistência a Sangue 20. Decrépita (Morte) — após 3 ataques consecutivos errados contra ela, vira forma esquelética de Lodo: deslocamento sobe pra 12m, +resistência a Morte 20, e os cabelos (virados Lodo) podem agarrar uma criatura em alcance curto com uma ação de movimento (Reflexos DT 35 evita). Gnóstica (Conhecimento) — se recebe a resposta errada ao tentarem resolver seu enigma, ganha sigilos dourados: no final de cada turno dela, o alvo visível mais próximo sofre uma alucinação (4d6 de dano mental + atordoado até o fim do próximo turno dele, Vontade DT 35 reduz o dano à metade e evita a condição).',
+      },
+      { name: 'Enigma de Medo', description: 'Precisa ser confrontada com a causa de sua morte, de forma que não possa escapar do confronto. Quando isso acontece, perde a imunidade a dano.' },
+    ],
+    actions: [
+      { cost: 'Padrão', name: 'Pancada', range: 'Corpo a corpo (x2)', testAttribute: 'FOR', testBonus: 35, damage: '8d8+20', damageType: 'Impacto', crit: '', description: '' },
+    ],
+  },
+
   // ---------- Sobrevivendo ao Horror, cap. 3 — Ameaças Paranormais ----------
   {
     name: 'Sepultado',
