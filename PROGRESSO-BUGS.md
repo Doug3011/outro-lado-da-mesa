@@ -146,6 +146,19 @@ melhorar a reconexão (sem TURN) — ver plano.
   - Reconferido sem regressão: Ficha, Mestre, Tokens, Mapas, Combate,
     Quadro e Músicas abrem sem erro de JS numa mesa nova.
   - `npx tsc --noEmit` e `npm run build` limpos.
+  - **Bug reportado depois (publicado v2.3.0): não dava pra rolar a lista
+    de origens com a roda do mouse, escondendo as de baixo.** Causa raiz:
+    `.rd-op-list`/`.rd-op-detail` dependiam só de `align-items: stretch`
+    (herdado de `normal`) pra ganhar altura do pai `.rd-op-body`, e o
+    Chromium não respeitava isso num flex `wrap` de uma linha só — os dois
+    cresciam pro tamanho do CONTEÚDO (2623px, igual nos dois, sem limite),
+    em vez de ficar presos à altura da tela — `overflow-y: auto` não tinha
+    o que rolar porque `clientHeight === scrollHeight`. Corrigido com
+    `height: 100%` explícito nos dois (`index.css`) — testado ao vivo
+    (CDP): antes `clientHeight`/`scrollHeight` = 635/635 (nada pra rolar);
+    depois = 635/1588, e `scrollTop` passou a mover o conteúdo de verdade
+    (revelou Militar/Operário/Policial/etc., que estavam escondidos).
+    `npx tsc --noEmit` limpo. **Ainda não publicado** — só commitado local.
 
 ## 4. Vincular token à ficha — bug dos tokens salvos não aparecendo
 - [x] Causa raiz encontrada
