@@ -2,6 +2,7 @@ import {
   CLASS_BY_KEY,
   ELEMENTS,
   SKILLS,
+  SKILL_BY_KEY,
   nexSteps,
   pePerTurn,
   type AttrKey,
@@ -142,6 +143,11 @@ export interface Character {
   attributeBumps: AttributeBumpPick[];
   trainingBumps: TrainingBumpPick[];
   affinityElement?: Element; // elemento de Afinidade (NEX 50%+)
+  // Limite de inventário (Capacidade de Carga, pág. 53) — ativado/
+  // desativado, botão pedido pelo usuário na aba Inventário. Opcional:
+  // fichas salvas antes desse campo existir continuam com o
+  // comportamento de sempre (tratadas como `true`, ver isOverloaded).
+  inventoryLimitEnabled?: boolean;
   pdMode?: boolean; // regra opcional "Jogando Sem Sanidade": PE e Sanidade viram um só (PD)
   createdAt?: number; // quando a ficha foi criada (fichas antigas não têm — usa updatedAt)
   updatedAt: number;
@@ -199,9 +205,11 @@ export interface DerivedStats {
   pvMax: number;
   peMax: number;
   sanMax: number;
-  defense: number; // 10 + AGI + defenseBonus + bônus de itens equipados
+  defense: number; // 10 + AGI + defenseBonus + bônus de itens equipados (já com -5 se sobrecarregado)
   protectionTotal: number; // char.protection (manual) + bônus de itens equipados
   loadLimit: number; // 5 por ponto de Forca (minimo 2 com Forca 0) — pag. 53 do livro
+  overloaded: boolean; // acima do loadLimit e com o limite ativado — ver isOverloaded
+  displacementPenalty: number; // 3 (m) quando sobrecarregado, senão 0 — subtrai de char.displacement na UI
   trainedBudget: number; // pericias treinadas: base da classe + Intelecto (+2 origem)
   pePerTurn: number; // limite de PE por turno pelo NEX
   maxAttribute: number; // teto de atributo pelo NEX
@@ -219,17 +227,35 @@ export function deriveStats(char: Character): DerivedStats {
   const cascaGrossa = char.trilha === 'Tropa de Choque' && char.nex >= 10 ? Math.floor(char.nex / 5) : 0;
   // Técnico (trilha de especialista) — Inventário Otimizado: soma Intelecto à carga.
   const inventarioOtimizado = char.trilha === 'Técnico' && char.nex >= 10 ? a.INT : 0;
+  const overloaded = isOverloaded(char);
   return {
     pvMax: c.pvBase + a.VIG + c.pvPerNex * steps + cascaGrossa,
     peMax: char.pdMode ? pdMax(char) : c.peBase + a.PRE + c.pePerNex * steps,
     sanMax: Math.max(1, c.sanBase + c.sanPerNex * steps - c.sanPerNex * transcendCount),
-    defense: 10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char),
+    defense: 10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char) + (overloaded ? -5 : 0),
     protectionTotal: (char.protection || 0) + equipmentProtectionBonus(char),
     loadLimit: Math.max(2, a.FOR * 5) + inventarioOtimizado,
+    overloaded,
+    displacementPenalty: overloaded ? 3 : 0,
     trainedBudget: c.skillsTrained + a.INT + 2,
     pePerTurn: pePerTurn(char.nex),
     maxAttribute: char.nex >= 50 ? 5 : char.nex >= 20 ? 4 : 3,
   };
+}
+
+// Sobrecarregado (pág. 53): carga usada além do limite, com o limite de
+// inventário ativado (char.inventoryLimitEnabled — default true pra
+// fichas antigas sem esse campo). Penalidades reais (-5 Defesa, -5 em
+// perícias com penalidade de carga, -3m deslocamento) ficam em
+// `deriveStats`/`skillBonus`, não aqui — esta função só diz SE elas
+// valem. Reimplementa o `loadLimit` em vez de chamar `deriveStats` pra
+// não recursar (deriveStats chama esta função pra montar `defense`).
+export function isOverloaded(char: Character): boolean {
+  if (char.inventoryLimitEnabled === false) return false;
+  const a = char.attributes;
+  const inventarioOtimizado = char.trilha === 'Técnico' && char.nex >= 10 ? a.INT : 0;
+  const limit = Math.max(2, a.FOR * 5) + inventarioOtimizado;
+  return loadUsed(char) > limit;
 }
 
 // Quando o máximo de um recurso muda (PV/PE/SAN), decide o que acontece com
@@ -517,6 +543,7 @@ export function createCharacter(ownerId: string, name = 'Novo Agente'): Characte
     classPowers: [],
     attributeBumps: [],
     trainingBumps: [],
+    inventoryLimitEnabled: true,
     pdMode: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -791,6 +818,9 @@ export function skillBonus(char: Character, skillKey: string): number {
   let bonus = st.training + st.bonus;
   bonus += abilitySkillBonus(char, skillKey);
   bonus += equipmentSkillBonus(char, skillKey);
+  // Sobrecarregado (pág. 53): -5 nas perícias marcadas com penalidade de
+  // carga (Acrobacia, Crime, Furtividade — ver SKILLS em data/ordem.ts).
+  if (SKILL_BY_KEY[skillKey]?.loadPenalty && isOverloaded(char)) bonus -= 5;
   return bonus;
 }
 

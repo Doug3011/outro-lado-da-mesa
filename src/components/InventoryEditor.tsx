@@ -39,10 +39,19 @@ export function InventoryEditor({
   inventory,
   onChange,
   loadHint,
+  limitEnabled,
+  onToggleLimit,
 }: {
   inventory: InventoryItem[];
   onChange: (next: InventoryItem[]) => void;
   loadHint?: string;
+  // Toggle "Limite de inventário" (pág. 53) — só aparece quando o caller
+  // passa `onToggleLimit` (hoje só CharacterSheet.tsx; CharacterWizard.tsx
+  // não mostra, a ficha nem existe salva ainda nessa etapa). Desativado:
+  // esconde o aviso de carga por completo e a penalidade de Sobrecarregado
+  // para de valer (ver isOverloaded em domain/character.ts).
+  limitEnabled?: boolean;
+  onToggleLimit?: () => void;
 }) {
   const [showCatalog, setShowCatalog] = useState(false);
 
@@ -53,7 +62,12 @@ export function InventoryEditor({
 
   return (
     <div className="rd-sheet-tabpanel">
-      {loadHint && <p className="faint rd-sheet-inv-head">{loadHint}</p>}
+      {onToggleLimit && (
+        <button type="button" className="small" style={{ marginBottom: 8 }} onClick={onToggleLimit}>
+          Limite de inventário: {limitEnabled === false ? 'desativado' : 'ativado'}
+        </button>
+      )}
+      {limitEnabled !== false && loadHint && <p className="faint rd-sheet-inv-head">{loadHint}</p>}
       {inventory.map((it) => {
         const effect = it.catalogId ? EQUIPMENT_EFFECTS[it.catalogId] : undefined;
         const catalogItem = it.catalogId ? CATALOG_BY_ID.get(it.catalogId) : undefined;

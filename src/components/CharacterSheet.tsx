@@ -615,8 +615,10 @@ export function CharacterSheet({
         <span className={trained <= derived.trainedBudget ? 'ok' : 'warn'}>
           Perícias treinadas: {trained} / {derived.trainedBudget}
         </span>
-        <span className={slotsUsed <= derived.loadLimit ? 'ok' : 'warn'}>
-          Carga: {slotsUsed} / {derived.loadLimit}
+        <span className={draft.inventoryLimitEnabled === false ? 'ok' : derived.overloaded ? 'warn' : 'ok'}>
+          Carga: {slotsUsed}
+          {draft.inventoryLimitEnabled === false ? ' (sem limite)' : ` / ${derived.loadLimit}`}
+          {derived.overloaded ? ' · SOBRECARREGADO' : ''}
         </span>
         <span className="ok">PE por turno: {derived.pePerTurn}</span>
       </div>
@@ -696,7 +698,15 @@ export function CharacterSheet({
                 onChange={(e) => patch({ displacement: Number(e.target.value) })}
                 aria-label="Deslocamento (m)"
               />
-              <span className="rd-sheet-ministat-label">Desloc. (m)</span>
+              <span className="rd-sheet-ministat-label">
+                Desloc. (m)
+                {derived.displacementPenalty > 0 && (
+                  <span className="warn" title="Sobrecarregado">
+                    {' '}
+                    (-{derived.displacementPenalty}m: {draft.displacement - derived.displacementPenalty}m)
+                  </span>
+                )}
+              </span>
             </div>
           </div>
 
@@ -1418,9 +1428,15 @@ export function CharacterSheet({
             <InventoryEditor
               inventory={draft.inventory}
               onChange={(inventory) => patch({ inventory })}
-              loadHint={`Espaços usados: ${slotsUsed} · Limite (Força + 5${
+              limitEnabled={draft.inventoryLimitEnabled !== false}
+              onToggleLimit={() => patch({ inventoryLimitEnabled: draft.inventoryLimitEnabled === false })}
+              loadHint={`Espaços usados: ${slotsUsed} · Limite (5 × Força, mínimo 2${
                 draft.trilha === 'Técnico' && draft.nex >= 10 ? ' + Intelecto (Inventário Otimizado)' : ''
-              }): ${derived.loadLimit}`}
+              }): ${derived.loadLimit}${
+                derived.overloaded
+                  ? ' · Sobrecarregado: -5 na Defesa, -5 em perícias com penalidade de carga, -3m de deslocamento'
+                  : ''
+              }`}
             />
           )}
 

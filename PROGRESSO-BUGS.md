@@ -466,8 +466,8 @@ avise quando quiser que eu publique.
       Sobrecarregado, que fica junto do toggle (3.4)
 - [~] 3.3 Categoria final calculada — função pura criada e testada,
       ainda não ligada à UI (entra junto do redesign visual, 3.2)
-- [ ] 3.4 Toggle "Limite de inventário: ativado/desativado" (inclui a
-      penalidade real de Sobrecarregado — ainda não implementada)
+- [x] 3.4 Toggle "Limite de inventário: ativado/desativado" + penalidade
+      real de Sobrecarregado
 - [ ] 3.2 Visual novo (lista + editor de item, baseado nos mockups)
 - [ ] Testado (os 6 itens de sempre) após cada sub-passo
 - Notas: o código já tinha bem mais estrutura que os mockups (catálogo
@@ -545,3 +545,47 @@ avise quando quiser que eu publique.
     etapa de atributos sem nenhum erro de JS, confirmando que a mudança
     não quebrou a tela de ficha.
   - `npx tsc --noEmit` e `npm run build` limpos.
+- Notas/progresso (passo 4 — toggle + penalidade real de Sobrecarregado,
+  fecha a sub-tarefa 3.4):
+  - `domain/character.ts`: campo novo `Character.inventoryLimitEnabled?:
+    boolean` (default `true` em `createCharacter`; fichas antigas sem o
+    campo continuam tratadas como ativado). Nova função `isOverloaded(char)`
+    — só vale se o limite estiver ativado E a carga passar do limite.
+  - `deriveStats` ganhou `overloaded: boolean` e `displacementPenalty:
+    number` (3 quando sobrecarregado, senão 0), e a `defense` já sai com
+    -5 aplicado quando sobrecarregado.
+  - `skillBonus` aplica -5 nas perícias com `loadPenalty: true`
+    (Acrobacia, Crime, Furtividade — mesma lista que já existia só como
+    anotação visual "+", nunca tinha efeito de verdade até agora) quando
+    sobrecarregado.
+  - `InventoryEditor.tsx`: novo botão "Limite de inventário: ativado/
+    desativado" (só aparece quando o caller passa `onToggleLimit` — hoje
+    só `CharacterSheet.tsx`; o assistente de criação não mostra, a ficha
+    ainda nem existe salva naquela etapa). Desativado, esconde o aviso
+    de carga por completo.
+  - `CharacterSheet.tsx`: corrigido o texto antigo errado "Limite (Força
+    + 5...)" pra "5 × Força, mínimo 2" (o mesmo texto desatualizado que
+    o usuário já tinha suspeitado estar errado); chip "Carga" no topo
+    agora mostra "SOBRECARREGADO" e vira "(sem limite)" com o toggle
+    desativado; aviso de carga na aba Inventário lista as 3 penalidades
+    quando sobrecarregado; "Desloc. (m)" mostra o valor efetivo (-3m)
+    ao lado do campo editável, sem sobrescrever o valor base guardado.
+  - Testado: script com `tsx` chamando `deriveStats`/`skillBonus`/
+    `isOverloaded` direto — sem sobrecarga (Força 2, limite 10): Defesa
+    normal, Furtividade normal; sobrecarregado (11 espaços > 10):
+    `overloaded=true`, Defesa cai exatamente 5, `displacementPenalty=3`,
+    Furtividade cai exatamente 5, Luta (sem `loadPenalty`) não muda;
+    desativando o toggle, tudo volta ao normal mesmo ainda sobrecarregado
+    em espaços. Depois, criei um agente de verdade do zero (CDP, até o
+    fim do assistente), testei o toggle ligando/desligando na ficha já
+    salva (chip e aviso aparecem/somem certo), e forcei sobrecarga de
+    verdade subindo o campo "Espaços" de um item pra 20: Defesa mostrou
+    7 (12 base - 5), Furtividade mostrou -5, Luta continuou +0,
+    deslocamento mostrou "(-3m: 6m)". Zero erros de JS em toda a
+    sequência (criação completa do agente + edição de inventário).
+  - `npx tsc --noEmit` e `npm run build` limpos.
+  - **Sub-tarefa 3.4 concluída.** Falta só a 3.2 (visual novo da aba
+    Inventário + editor de item, baseado nos mockups) pra fechar a
+    Tarefa 11 por completo — a 3.3 (categoria final) já está pronta
+    como função pura, só falta aparecer na tela, o que entra junto do
+    3.2.
