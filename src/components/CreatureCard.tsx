@@ -141,7 +141,10 @@ export function CreatureCard({
                 placeholder="Nome da criatura"
                 onChange={(e) => patch({ name: e.target.value })}
               />
-              <label className="cm-vd-field">
+              <label
+                className="cm-vd-field"
+                title="O livro de regras e o Sobrevivendo ao Horror não têm uma tabela de Defesa/PV/bônus por VD — aqui é só o valor comparativo (some o VD de todos os inimigos do combate e compare com a soma do NEX do grupo: próximo da metade é fácil, igual é equilibrado, 1,5× é difícil)."
+              >
                 <span className="cm-vd-label">VD</span>
                 <input
                   className="cm-vd-input"
@@ -151,6 +154,9 @@ export function CreatureCard({
                 />
               </label>
             </div>
+            <p className="cm-vd-hint">
+              Sem tabela de construção por VD nos livros — use como valor comparativo (soma dos VDs do combate vs. soma do NEX do grupo).
+            </p>
             <div className="cm-chip-row">
               {creature.el && (
                 <span className="cm-chip cm-el-chip">

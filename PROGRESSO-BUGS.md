@@ -372,3 +372,55 @@ publicado/subido — só commits locais, como combinado.
 
 Nenhum commit foi publicado (`git push`)/lançado como versão nova —
 avise quando quiser que eu publique.
+
+---
+
+# Lote novo (Capítulo 7 + Inventário) — plano em
+`C:\Users\dougl\.claude\plans\swirling-waddling-music.md`
+
+> Correção de uma nota errada minha acima (tarefa 8): o livro base TEM um
+> bestiário paranormal grande no Capítulo 7 (~45-47 criaturas únicas, antes
+> da parte de NPCs mundanos) — eu só tinha lido a parte mundana antes.
+
+## 9. Capítulo 7 — aviso de VD (sem tabela de construção)
+- [x] Implementado
+- [x] Testado (CDP, instância isolada porta 47399/APPDATA próprio)
+- Decisão do usuário: não existe tabela "VD → Defesa/PV/bônus" nos livros;
+  em vez de inventar/estimar, só um aviso fixo perto do campo VD.
+- Notas:
+  - `src/components/CreatureCard.tsx`: `title` no `.cm-vd-field` (tooltip
+    ao passar o mouse) + um parágrafo sempre visível (`.cm-vd-hint`, CSS
+    novo em `index.css`) explicando que não há tabela de construção por VD
+    nestes livros, e que o VD aqui é só o valor comparativo (soma dos VDs
+    do combate vs. soma do NEX do grupo, pág. 177 do livro base).
+  - Testado: Área do Mestre → Criaturas → Nova criatura → aviso aparece
+    certo, tooltip com o texto completo. Reconferido sem regressão: todas
+    as abas da Área do Mestre (Músicas, Sons Ambiente, Tokens, Cenário 2D,
+    Cenários 3D, Criaturas) e todas as abas da mesa (Ficha, Mestre, Tokens,
+    Mapas, Combate, Quadro, Músicas) abrem sem erro de JS.
+  - `npx tsc --noEmit` e `npm run build` limpos.
+
+## 10. Bestiário completo do Capítulo 7 → biblioteca ("Livro oficial")
+- [ ] Campo `source`/`official` no modelo de Creature + badge + filtro
+- [ ] Lote 1 (criaturas paranormais, ~8-10)
+- [ ] Lote 2
+- [ ] Lote 3
+- [ ] Lote 4
+- [ ] Lote 5 (NPCs/animais mundanos restantes: Soldado de Aluguel,
+      Assassino, Comandante, Mercenário, Iniciado, Investido, Chefe de
+      Polícia, Javaporco, Sucuri, Onça-pintada etc.)
+- [ ] Testado (biblioteca + os 6 itens de sempre) após cada lote
+- Notas: transcrição conferida ficha a ficha contra o PDF; qualquer dado
+  ilegível/contraditório vira nota "revisar", nunca um número inventado.
+
+## 11. Inventário: regras corretas + redesign
+- [ ] 3.1 Dados/regras (ArmorStats, rangeStepBonus, rdBonus/slotsDelta,
+      limite de carga real 5×Força + penalidade de Sobrecarregado de
+      verdade)
+- [ ] 3.3 Categoria final calculada (mod +1, 1ª maldição +2, seguintes +1)
+- [ ] 3.4 Toggle "Limite de inventário: ativado/desativado"
+- [ ] 3.2 Visual novo (lista + editor de item, baseado nos mockups)
+- [ ] Testado (os 6 itens de sempre) após cada sub-passo
+- Notas: o código já tinha bem mais estrutura que os mockups (catálogo
+  real, mods/maldições com efeito numérico) — isto é conserto de regras +
+  preenchimento de lacunas + visual, não uma reescrita do zero.

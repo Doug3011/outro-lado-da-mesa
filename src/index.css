@@ -12996,6 +12996,11 @@ label {
   font-weight: 700;
   text-align: center;
 }
+.cm-vd-hint {
+  font-size: 12px;
+  color: var(--rd-conhecimento-bright);
+  line-height: 1.4;
+}
 .cm-chip-row {
   display: flex;
   flex-wrap: wrap;
