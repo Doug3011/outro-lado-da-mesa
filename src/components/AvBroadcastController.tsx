@@ -19,10 +19,18 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
-// Quantas vezes tenta reconectar sozinho (ICE restart) antes de desistir e
-// deixar o aviso de "sem conexão direta" fixo pro jogador.
+// Quantas vezes tenta reconectar sozinho (ICE restart) antes de fechar e
+// recriar a conexão do zero (nova oferta/negociação) em vez de desistir de
+// vez — ver onconnectionstatechange em ensurePeer/recreatePeer.
 const ICE_RESTART_MAX_ATTEMPTS = 4;
 const ICE_RESTART_DELAY_MS = 4000;
+// 'disconnected' costuma ser queda de pacote passageira (muitas vezes volta
+// sozinho pra 'connected' sem fazer nada) — espera mais um pouco antes de
+// contar como falha de verdade, diferente de 'failed' que já é definitivo.
+const DISCONNECTED_GRACE_MS = 3000;
+// pequena pausa antes de fechar e recriar a conexão do zero, só pra não
+// brigar com um restartIce ainda em andamento na mesma hora.
+const RECREATE_DELAY_MS = 1500;
 // Sem isso, o WebRTC usa os padrões pensados pra webcam (bitrate baixo,
 // prioridade em suavidade de movimento) — péssimo pra uma cena 3D parada a
 // maior parte do tempo, onde nitidez importa muito mais que taxa de
@@ -123,6 +131,7 @@ export function AvBroadcastController() {
   const restartTimersRef = useRef<Map<string, number>>(new Map());
   // jogador: a única conexão com o mestre
   const playerPcRef = useRef<RTCPeerConnection | null>(null);
+  const playerReconnectTimerRef = useRef<number | undefined>(undefined);
 
   // ---- lado do MESTRE: mantém uma conexão por jogador presente ----
   useEffect(() => {
@@ -163,30 +172,43 @@ export function AvBroadcastController() {
       // falhar por causa da rede de QUALQUER uma das duas pontas — isso não
       // é tratável no código (é o próprio limite do WebRTC só-STUN), mas
       // tentar de novo sozinho (ICE restart) resolve os casos de falha
-      // transitória/lentidão, não só NAT impossível de verdade.
+      // transitória/lentidão, não só NAT impossível de verdade. Reage tanto
+      // a 'failed' quanto a 'disconnected' (com uma folga maior pra esse
+      // último, que costuma se resolver sozinho); quando esgota as
+      // tentativas de ICE restart, fecha e recria a conexão do zero (nova
+      // oferta) em vez de ficar morta pra sempre.
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') {
+        const state = pc.connectionState;
+        if (state === 'connected') {
           restartAttemptsRef.current.delete(playerId);
-          const t = restartTimersRef.current.get(playerId);
-          if (t) {
-            window.clearTimeout(t);
-            restartTimersRef.current.delete(playerId);
-          }
+          clearRestartTimer(playerId);
           return;
         }
-        if (pc.connectionState !== 'failed') return;
+        if (state !== 'failed' && state !== 'disconnected') return;
+        if (restartTimersRef.current.has(playerId)) return; // já tem uma tentativa agendada
         const attempts = restartAttemptsRef.current.get(playerId) ?? 0;
-        if (attempts >= ICE_RESTART_MAX_ATTEMPTS) return;
+        const delay = state === 'disconnected' ? DISCONNECTED_GRACE_MS : ICE_RESTART_DELAY_MS;
+        if (attempts >= ICE_RESTART_MAX_ATTEMPTS) {
+          const timer = window.setTimeout(() => {
+            restartTimersRef.current.delete(playerId);
+            if (peersRef.current.get(playerId) !== pc) return; // peer já foi trocado/fechado
+            if (pc.connectionState === 'connected') return; // recuperou sozinho antes do timer
+            recreatePeer(playerId);
+          }, RECREATE_DELAY_MS);
+          restartTimersRef.current.set(playerId, timer);
+          return;
+        }
         restartAttemptsRef.current.set(playerId, attempts + 1);
         const timer = window.setTimeout(() => {
           restartTimersRef.current.delete(playerId);
           if (peersRef.current.get(playerId) !== pc) return; // peer já foi trocado/fechado
+          if (pc.connectionState === 'connected') return; // recuperou sozinho antes do timer
           try {
             pc.restartIce();
           } catch {
             // conexão já deve estar fechando — ignora
           }
-        }, ICE_RESTART_DELAY_MS);
+        }, delay);
         restartTimersRef.current.set(playerId, timer);
       };
       const audioTrack = getMixedAudioTrack();
@@ -195,17 +217,31 @@ export function AvBroadcastController() {
       return pc;
     };
 
+    const clearRestartTimer = (playerId: string) => {
+      const t = restartTimersRef.current.get(playerId);
+      if (t) {
+        window.clearTimeout(t);
+        restartTimersRef.current.delete(playerId);
+      }
+    };
+
     const teardownPeer = (playerId: string) => {
       const pc = peersRef.current.get(playerId);
       if (!pc) return;
       pc.close();
       peersRef.current.delete(playerId);
       restartAttemptsRef.current.delete(playerId);
-      const t = restartTimersRef.current.get(playerId);
-      if (t) {
-        window.clearTimeout(t);
-        restartTimersRef.current.delete(playerId);
-      }
+      clearRestartTimer(playerId);
+    };
+
+    // fecha e recria a conexão do zero (nova RTCPeerConnection, nova
+    // oferta) — usado quando esgotam as tentativas de ICE restart, e
+    // também quando o PRÓPRIO jogador pede reconexão (ver 'webrtc:bye'
+    // abaixo, mandado pelo lado do jogador quando ele não consegue
+    // recuperar sozinho, já que só o mestre oferta nesta topologia).
+    const recreatePeer = (playerId: string) => {
+      teardownPeer(playerId);
+      ensurePeer(playerId);
     };
 
     const presentIds = new Set(users.filter((u) => u.id !== me.id).map((u) => u.id));
@@ -223,6 +259,10 @@ export function AvBroadcastController() {
         void pc.addIceCandidate(ev.payload.candidate).catch(() => {});
       } else if (ev.type === 'webrtc:bye') {
         teardownPeer(ev.payload.from);
+        // o jogador manda 'bye' quando não consegue recuperar a conexão
+        // sozinho (ver lado do jogador, abaixo) — se ele ainda estiver na
+        // mesa, recria a conexão e já manda uma oferta nova.
+        if (presentIds.has(ev.payload.from)) ensurePeer(ev.payload.from);
       }
     });
 
@@ -301,11 +341,36 @@ export function AvBroadcastController() {
             };
             pc.ontrack = () => applyTrackSnapshot(pc!);
             // Mesmo limite de sempre (sem TURN): avisa o jogador quando a
-            // conexão direta com o mestre falha, em vez de ficar mudo sem
-            // explicação nenhuma — o mestre já tenta reconectar sozinho
-            // (ver ICE restart em ensurePeer), isso aqui só reflete o
-            // estado atual pra tela.
-            pc.onconnectionstatechange = () => setAvLinkDown(pc!.connectionState === 'failed');
+            // conexão direta com o mestre cai, em vez de ficar mudo sem
+            // explicação nenhuma. O jogador nunca cria oferta nesta
+            // topologia (só o mestre), então não adianta tentar
+            // restartIce() sozinho aqui — em vez disso, se a conexão não
+            // voltar depois de uma folga (maior pra 'disconnected', que
+            // costuma se resolver sozinho), fecha a própria conexão e
+            // manda 'webrtc:bye' pro mestre pedindo uma conexão nova (o
+            // mestre recria do zero e manda oferta nova — ver 'webrtc:bye'
+            // no lado do mestre).
+            pc.onconnectionstatechange = () => {
+              const state = pc!.connectionState;
+              setAvLinkDown(state === 'failed' || state === 'disconnected');
+              if (state === 'connected') {
+                window.clearTimeout(playerReconnectTimerRef.current);
+                playerReconnectTimerRef.current = undefined;
+                return;
+              }
+              if (state !== 'failed' && state !== 'disconnected') return;
+              if (playerReconnectTimerRef.current != null) return; // já tem reconexão agendada
+              const delay = state === 'disconnected' ? DISCONNECTED_GRACE_MS : ICE_RESTART_DELAY_MS;
+              playerReconnectTimerRef.current = window.setTimeout(() => {
+                playerReconnectTimerRef.current = undefined;
+                if (playerPcRef.current !== pc) return; // já foi trocada/fechada
+                if (pc!.connectionState === 'connected') return; // recuperou sozinho antes do timer
+                sendRoomEvent({ type: 'webrtc:bye', payload: { to: ev.payload.from, from: me.id } });
+                pc!.close();
+                playerPcRef.current = null;
+                setRemoteAvStream(null);
+              }, delay);
+            };
           }
           try {
             await pc.setRemoteDescription({ type: 'offer', sdp: ev.payload.sdp });
@@ -331,6 +396,8 @@ export function AvBroadcastController() {
 
     return () => {
       setWebrtcHandler(null);
+      window.clearTimeout(playerReconnectTimerRef.current);
+      playerReconnectTimerRef.current = undefined;
       playerPcRef.current?.close();
       playerPcRef.current = null;
       setRemoteAvStream(null);

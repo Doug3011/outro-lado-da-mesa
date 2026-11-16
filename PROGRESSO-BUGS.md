@@ -75,11 +75,51 @@ melhorar a reconexão (sem TURN) — ver plano.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 2. Transmissão 3D + música caindo (solução do Rabbit em vez de TURN)
-- [ ] Solução do Rabbit entendida
-- [ ] Aplicada no tabletop (cenário 3D)
-- [ ] Aplicada no tabletop (música)
-- [ ] Reconexão automática confirmada
+- [x] Solução do Rabbit entendida (ver Investigação inicial — usuário
+      escolheu "só melhorar a reconexão, sem TURN")
+- [x] Aplicada no tabletop (cenário 3D) — mesmo `AvBroadcastController`
+      cobre vídeo e áudio, não precisou separar
+- [x] Aplicada no tabletop (música) — mesma conexão/track de áudio
+- [x] Reconexão automática confirmada (testado via DevTools, ver abaixo)
 - Notas/meio do caminho:
+  - `src/components/AvBroadcastController.tsx`: agora reage tanto a
+    `'disconnected'` (com 3s de folga, costuma se resolver sozinho)
+    quanto a `'failed'`. Lado do MESTRE: até 4 tentativas de ICE restart
+    por jogador; esgotando, fecha e recria a `RTCPeerConnection` do zero
+    (nova oferta de verdade, não só ICE restart). Lado do JOGADOR: como
+    ele nunca oferta nesta topologia (só o mestre), restartIce() sozinho
+    não adiantava nada — em vez disso, se a conexão não voltar após a
+    folga, ele fecha a própria conexão e manda `webrtc:bye` (sinal que já
+    existia no código mas nunca era enviado por ninguém) pedindo pro
+    mestre recriar; o mestre recebe o bye e, se o jogador ainda estiver
+    na mesa, recria e manda oferta nova na hora.
+  - SEM servidor TURN (decisão explícita do usuário) — isso continua
+    sendo um limite real do WebRTC só-STUN, não um bug: duas pontas atrás
+    de NAT simétrico ao mesmo tempo ainda podem não conseguir se
+    conectar de jeito nenhum. O que melhora de verdade são quedas
+    transitórias/lentidão, não esse caso extremo.
+  - Testado via CDP com DUAS instâncias isoladas de verdade (mestre +
+    jogador, mesa pela internet/Supabase, portas/perfis separados):
+    confirmado caminho feliz (conexão chega em "connected" dos dois
+    lados). Como não dá pra forçar queda de rede de verdade com
+    segurança nesta máquina, forcei os estados via DevTools
+    (sobrescrevendo `connectionState` e disparando
+    `onconnectionstatechange` manualmente, e interceptando
+    `RTCPeerConnection`/`restartIce` pra observar):
+    - Lado do mestre: `disconnected` → 1 `restartIce()` após a folga;
+      repetido até esgotar as 4 tentativas → aí sim fechou a conexão
+      antiga (`signalingState` virou `closed`) e criou uma nova do zero,
+      que negociou e chegou em `connected` de novo (jogador respondeu a
+      oferta nova sem erro nenhum).
+    - Lado do jogador: `disconnected` → depois da folga, fechou a própria
+      conexão e o mestre recriou a dele automaticamente, mandando oferta
+      nova; o jogador aceitou numa conexão nova, que também chegou em
+      `connected`.
+    - Zero erros de JS nos dois lados durante todo o teste.
+  - Reconferido sem regressão: Ficha, Mestre, Tokens, Mapas, Combate,
+    Quadro e Músicas abrem sem erro de JS no mestre, mesmo logo depois
+    do estresse de reconexão.
+  - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 3. Ficha de personagem — tela cheia de escolha de origem
 - [ ] Implementado (lista + descrição/perícias/poder sem selecionar +
