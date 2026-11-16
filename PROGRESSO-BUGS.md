@@ -261,6 +261,56 @@ melhorar a reconexão (sem TURN) — ver plano.
 - [x] Viabilidade testada (ver Investigação inicial) — **NÃO VIÁVEL**
 - [x] Inviável confirmado: usuário avisado, nada adicionado (nenhuma
       alternativa) — ver relatório final
+
+## 8. Criaturas do livro já prontas no Bestiário (pedido extra do usuário)
+- [x] Implementado (botão "Importar do livro" na aba Criaturas)
+- [x] Testado
+- Notas:
+  - Usuário pediu pra trazer criaturas que já existem no livro pra dentro
+    da ficha de monstros. Os PDFs que ele tinha em Downloads só cobriam
+    até a pág. 100 do livro base (ainda no cap. de Equipamento) — sem o
+    cap. 7 (Ameaças). Usuário então apontou o livro completo de verdade
+    em `X:\RPG\` (`ordem-paranormal-rpg-v1-3-lyfxjj.pdf`, 332 págs., e
+    `Sobrevivendo-ao-Horror-v1-3.pdf`, 226 págs.).
+  - Extraí o texto desses PDFs (`pypdf`/`pdfplumber`, Python — `pdfplumber`
+    foi o que preservou os acentos corretamente) e localizei: cap. 7
+    "Ameaças" do livro base (pág. 177-294: só tem NPCs humanos/animais
+    reais — Bandido, Policial, Cão de guarda, Jacaré, Líder de Culto etc.
+    — o livro base NÃO tem bestiário de monstros paranormais únicos,
+    fica tudo a critério do mestre/aventura) e cap. 3 "Ameaças
+    Paranormais" do Sobrevivendo ao Horror (pág. 126-157 e 162: Sepultado,
+    Mescla, Derretido, Quibungo, Profundo, Rascunho, Memento Mori,
+    Medusa, Amigo Imaginário, Caçador de Gente — essas sim são as
+    criaturas originais do Outro Lado).
+  - `src/data/creatureBook.ts` (novo): 15 criaturas com VD, atributos,
+    Defesa, PV, resistências, perícias, ações (teste+dano) e habilidades
+    transcritos de verdade dos livros (não inventados) — flavor text é
+    resumo próprio, não cópia literal da prosa do livro. Comentário no
+    topo do arquivo explica a única simplificação feita: o livro escreve
+    bônus como "NdO+M" (rola N d20, fica com o maior, soma M); aqui só
+    guardamos o M porque o app já rola N sozinho a partir do atributo
+    certo da própria criatura (`rollOrdemTest` em `domain/dice.ts`) — pra
+    uns 2-3 bichos de VD muito alto o N impresso no livro não bate com
+    nenhum atributo listado da ficha resumida (provável bônus especial
+    de "grau" não detalhado ali); nesses casos usei o maior atributo
+    disponível como aproximação, mas o M (bônus fixo) está sempre certo.
+  - `Home.tsx`: botão "Importar do livro" na aba Criaturas da Área do
+    Mestre, ao lado de "+ Nova criatura" — importa as 15 de uma vez,
+    pulando (por nome) as que já estiverem na biblioteca, com uma
+    mensagem confirmando quantas entraram.
+  - Testado via CDP: cliquei "Importar do livro" numa biblioteca vazia —
+    as 15 apareceram certas (`Bestiário · 15`), abri a Medusa (VD 320,
+    elemento Conhecimento, Grande, DEF 50, PV 380/380, Machucado em 190,
+    3 Ações, 11 Habilidades — todos os números batendo com o que
+    transcrevi) sem nenhum erro de JS. Reconferido sem regressão: Ficha,
+    Mestre, Tokens, Mapas, Quadro e Músicas abrem numa mesa nova sem erro.
+  - `npx tsc --noEmit` e `npm run build` limpos.
+  - **Aviso de precisão**: são 15 criaturas (não o livro inteiro) e os
+    números foram conferidos com cuidado, mas vieram de extração de texto
+    automática de um PDF grande — se algum número parecer estranho numa
+    sessão de verdade, vale conferir contra o livro físico/PDF e editar
+    direto na ficha (é só um campo de texto/número, não precisa mexer em
+    código).
 - Notas: SPA sem renderização no servidor, mesmo HTML em toda URL
   testada (`/`, `/robots.txt`, `/sitemap.xml`, `/ameacas`).
 

@@ -32,6 +32,7 @@ import type { Character } from '../domain/character';
 import { CLASS_BY_KEY, ELEMENTS, ELEMENT_COLOR, type Element } from '../data/ordem';
 import { emptyCreature, type Creature } from '../domain/creature';
 import { loadMyCreatures, saveMyCreature, deleteMyCreature } from '../lib/creatureLibrary';
+import { createBookCreatures } from '../data/creatureBook';
 import { CreatureCard } from '../components/CreatureCard';
 import { ProfileEditor } from '../components/ProfileEditor';
 import { CharacterLibrary } from '../components/CharacterLibrary';
@@ -136,6 +137,7 @@ export function Home() {
   const [beastSelId, setBeastSelId] = useState<string | null>(null);
   const [beastElFilter, setBeastElFilter] = useState<Element | null>(null);
   const [beastQuery, setBeastQuery] = useState('');
+  const [beastImportMsg, setBeastImportMsg] = useState<string | null>(null);
   const [extrasTab, setExtrasTab] = useState<ExtrasTab>('minigames');
   // Item em destaque no menu principal (redesign Passo 2) — hover/foco troca
   // qual item fica grande, com descrição e dica "ENTER"; o clique continua
@@ -718,18 +720,40 @@ export function Home() {
                       Combate, use "Importar monstro" pra trazer uma daqui pra cena.
                     </p>
                   </div>
-                  <button
-                    className="rd-gm-btn-primary"
-                    onClick={() => {
-                      const c = emptyCreature();
-                      const list = saveMyCreature(c);
-                      refresh(list);
-                      setBeastSelId(c.id);
-                    }}
-                  >
-                    + Nova criatura
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      className="rd-gm-btn-ghost"
+                      onClick={() => {
+                        const existing = new Set(myCreatures.map((c) => c.name));
+                        const toImport = createBookCreatures().filter((c) => !existing.has(c.name));
+                        if (toImport.length === 0) {
+                          setBeastImportMsg('Todas as criaturas do livro já estão na sua biblioteca.');
+                        } else {
+                          let list = myCreatures;
+                          for (const c of toImport) list = saveMyCreature(c);
+                          refresh(list);
+                          setBeastImportMsg(`${toImport.length} criatura${toImport.length === 1 ? '' : 's'} do livro importada${toImport.length === 1 ? '' : 's'}.`);
+                        }
+                        setTimeout(() => setBeastImportMsg(null), 4000);
+                      }}
+                    >
+                      Importar do livro
+                    </button>
+                    <button
+                      className="rd-gm-btn-primary"
+                      onClick={() => {
+                        const c = emptyCreature();
+                        const list = saveMyCreature(c);
+                        refresh(list);
+                        setBeastSelId(c.id);
+                      }}
+                    >
+                      + Nova criatura
+                    </button>
+                  </div>
                 </div>
+
+                {beastImportMsg && <p className="rd-gm-desc">{beastImportMsg}</p>}
 
                 <div className="rd-gm-beast-toolbar">
                   <label className="rd-gm-beast-search">
