@@ -401,7 +401,7 @@ avise quando quiser que eu publique.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 10. Bestiário completo do Capítulo 7 → biblioteca ("Livro oficial")
-- [ ] Campo `source`/`official` no modelo de Creature + badge + filtro
+- [x] Campo `source`/`official` no modelo de Creature + badge + filtro
 - [ ] Lote 1 (criaturas paranormais, ~8-10)
 - [ ] Lote 2
 - [ ] Lote 3
@@ -412,6 +412,24 @@ avise quando quiser que eu publique.
 - [ ] Testado (biblioteca + os 6 itens de sempre) após cada lote
 - Notas: transcrição conferida ficha a ficha contra o PDF; qualquer dado
   ilegível/contraditório vira nota "revisar", nunca um número inventado.
+  - `domain/creature.ts`: campo novo `source?: 'livro' | 'custom'`
+    (opcional, ameaças salvas antes continuam válidas sem ele).
+    `createBookCreatures()` (`data/creatureBook.ts`) marca `source: 'livro'`
+    em tudo que gera — as 15 do Sobrevivendo ao Horror já existentes
+    passaram a ganhar o marcador junto, sem precisar reimportar nada.
+  - Badge `.rd-gm-badge` ("Livro oficial") ao lado do nome na lista
+    (`Home.tsx`) e no cabeçalho do editor (`CreatureCard.tsx`), só quando
+    `source === 'livro'`.
+  - Filtro novo "Livro oficial" (`Home.tsx`, ao lado dos chips de elemento)
+    em AND com elemento e busca por nome.
+  - Testado (CDP): importar as 15 do livro → badge aparece nas 15; criar
+    uma criatura nova → sobe pra 16 mas sem badge; ligar o filtro "Livro
+    oficial" → volta pra mostrar só as 15; abrir uma ficha do livro →
+    badge aparece no editor também. Dentro da mesa, Combate → "Importar
+    monstro" continua lendo a biblioteca certinho (Medusa aparece na
+    lista). Zero erros de JS em toda a sequência. Reconferido sem
+    regressão: abas da Área do Mestre e da mesa abrem sem erro.
+  - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 11. Inventário: regras corretas + redesign
 - [ ] 3.1 Dados/regras (ArmorStats, rangeStepBonus, rdBonus/slotsDelta,

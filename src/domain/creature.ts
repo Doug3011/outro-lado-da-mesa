@@ -85,6 +85,11 @@ export interface Creature {
   // salvas antes dessa mudança continuam válidas sem esses campos.
   el?: Element;
   tags?: string;
+  // Marca criaturas vindas de "Importar do livro" (data/creatureBook.ts),
+  // pra diferenciar da ficha própria do mestre na biblioteca (badge "Livro
+  // oficial" + filtro). Opcional: ameaças já salvas antes continuam sem
+  // esse campo (tratadas como próprias).
+  source?: 'livro' | 'custom';
 
   perception: number; // bônus total de Percepção
   initiative: number; // bônus total de Iniciativa

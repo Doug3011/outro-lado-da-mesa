@@ -158,6 +158,7 @@ export function CreatureCard({
               Sem tabela de construção por VD nos livros — use como valor comparativo (soma dos VDs do combate vs. soma do NEX do grupo).
             </p>
             <div className="cm-chip-row">
+              {creature.source === 'livro' && <span className="rd-gm-badge">Livro oficial</span>}
               {creature.el && (
                 <span className="cm-chip cm-el-chip">
                   <span className="cm-dot" style={{ background: accent }} />

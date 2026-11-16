@@ -833,6 +833,7 @@ export function createBookCreatures(): Creature[] {
     flavor: b.flavor,
     el: b.el,
     tags: b.tags,
+    source: 'livro',
     perception: b.perception,
     initiative: b.initiative,
     defense: b.defense,

@@ -136,6 +136,7 @@ export function Home() {
   const [myCreatures, setMyCreatures] = useState<Creature[]>(() => loadMyCreatures());
   const [beastSelId, setBeastSelId] = useState<string | null>(null);
   const [beastElFilter, setBeastElFilter] = useState<Element | null>(null);
+  const [beastOfficialOnly, setBeastOfficialOnly] = useState(false);
   const [beastQuery, setBeastQuery] = useState('');
   const [beastImportMsg, setBeastImportMsg] = useState<string | null>(null);
   const [extrasTab, setExtrasTab] = useState<ExtrasTab>('minigames');
@@ -706,7 +707,10 @@ export function Home() {
           {gmAreaTab === 'beasts' && (() => {
             const q = beastQuery.trim().toLowerCase();
             const shown = myCreatures.filter(
-              (c) => (!beastElFilter || c.el === beastElFilter) && (!q || c.name.toLowerCase().includes(q)),
+              (c) =>
+                (!beastElFilter || c.el === beastElFilter) &&
+                (!beastOfficialOnly || c.source === 'livro') &&
+                (!q || c.name.toLowerCase().includes(q)),
             );
             const selected = myCreatures.find((c) => c.id === beastSelId) ?? null;
             const refresh = (list: Creature[]) => setMyCreatures(list);
@@ -789,6 +793,14 @@ export function Home() {
                         {e.name}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className={`rd-gm-beast-filter${beastOfficialOnly ? ' on' : ''}`}
+                      style={beastOfficialOnly ? { borderColor: '#00e5ff', background: '#00e5ff26', color: '#fff' } : undefined}
+                      onClick={() => setBeastOfficialOnly((v) => !v)}
+                    >
+                      Livro oficial
+                    </button>
                   </div>
                 </div>
 
@@ -812,7 +824,10 @@ export function Home() {
                             <span className="rd-gm-beast-portrait">{(c.name.trim()[0] || '?').toUpperCase()}</span>
                           )}
                           <span className="rd-gm-beast-info">
-                            <span className="rd-gm-beast-name">{c.name}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                              <span className="rd-gm-beast-name" style={{ flex: '1 1 auto', minWidth: 0 }}>{c.name}</span>
+                              {c.source === 'livro' && <span className="rd-gm-badge" style={{ flex: '0 0 auto' }}>Livro oficial</span>}
+                            </span>
                             <span className="rd-gm-beast-meta">
                               {c.el && <span className="cm-dot" style={{ background: accent }} />}
                               {c.el ? ELEMENTS.find((e) => e.key === c.el)?.name : 'Sem elemento'} · {c.size}
