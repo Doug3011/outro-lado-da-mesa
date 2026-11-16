@@ -201,7 +201,7 @@ export interface DerivedStats {
   sanMax: number;
   defense: number; // 10 + AGI + defenseBonus + bônus de itens equipados
   protectionTotal: number; // char.protection (manual) + bônus de itens equipados
-  loadLimit: number; // Forca + 5
+  loadLimit: number; // 5 por ponto de Forca (minimo 2 com Forca 0) — pag. 53 do livro
   trainedBudget: number; // pericias treinadas: base da classe + Intelecto (+2 origem)
   pePerTurn: number; // limite de PE por turno pelo NEX
   maxAttribute: number; // teto de atributo pelo NEX
@@ -225,7 +225,7 @@ export function deriveStats(char: Character): DerivedStats {
     sanMax: Math.max(1, c.sanBase + c.sanPerNex * steps - c.sanPerNex * transcendCount),
     defense: 10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char),
     protectionTotal: (char.protection || 0) + equipmentProtectionBonus(char),
-    loadLimit: a.FOR + 5 + inventarioOtimizado,
+    loadLimit: Math.max(2, a.FOR * 5) + inventarioOtimizado,
     trainedBudget: c.skillsTrained + a.INT + 2,
     pePerTurn: pePerTurn(char.nex),
     maxAttribute: char.nex >= 50 ? 5 : char.nex >= 20 ? 4 : 3,
@@ -270,6 +270,17 @@ export function countTrained(char: Character): number {
 // Espacos de inventario usados.
 export function loadUsed(char: Character): number {
   return char.inventory.reduce((a, it) => a + it.slots * it.qty, 0);
+}
+
+// Categoria final de um item (base + modificações + maldições) — pág. 60
+// (modificações, +I cada) e pág. 144 (maldições: a PRIMEIRA aumenta em II,
+// cada maldição SEGUINTE aumenta em I — não é um valor fixo por maldição).
+// Categoria é tratada aqui como um número (0=0, I=1, II=2, III=3, IV=4+),
+// já que o livro também permite ir além de IV; a UI converte pra algarismo
+// romano na hora de mostrar.
+export function finalItemCategory(baseCategory: number, modCount: number, curseCount: number): number {
+  const curseIncrease = curseCount > 0 ? 2 + (curseCount - 1) : 0;
+  return baseCategory + modCount + curseIncrease;
 }
 
 // Itens do inventário marcados como "equipado" que têm efeito automático

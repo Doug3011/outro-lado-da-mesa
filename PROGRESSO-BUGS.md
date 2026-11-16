@@ -400,7 +400,7 @@ avise quando quiser que eu publique.
     Mapas, Combate, Quadro, Músicas) abrem sem erro de JS.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
-## 10. Bestiário completo do Capítulo 7 → biblioteca ("Livro oficial")
+## 10. Bestiário completo do Capítulo 7 → biblioteca ("Livro oficial") — CONCLUÍDA
 - [x] Campo `source`/`official` no modelo de Creature + badge + filtro
 - [x] Lote 1 (criaturas paranormais, 8): Aberração de Carne, Aniquilação,
       Carente, Dama de Sangue, Enpap-X, Kerberos, Minotauro, Mulher
@@ -461,13 +461,34 @@ avise quando quiser que eu publique.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 11. Inventário: regras corretas + redesign
-- [ ] 3.1 Dados/regras (ArmorStats, rangeStepBonus, rdBonus/slotsDelta,
-      limite de carga real 5×Força + penalidade de Sobrecarregado de
-      verdade)
-- [ ] 3.3 Categoria final calculada (mod +1, 1ª maldição +2, seguintes +1)
-- [ ] 3.4 Toggle "Limite de inventário: ativado/desativado"
+- [~] 3.1 Dados/regras — EM ANDAMENTO (limite de carga corrigido; resto
+      do campo de dados ainda falta, ver notas)
+- [~] 3.3 Categoria final calculada — função pura criada, ainda não
+      ligada à UI
+- [ ] 3.4 Toggle "Limite de inventário: ativado/desativado" (inclui a
+      penalidade real de Sobrecarregado — ainda não implementada)
 - [ ] 3.2 Visual novo (lista + editor de item, baseado nos mockups)
 - [ ] Testado (os 6 itens de sempre) após cada sub-passo
 - Notas: o código já tinha bem mais estrutura que os mockups (catálogo
   real, mods/maldições com efeito numérico) — isto é conserto de regras +
   preenchimento de lacunas + visual, não uma reescrita do zero.
+- Notas/progresso (passo 1 — limite de carga):
+  - `domain/character.ts`: `loadLimit` em `deriveStats` trocou de
+    `a.FOR + 5` pra `Math.max(2, a.FOR * 5)` (mantendo o bônus da trilha
+    Técnico "Inventário Otimizado" somado por fora) — regra real da
+    pág. 53 do livro (5 espaços por ponto de Força, mínimo 2 com Força
+    0). Testado (CDP): criei um agente com Força 3 — "Carga: 0 / 15" na
+    ficha (antes seria 8). Zero erros de JS.
+  - Nova função pura `finalItemCategory(baseCategory, modCount,
+    curseCount)` no mesmo arquivo: soma +1 por modificação e, pras
+    maldições, +2 pela primeira e +1 por cada seguinte (regra real da
+    pág. 144 — não é um valor fixo igual pra todas). Ainda não está
+    ligada a nenhuma tela (isso é passo futuro, junto do redesign
+    visual da aba Inventário).
+  - Ainda faltam: `ArmorStats` em `equipmentCatalog.ts` (Proteção Leve/
+    Pesada/Escudo), `rangeStepBonus` na Mira Telescópica
+    (`weaponModifications.ts`), `rdBonus`/`slotsDelta` nas modificações
+    de proteção que mudam espaço/RD (`armorModifications.ts`), e a
+    penalidade de verdade de Sobrecarregado (-5 Defesa, -5 perícia,
+    -3m deslocamento) + o toggle de ativar/desativar o limite.
+  - `npx tsc --noEmit` e `npm run build` limpos.
