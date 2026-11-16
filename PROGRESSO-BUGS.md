@@ -415,8 +415,15 @@ avise quando quiser que eu publique.
       Bicho-Papão, Espreitador, EstrangEiro, Existido, Lembrado, Ocioso —
       testado (Bestiário · 46, O Deus da Morte PV2000/DEF60 conferidos,
       zero erros de JS)
-- [ ] Lote 4
-- [ ] Lote 5 (NPCs/animais mundanos restantes: Soldado de Aluguel,
+- [x] Lote 4 (16): Parasita de Culpa, Rastejador Sombrio, Silhueta,
+      Vulto, Máscara do Desespero, Anárquico, Anárquico Descontrolado,
+      Anomalia, Anomiático, Ciborgue, Infecticídio, Perturbado de
+      Energia, Sukkalgir, Telopsia, Tempestuoso, Viajante — testado
+      (Bestiário · 62, Máscara do Desespero PV1200 conferido, zero
+      erros de JS)
+- [ ] Lote 5 (criaturas paranormais restantes + ficha de
+      pré-transformação do Enpap-X, pág. 240, ainda faltando)
+- [ ] Lote 6 (NPCs/animais mundanos restantes: Soldado de Aluguel,
       Assassino, Comandante, Mercenário, Iniciado, Investido, Chefe de
       Polícia, Javaporco, Sucuri, Onça-pintada etc.)
 - [ ] Testado (biblioteca + os 6 itens de sempre) após cada lote
