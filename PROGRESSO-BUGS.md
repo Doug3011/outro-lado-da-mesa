@@ -406,7 +406,11 @@ avise quando quiser que eu publique.
       Carente, Dama de Sangue, Enpap-X, Kerberos, Minotauro, Mulher
       Afogada — testado (Bestiário · 23, Kerberos PV1150/DEF46
       conferidos, zero erros de JS)
-- [ ] Lote 2
+- [x] Lote 2 (12): Titã de Sangue, Zumbi de Sangue, Zumbi de Sangue
+      Bestial, O Diabo, Aracnasita, Carniçal Preto da Morte, Ceifador
+      Espiral, Enraizado, Escutado, Esqueleto de Lodo, Marionete, Múmia
+      Xipófaga — testado (Bestiário · 35, O Diabo PV1666/DEF66
+      conferidos, zero erros de JS)
 - [ ] Lote 3
 - [ ] Lote 4
 - [ ] Lote 5 (NPCs/animais mundanos restantes: Soldado de Aluguel,
