@@ -535,6 +535,16 @@ export function Scenery2DIcon() {
   );
 }
 
+// Aba "Criaturas" (bestiário, Área do Mestre) — mesmo traço da ameaça
+// encapuzada usado na referência (Mestre-Musicas.dc.html).
+export function CreatureTabIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3c-4 0-7 3-7 7v4l-2 3h4l1 4h8l1-4h4l-2-3v-4c0-4-3-7-7-7zM9 11h.01M15 11h.01M10 16h4" />
+    </svg>
+  );
+}
+
 // ---------- REDESIGN: Wizard de criação de ficha (6 etapas, CharacterWizard.tsx) ----------
 // Ícones novos pra última tela do redesign — chegou depois das 17
 // referências originais. Traços mesma família fina das demais; os 3

@@ -175,19 +175,74 @@ melhorar a reconexão (sem TURN) — ver plano.
   - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 5. Área do Mestre — design novo + Fichas de Monstros + remover Mapas
-- [ ] Design novo aplicado na Área do Mestre (menu inicial)
-- [ ] Botão "Mapas" removido (Cenário 2D/3D já cobrem)
-- [ ] "Fichas de Monstros": biblioteca (criar/editar/apagar/listar) com
+- [x] Design novo aplicado na Área do Mestre (menu inicial)
+- [x] Botão "Mapas" removido (Cenário 2D/3D já cobrem)
+- [x] "Fichas de Monstros": biblioteca (criar/editar/apagar/listar) com
       filtro por elemento funcionando de verdade
-- [ ] Design novo aplicado na ficha de monstro DENTRO da mesa
+- [x] Design novo aplicado na ficha de monstro DENTRO da mesa
       (combate + criação)
-- [ ] Testado
+- [x] Testado
 - Notas/meio do caminho:
+  - Descoberta importante ao investigar: a Área do Mestre (`Home.tsx`,
+    classes `rd-gm-*`) **já tinha** o visual novo (tema Energia/roxo,
+    fundo animado, abas) de uma leva de redesign anterior — só a aba
+    "Criaturas" não existia e "Mapas" sobrava. Escopo real da tarefa:
+    tirar "Mapas", criar a aba "Criaturas" nova, e redesenhar só a FICHA
+    de monstro em si (`CreatureCard`, que é usada tanto na biblioteca
+    quanto dentro da mesa) — as outras abas (Músicas/Tokens/Cenário 2D/
+    3D) já funcionavam e já tinham visual, não foram mexidas (Regra de
+    ouro: não arriscar quebrar o que já funciona sem necessidade).
+  - `src/domain/creature.ts`: campos novos `el?: Element` e `tags?:
+    string`, opcionais (ameaça salva antes continua válida).
+  - Novo `src/lib/creatureLibrary.ts` — biblioteca local (localStorage,
+    mesmo padrão de `characterLibrary.ts`), fora de qualquer mesa.
+  - `CreatureCard` foi EXTRAÍDA de `CombatTracker.tsx` pro arquivo
+    próprio `src/components/CreatureCard.tsx`, pra poder ser reusada
+    tanto na Área do Mestre quanto dentro da mesa — mesmos dados/ações
+    de sempre (rolar teste/dano/perícia/habilidade, editar PV/atributos/
+    perícias/ações/habilidades), só a apresentação mudou: cabeçalho com
+    retrato/nome/VD, seletor de elemento (reaproveitando os 5 elementos
+    já estabelecidos no app, não a paleta de 6 do mock), chips de
+    tamanho/defesa/deslocamento, barra de vida com marcador de
+    "machucado" e botões de ajuste rápido, abas Status/Atributos/Ações/
+    Habilidades/Notas. Hexágono de atributo reaproveita `.rd-cw-hex*`
+    (já existente, do wizard de personagem).
+  - `Home.tsx`: aba "Criaturas" nova — busca + filtro por elemento (AND
+    combinado, igual ao design) + lista + `CreatureCard` como
+    editor/detalhe. Bug pego e corrigido durante o teste: faltava
+    `key={selected.id}` no `CreatureCard` da lista, o que fazia o
+    componente NÃO resetar a aba ativa ao trocar de criatura selecionada
+    (ficava preso na última aba vista). Corrigido antes de prosseguir.
+  - Testado via CDP: criar criatura, trocar nome/elemento (reflete na
+    lista em tempo real), aumentar atributo (hexágono), adicionar
+    perícia, adicionar ação, filtrar por elemento, buscar por nome,
+    trocar de criatura selecionada (confirma que o bug do `key` foi
+    corrigido — aba volta pra Status), subir retrato, excluir. Dentro da
+    mesa: editor expandido e card colapsado da criatura, rolar teste e
+    dano de uma ação (confirmado no Histórico), adicionar à iniciativa.
+    Zero erros de JS em toda a sequência.
+  - Reconferido sem regressão: Ficha, Mestre, Tokens, Mapas (2D), Quadro
+    e Músicas abrem sem erro numa mesa nova.
+  - `npx tsc --noEmit` e `npm run build` limpos.
 
 ## 6. Importar monstro da biblioteca pra mesa (botão "Importar monstro")
-- [ ] Implementado (copia ficha + token se tiver, só mestre vê)
-- [ ] Testado
+- [x] Implementado (copia ficha + token se tiver, só mestre vê)
+- [x] Testado
 - Notas/meio do caminho:
+  - Botão "Importar monstro" dentro da janela Combate (já é GM-only —
+    a janela toda só existe pro mestre, `{me.isGM && <FloatingWindow...`
+    em `BattleMap.tsx`, não precisou de checagem extra). Abre uma lista
+    (mesmo padrão chip-row do "+ Adicionar" já existente) com as
+    criaturas da biblioteca; clicar copia a ficha (novo id, PV cheio)
+    pra cena ativa e, se a ficha tiver retrato, solta um token com essa
+    imagem no centro do mapa (sem vínculo permanente — mesmo nível de
+    "token solto" de qualquer outro, já que esse conceito de vínculo
+    criatura↔token não existia antes e não foi inventado agora).
+  - Testado via CDP: subi uma criatura com retrato na biblioteca,
+    importei pra uma mesa nova — ficha apareceu certa (PV 10/10, nome,
+    elemento) e um token com a imagem apareceu no mapa (`.token .tk-img`
+    confirmado). Zero erros de JS.
+  - `npx tsc --noEmit` e `npm run build` limpos (mesmo build do item 5).
 
 ## 7. Importar ameaça pelo link do CRIS
 - [x] Viabilidade testada (ver Investigação inicial) — **NÃO VIÁVEL**

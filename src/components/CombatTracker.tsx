@@ -1,25 +1,13 @@
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState } from 'react';
 import { activeScene, useTableStore } from '../store/useTableStore';
-import { ATTRIBUTES, SKILLS, SKILL_BY_KEY, type AttrKey } from '../data/ordem';
+import { useIdentity } from '../hooks/useIdentity';
+import { SKILL_BY_KEY } from '../data/ordem';
 import { skillBonus } from '../domain/character';
-import {
-  CREATURE_SIZES,
-  CREATURE_SIZE_SPACE,
-  creatureBloodied,
-  emptyCreature,
-  emptyCreatureAction,
-  emptyCreatureHability,
-  emptyCreatureSkill,
-  normalizeCreature,
-  type Creature,
-  type CreatureAction,
-  type CreatureHability,
-  type CreatureSkill,
-} from '../domain/creature';
-import type { InitiativeEntry } from '../types';
-import { fileToDownscaledDataURL } from '../lib/image';
-
-const ACTION_COSTS = ['Padrão', 'Livre', 'Completa', 'Reação'];
+import { emptyCreature, normalizeCreature, type Creature } from '../domain/creature';
+import { loadMyCreatures } from '../lib/creatureLibrary';
+import { randomColor, uid } from '../lib/ids';
+import type { InitiativeEntry, Token } from '../types';
+import { CreatureCard } from './CreatureCard';
 
 // Painel "Combate" da Área do Mestre, dentro da mesa — pedido do usuário:
 // criar fichas de ameaças (Capítulo 7 do livro — bem mais simples que a
@@ -28,12 +16,14 @@ const ACTION_COSTS = ['Padrão', 'Livre', 'Completa', 'Reação'];
 // de ameaça vivem na CENA ativa (Scene.creatures, mesmo padrão de
 // Scene.tokens) — fazem mais sentido por encontro do que por mesa inteira.
 export function CombatTracker() {
+  const { me } = useIdentity();
   const scenes = useTableStore((s) => s.scenes);
   const activeSceneId = useTableStore((s) => s.activeSceneId);
   const characters = useTableStore((s) => s.characters);
   const upsertCreature = useTableStore((s) => s.upsertCreature);
   const deleteCreature = useTableStore((s) => s.deleteCreature);
   const updateScene = useTableStore((s) => s.updateScene);
+  const upsertToken = useTableStore((s) => s.upsertToken);
   const rollOrdem = useTableStore((s) => s.rollOrdem);
   const rollFree = useTableStore((s) => s.rollFree);
 
@@ -44,6 +34,7 @@ export function CombatTracker() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddPicker, setShowAddPicker] = useState(false);
+  const [showImportPicker, setShowImportPicker] = useState(false);
   const portraitInputRef = useRef<HTMLInputElement>(null);
 
   const setCombat = (patch: Partial<NonNullable<typeof combat>>) => {
@@ -55,6 +46,36 @@ export function CombatTracker() {
     const c = emptyCreature();
     upsertCreature(c);
     setEditingId(c.id);
+  };
+
+  // Importar monstro — pedido do usuário: trazer uma ficha já pronta da
+  // biblioteca do mestre (Área do Mestre → Criaturas) direto pra cena
+  // ativa, sem precisar recriar na mão. Cópia (novo id, PV cheio), não
+  // vínculo — editar a cópia na mesa não muda o original da biblioteca.
+  // Se a ficha da biblioteca tem retrato, solta um token com essa imagem
+  // no centro do mapa também (token avulso, sem ligação permanente com a
+  // ficha — mesmo nível de "token solto" que qualquer outro na mesa).
+  const importCreature = (lib: Creature) => {
+    const copy: Creature = { ...lib, id: uid(), pvCurrent: lib.pvMax, updatedAt: Date.now() };
+    upsertCreature(copy);
+    if (lib.image) {
+      const pos =
+        scene.kind === '3d'
+          ? { x: 0, y: 0 }
+          : { x: Math.floor(scene.map.cols / 2), y: Math.floor(scene.map.rows / 2) };
+      const t: Token = {
+        id: uid(),
+        label: lib.name,
+        color: randomColor(copy.id),
+        image: lib.image,
+        ...pos,
+        size: 1,
+        ownerId: me.id,
+      };
+      upsertToken(t);
+    }
+    setShowImportPicker(false);
+    setEditingId(copy.id);
   };
 
   const nameFor = (e: InitiativeEntry): string =>
@@ -226,10 +247,33 @@ export function CombatTracker() {
 
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <strong>Criaturas desta cena</strong>
-        <button className="small" onClick={addCreature}>
-          + Nova criatura
-        </button>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="small ghost" onClick={() => setShowImportPicker((v) => !v)}>
+            Importar monstro
+          </button>
+          <button className="small" onClick={addCreature}>
+            + Nova criatura
+          </button>
+        </div>
       </div>
+
+      {showImportPicker && (() => {
+        const library = loadMyCreatures();
+        return (
+          <div className="chip-row" style={{ marginBottom: 8 }}>
+            {library.map((c) => (
+              <span key={c.id} className="chip" onClick={() => importCreature(c)}>
+                💀 {c.name} · VD {c.vd}
+              </span>
+            ))}
+            {library.length === 0 && (
+              <span className="faint" style={{ fontSize: 12 }}>
+                Nenhuma criatura salva na biblioteca ainda (Área do Mestre → Criaturas).
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {Object.keys(creatures).length === 0 && (
         <p className="faint" style={{ fontSize: 12 }}>
@@ -279,396 +323,6 @@ export function CombatTracker() {
           />
         );
       })}
-    </div>
-  );
-}
-
-function CreatureCard({
-  creature,
-  expanded,
-  onToggle,
-  onChange,
-  onDelete,
-  onRollAction,
-  onRollDamage,
-  onRollSkill,
-  onRollHability,
-  portraitInputRef,
-}: {
-  creature: Creature;
-  expanded: boolean;
-  onToggle: () => void;
-  onChange: (next: Creature) => void;
-  onDelete: () => void;
-  onRollAction: (a: CreatureAction) => void;
-  onRollDamage: (a: CreatureAction) => void;
-  onRollSkill: (s: CreatureSkill) => void;
-  onRollHability: (h: CreatureHability) => void;
-  portraitInputRef: RefObject<HTMLInputElement>;
-}) {
-  const patch = (p: Partial<Creature>) => onChange({ ...creature, ...p });
-  const patchAttr = (k: AttrKey, v: number) => patch({ attributes: { ...creature.attributes, [k]: v } });
-
-  const patchAction = (id: string, p: Partial<CreatureAction>) =>
-    patch({ actions: creature.actions.map((a) => (a.id === id ? { ...a, ...p } : a)) });
-  const addAction = () => patch({ actions: [...creature.actions, emptyCreatureAction()] });
-  const removeAction = (id: string) => patch({ actions: creature.actions.filter((a) => a.id !== id) });
-
-  const addSkill = (key: string) => patch({ skills: [...creature.skills, emptyCreatureSkill(key)] });
-  const patchSkill = (id: string, p: Partial<CreatureSkill>) =>
-    patch({ skills: creature.skills.map((s) => (s.id === id ? { ...s, ...p } : s)) });
-  const removeSkill = (id: string) => patch({ skills: creature.skills.filter((s) => s.id !== id) });
-
-  const addHability = () => patch({ abilities: [...creature.abilities, emptyCreatureHability()] });
-  const patchHability = (id: string, p: Partial<CreatureHability>) =>
-    patch({ abilities: creature.abilities.map((h) => (h.id === id ? { ...h, ...p } : h)) });
-  const removeHability = (id: string) => patch({ abilities: creature.abilities.filter((h) => h.id !== id) });
-
-  return (
-    <div className="list-item" style={{ marginBottom: 8 }}>
-      <div className="li-head" style={{ alignItems: 'center' }}>
-        {creature.image ? (
-          <img src={creature.image} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
-        ) : (
-          <span style={{ width: 32, height: 32, borderRadius: 6, background: '#2a2a30', display: 'inline-block' }} />
-        )}
-        <input value={creature.name} placeholder="Nome da ameaça" onChange={(e) => patch({ name: e.target.value })} />
-        <span className="faint" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          VD
-        </span>
-        <input
-          type="number"
-          style={{ width: 56 }}
-          value={creature.vd}
-          onChange={(e) => patch({ vd: Number(e.target.value) })}
-        />
-        <button className="small ghost" onClick={onToggle}>
-          {expanded ? 'Fechar' : 'Editar'}
-        </button>
-        <button className="small ghost" onClick={onDelete}>
-          ✕
-        </button>
-      </div>
-
-      <div className="row" style={{ marginTop: 6, gap: 10, alignItems: 'center' }}>
-        <span className="faint" style={{ fontSize: 12 }}>
-          PV
-        </span>
-        <input
-          type="number"
-          style={{ width: 64 }}
-          value={creature.pvCurrent}
-          onChange={(e) => patch({ pvCurrent: Number(e.target.value) })}
-        />
-        <span className="faint">/ {creature.pvMax}</span>
-        <span className="faint" style={{ fontSize: 11 }}>
-          (machucado {creatureBloodied(creature)})
-        </span>
-      </div>
-
-      {expanded && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="row">
-            <button className="small ghost" onClick={() => portraitInputRef.current?.click()}>
-              Token/retrato…
-            </button>
-            <input
-              ref={portraitInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (f) void fileToDownscaledDataURL(f, 320).then((u) => u && patch({ image: u }));
-              }}
-            />
-            {creature.image && (
-              <button className="small ghost" onClick={() => patch({ image: undefined })}>
-                Remover imagem
-              </button>
-            )}
-          </div>
-
-          <div className="row">
-            <input
-              value={creature.descriptor}
-              placeholder="Descritor (ex.: Sangue, Energia, Pessoa…)"
-              onChange={(e) => patch({ descriptor: e.target.value })}
-            />
-            <select value={creature.size} onChange={(e) => patch({ size: e.target.value as Creature['size'] })}>
-              {CREATURE_SIZES.map((s) => (
-                <option key={s} value={s}>
-                  {s} ({CREATURE_SIZE_SPACE[s]})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <textarea
-            value={creature.flavor}
-            placeholder="Descrição curta"
-            rows={2}
-            onChange={(e) => patch({ flavor: e.target.value })}
-          />
-
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <label className="rd-sheet-field" style={{ maxWidth: 110 }}>
-              <span className="rd-sheet-field-label">Percepção</span>
-              <input
-                type="number"
-                value={creature.perception}
-                onChange={(e) => patch({ perception: Number(e.target.value) })}
-              />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 110 }}>
-              <span className="rd-sheet-field-label">Iniciativa</span>
-              <input
-                type="number"
-                value={creature.initiative}
-                onChange={(e) => patch({ initiative: Number(e.target.value) })}
-              />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 110 }}>
-              <span className="rd-sheet-field-label">Defesa</span>
-              <input type="number" value={creature.defense} onChange={(e) => patch({ defense: Number(e.target.value) })} />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 110 }}>
-              <span className="rd-sheet-field-label">Fortitude</span>
-              <input
-                type="number"
-                value={creature.fortitude}
-                onChange={(e) => patch({ fortitude: Number(e.target.value) })}
-              />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 110 }}>
-              <span className="rd-sheet-field-label">Reflexos</span>
-              <input type="number" value={creature.reflexes} onChange={(e) => patch({ reflexes: Number(e.target.value) })} />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 110 }}>
-              <span className="rd-sheet-field-label">Vontade</span>
-              <input type="number" value={creature.will} onChange={(e) => patch({ will: Number(e.target.value) })} />
-            </label>
-          </div>
-
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <label className="rd-sheet-field" style={{ maxWidth: 90 }}>
-              <span className="rd-sheet-field-label">PV máx.</span>
-              <input type="number" value={creature.pvMax} onChange={(e) => patch({ pvMax: Number(e.target.value) })} />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 90 }}>
-              <span className="rd-sheet-field-label">PV temp.</span>
-              <input type="number" value={creature.pvTemp} onChange={(e) => patch({ pvTemp: Number(e.target.value) })} />
-            </label>
-            <label className="rd-sheet-field" style={{ maxWidth: 90 }}>
-              <span className="rd-sheet-field-label">Desloc. (m)</span>
-              <input
-                type="number"
-                value={creature.displacement}
-                onChange={(e) => patch({ displacement: Number(e.target.value) })}
-              />
-            </label>
-            <input
-              value={creature.damageResistance}
-              placeholder="Resistência a dano (ex.: RD 10/Morte)"
-              onChange={(e) => patch({ damageResistance: e.target.value })}
-              style={{ flex: 1, minWidth: 160 }}
-            />
-          </div>
-
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {ATTRIBUTES.map((a) => (
-              <label key={a.key} className="rd-sheet-field" style={{ maxWidth: 80 }}>
-                <span className="rd-sheet-field-label">{a.short}</span>
-                <input type="number" value={creature.attributes[a.key]} onChange={(e) => patchAttr(a.key, Number(e.target.value))} />
-              </label>
-            ))}
-          </div>
-
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <strong style={{ fontSize: 13 }}>Perícias</strong>
-            <select
-              value=""
-              style={{ maxWidth: 180 }}
-              onChange={(e) => {
-                if (e.target.value) addSkill(e.target.value);
-              }}
-            >
-              <option value="">+ adicionar perícia…</option>
-              {SKILLS.filter((s) => !creature.skills.some((sk) => sk.key === s.key)).map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {creature.skills.length === 0 && (
-            <p className="faint" style={{ fontSize: 12 }}>
-              Nenhuma perícia adicionada ainda.
-            </p>
-          )}
-          {creature.skills.map((sk) => {
-            const def = SKILL_BY_KEY[sk.key];
-            return (
-              <div key={sk.id} className="row" style={{ alignItems: 'center', gap: 8 }}>
-                <span style={{ flex: 1 }}>
-                  {def?.name ?? sk.key}
-                  <span className="faint" style={{ fontSize: 11 }}> ({def?.attr ?? '?'}O+bônus)</span>
-                </span>
-                <input
-                  type="number"
-                  style={{ width: 56 }}
-                  value={sk.bonus}
-                  placeholder="Bônus"
-                  onChange={(e) => patchSkill(sk.id, { bonus: Number(e.target.value) })}
-                />
-                <button className="small" onClick={() => onRollSkill(sk)}>
-                  Rolar
-                </button>
-                <button className="small ghost" onClick={() => removeSkill(sk.id)}>
-                  ✕
-                </button>
-              </div>
-            );
-          })}
-
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-            <strong style={{ fontSize: 13 }}>Habilidades</strong>
-            <button className="small ghost" onClick={addHability}>
-              + Habilidade
-            </button>
-          </div>
-          {creature.abilities.length === 0 && (
-            <p className="faint" style={{ fontSize: 12 }}>
-              Nenhuma habilidade adicionada ainda.
-            </p>
-          )}
-          {creature.abilities.map((h) => (
-            <div key={h.id} className="list-item" style={{ padding: 8 }}>
-              <div className="row">
-                <input
-                  value={h.name}
-                  placeholder="Nome da habilidade"
-                  onChange={(e) => patchHability(h.id, { name: e.target.value })}
-                />
-                <button className="small ghost" onClick={() => removeHability(h.id)}>
-                  ✕
-                </button>
-              </div>
-              <textarea
-                value={h.description}
-                placeholder="Descrição"
-                rows={2}
-                style={{ marginTop: 6 }}
-                onChange={(e) => patchHability(h.id, { description: e.target.value })}
-              />
-              <div className="row" style={{ marginTop: 6, alignItems: 'center' }}>
-                <input
-                  style={{ maxWidth: 140 }}
-                  value={h.rollDice ?? ''}
-                  placeholder="Dado (ex.: 2d6) — opcional"
-                  onChange={(e) => patchHability(h.id, { rollDice: e.target.value || undefined })}
-                />
-                {h.rollDice && (
-                  <button className="small" onClick={() => onRollHability(h)}>
-                    Rolar
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          <textarea
-            value={creature.notes}
-            placeholder="Observações"
-            rows={2}
-            onChange={(e) => patch({ notes: e.target.value })}
-          />
-
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <strong style={{ fontSize: 13 }}>Ações</strong>
-            <button className="small ghost" onClick={addAction}>
-              + Ação
-            </button>
-          </div>
-          {creature.actions.map((action) => (
-            <div key={action.id} className="list-item" style={{ padding: 8 }}>
-              <div className="row">
-                <select value={action.cost} onChange={(e) => patchAction(action.id, { cost: e.target.value })} style={{ maxWidth: 110 }}>
-                  {ACTION_COSTS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={action.name}
-                  placeholder="Nome da ação/ataque"
-                  onChange={(e) => patchAction(action.id, { name: e.target.value })}
-                />
-                <button className="small ghost" onClick={() => removeAction(action.id)}>
-                  ✕
-                </button>
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <input
-                  value={action.range}
-                  placeholder="Alcance (Corpo a corpo / À distância…)"
-                  onChange={(e) => patchAction(action.id, { range: e.target.value })}
-                />
-                <select
-                  value={action.testAttribute}
-                  onChange={(e) => patchAction(action.id, { testAttribute: e.target.value as AttrKey })}
-                  style={{ maxWidth: 80 }}
-                >
-                  {ATTRIBUTES.map((a) => (
-                    <option key={a.key} value={a.key}>
-                      {a.short}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  style={{ width: 56 }}
-                  value={action.testBonus}
-                  placeholder="Bônus"
-                  onChange={(e) => patchAction(action.id, { testBonus: Number(e.target.value) })}
-                />
-                <button className="small" onClick={() => onRollAction(action)}>
-                  Testar
-                </button>
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <input
-                  value={action.damage}
-                  placeholder="Dano (ex.: 2d8+9)"
-                  onChange={(e) => patchAction(action.id, { damage: e.target.value })}
-                />
-                <input
-                  value={action.damageType}
-                  placeholder="Tipo"
-                  onChange={(e) => patchAction(action.id, { damageType: e.target.value })}
-                />
-                <input
-                  value={action.crit}
-                  placeholder="Crít (20/x2)"
-                  onChange={(e) => patchAction(action.id, { crit: e.target.value })}
-                />
-                <button className="small" disabled={!action.damage} onClick={() => onRollDamage(action)}>
-                  Rolar dano
-                </button>
-              </div>
-              <textarea
-                value={action.description}
-                placeholder="Efeito/descrição adicional"
-                rows={2}
-                style={{ marginTop: 6 }}
-                onChange={(e) => patchAction(action.id, { description: e.target.value })}
-              />
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

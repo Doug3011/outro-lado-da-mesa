@@ -12767,3 +12767,678 @@ label {
     border-top: 1px solid #2e2418;
   }
 }
+
+/* ============================================================
+   Ficha de criatura redesenhada (CreatureCard.tsx) — Tarefa 5 do
+   pedido de bugs/funções. Mesmo tema "Sangue" já usado em Ficha/Mesa/
+   Combate (var(--rd-sangue-*)), reaproveitado tanto dentro da mesa
+   (CombatTracker) quanto na Área do Mestre (biblioteca de monstros,
+   Home.tsx) — referência visual: Criatura-Mestre.dc.html /
+   Criatura-Ficha.dc.html. Hexágono de atributo reaproveita
+   .rd-cw-hex* (já existente, CharacterWizard.tsx).
+   ============================================================ */
+@keyframes cm-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cm-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes cm-hit {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+  100% {
+    transform: none;
+  }
+}
+.cm-card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #120d11;
+  margin-bottom: 8px;
+}
+.cm-card-avatar {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1.5px solid var(--cm-accent, var(--rd-sangue));
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 20%, transparent), #0e0a0d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--rd-font-disp);
+  font-weight: 700;
+  color: var(--cm-accent, var(--rd-sangue));
+  flex-shrink: 0;
+}
+.cm-card-name-input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #0e0a0d;
+  color: #f4eef0;
+  padding: 0 10px;
+  font-family: var(--rd-font-disp);
+  font-size: 15px;
+  font-weight: 600;
+}
+.cm-btn {
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+  cursor: pointer;
+}
+.cm-btn:hover {
+  border-color: var(--rd-sangue);
+  color: #fff;
+  background: rgba(224, 22, 30, 0.1);
+}
+.cm-btn:active {
+  transform: scale(0.95);
+}
+.cm-btn-ghost {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--rd-sangue-line);
+  background: transparent;
+  color: #d9cfd3;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cm-btn-danger {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 11px;
+  border: 0;
+  background: linear-gradient(180deg, #f02a31, var(--rd-sangue-deep));
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(224, 22, 30, 0.35);
+}
+.cm-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--rd-sangue-line);
+  border-top: 3px solid var(--cm-accent, var(--rd-sangue));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 12%, transparent), #120d11 55%);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: cm-in 0.3s ease-out both;
+}
+.cm-hero-top {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.cm-portrait-btn {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  border-radius: 16px;
+  border: 2px solid var(--cm-accent, var(--rd-sangue));
+  background: radial-gradient(circle at 50% 35%, #2a1418, #0e0a0d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 35%, transparent);
+  overflow: hidden;
+  color: var(--cm-accent, var(--rd-sangue));
+  font-family: var(--rd-font-disp);
+  font-size: 28px;
+  font-weight: 700;
+}
+.cm-portrait-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cm-hero-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cm-name-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.cm-name-input-lg {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #fff;
+  padding: 0 6px;
+  margin-left: -6px;
+  font-family: var(--rd-font-disp);
+  font-size: 24px;
+  font-weight: 700;
+}
+.cm-name-input-lg:hover,
+.cm-name-input-lg:focus {
+  border-color: var(--rd-sangue-line);
+  background: #0e0a0d;
+  outline: none;
+}
+.cm-vd-field {
+  flex: 0 0 auto;
+  height: 42px;
+  padding: 0 4px 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #0e0a0d;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cm-vd-label {
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: #8e8088;
+}
+.cm-vd-input {
+  width: 48px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+.cm-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cm-chip {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #1a1216;
+  font-family: var(--rd-font-mono);
+  font-size: 11.5px;
+  color: #d9cfd3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cm-el-chip {
+  font-family: var(--rd-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  border-color: color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 50%, transparent);
+  background: color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 20%, transparent);
+}
+.cm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.cm-pv-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cm-pv-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.cm-pv-label {
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--rd-sangue-soft);
+}
+.cm-pv-num {
+  font-family: var(--rd-font-disp);
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+}
+.cm-pv-num.hit {
+  animation: cm-hit 0.3s ease-out;
+}
+.cm-pv-max {
+  font-family: var(--rd-font-disp);
+  font-size: 16px;
+  color: #8e8088;
+}
+.cm-pv-status {
+  margin-left: auto;
+  font-family: var(--rd-font-disp);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+.cm-pv-bar-track {
+  position: relative;
+  height: 10px;
+  border-radius: 6px;
+  background: #1e1418;
+  overflow: visible;
+}
+.cm-pv-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--rd-res-vida-a), var(--rd-res-vida-b));
+  transition: width 0.3s;
+}
+.cm-pv-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: #ffb547;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+.cm-pv-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cm-pv-btn {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #1a1216;
+  color: #f4eef0;
+  font-family: var(--rd-font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.cm-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-bottom: 1px solid #2a1c22;
+}
+.cm-tab {
+  position: relative;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #8e8088;
+  font-family: var(--rd-font-disp);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.15s, background 0.15s;
+}
+.cm-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.03);
+}
+.cm-tab.on {
+  color: #fff;
+}
+.cm-tab-bar {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 0;
+  height: 2px;
+  background: transparent;
+}
+.cm-tab.on .cm-tab-bar {
+  background: var(--rd-sangue);
+}
+.cm-tab-count {
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(224, 22, 30, 0.15);
+}
+.cm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: cm-in 0.25s ease-out both;
+}
+.cm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #2e2228;
+  background: #0e0a0d;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cm-field:focus-within {
+  border-color: var(--rd-sangue);
+  background: #140c10;
+}
+.cm-field-label {
+  font-family: var(--rd-font-disp);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: #8e8088;
+}
+.cm-field input,
+.cm-field select,
+.cm-field textarea {
+  border: 0;
+  background: transparent;
+  color: #f4eef0;
+  font-size: 14px;
+  padding: 0;
+  font-family: inherit;
+}
+.cm-field-center input {
+  text-align: center;
+  font-family: var(--rd-font-disp);
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+.cm-el-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.cm-el-btn {
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #2a1f2a;
+  background: transparent;
+  color: #b9aeb3;
+}
+.cm-el-btn:hover {
+  transform: translateY(-1px);
+  color: #fff;
+}
+.cm-el-btn.on {
+  color: #fff;
+}
+.cm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.cm-test-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.cm-attr-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.cm-entry-card {
+  border-radius: 14px;
+  border: 1px solid #2e2228;
+  background: #0e0a0d;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: cm-pop 0.3s ease-out both;
+}
+.cm-skill-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 6px 0 12px;
+  border-radius: 12px;
+  border: 1px solid #2e2228;
+  background: #0e0a0d;
+  animation: cm-pop 0.25s ease-out both;
+}
+.cm-skill-bonus-input {
+  width: 48px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--rd-sangue-line);
+  background: #1a1216;
+  color: #fff;
+  font-family: var(--rd-font-disp);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+.cm-empty {
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px dashed var(--rd-sangue-line);
+  text-align: center;
+  font-size: 13px;
+  color: #8e8088;
+}
+
+/* ---------- biblioteca de monstros (Área do Mestre) ---------- */
+.rd-gm-beast-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(14, 9, 27, 0.85);
+  border: 1px solid var(--rd-energia-line);
+}
+.rd-gm-beast-search {
+  flex: 1 1 220px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid #4a3478;
+  background: #120c22;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+.rd-gm-beast-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: #eee8fa;
+  font-size: 14px;
+}
+.rd-gm-beast-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rd-gm-beast-filter {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--rd-energia-line);
+  background: transparent;
+  color: #b9aed3;
+}
+.rd-gm-beast-filter.on {
+  color: #fff;
+}
+.rd-gm-beast-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+.rd-gm-beast-list {
+  flex: 1 1 320px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rd-gm-beast-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  border: 1px solid var(--rd-energia-line);
+  background: rgba(17, 12, 30, 0.85);
+  text-align: left;
+  color: inherit;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.rd-gm-beast-row:hover {
+  transform: translateY(-2px);
+}
+.rd-gm-beast-row.on {
+  box-shadow: 0 0 22px color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 20%, transparent);
+}
+.rd-gm-beast-portrait {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  border: 2px solid var(--cm-accent, var(--rd-sangue));
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--cm-accent, var(--rd-sangue)) 20%, transparent), #0e091b 75%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--rd-font-disp);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--cm-accent, var(--rd-sangue));
+  overflow: hidden;
+}
+.rd-gm-beast-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rd-gm-beast-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+.rd-gm-beast-name {
+  font-family: var(--rd-font-disp);
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rd-gm-beast-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #b9aed3;
+}
+.rd-gm-beast-stats {
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  color: #8a7bae;
+}
+.rd-gm-beast-vd {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-family: var(--rd-font-disp);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  background: #1a1230;
+  border: 1px solid #3a2a60;
+  color: #e6dcfa;
+}
+.rd-gm-beast-detail {
+  flex: 999 1 460px;
+  min-width: 0;
+}
+.rd-gm-beast-detail-empty {
+  height: 100%;
+  min-height: 300px;
+  border-radius: 20px;
+  border: 1.5px dashed #4a3478;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #a89cc4;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+}

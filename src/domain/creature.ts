@@ -1,4 +1,4 @@
-import type { AttrKey } from '../data/ordem';
+import type { AttrKey, Element } from '../data/ordem';
 import { uid } from '../lib/ids';
 
 // Ficha de ameaça (Capítulo 7: Ameaças, do livro de regras) — pedido do
@@ -78,6 +78,13 @@ export interface Creature {
   size: CreatureSize;
   image?: string; // retrato/token — mesmo formato de Character.portrait
   flavor: string; // texto descritivo curto
+  // Elemento (mesmo sistema de ELEMENTS/ELEMENT_COLOR usado em rituais e
+  // poderes — não um sistema à parte) e descritores livres (ex. "Morto-
+  // vivo, Espectral"), pedido na biblioteca de monstros (Tarefa 5) pro
+  // filtro por elemento funcionar de verdade. Opcionais: ameaças já
+  // salvas antes dessa mudança continuam válidas sem esses campos.
+  el?: Element;
+  tags?: string;
 
   perception: number; // bônus total de Percepção
   initiative: number; // bônus total de Iniciativa

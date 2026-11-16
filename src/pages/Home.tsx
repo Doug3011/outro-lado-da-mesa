@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import {
   BackChevronIcon,
   BrandEyeIcon,
+  CreatureTabIcon,
   LockIcon,
-  MapasFloatIcon,
   MusicasFloatIcon,
   PauseIcon,
   PlayIcon,
@@ -29,7 +29,10 @@ import {
   type SavedOnlineTable,
 } from '../lib/savedOnlineTables';
 import type { Character } from '../domain/character';
-import { CLASS_BY_KEY } from '../data/ordem';
+import { CLASS_BY_KEY, ELEMENTS, ELEMENT_COLOR, type Element } from '../data/ordem';
+import { emptyCreature, type Creature } from '../domain/creature';
+import { loadMyCreatures, saveMyCreature, deleteMyCreature } from '../lib/creatureLibrary';
+import { CreatureCard } from '../components/CreatureCard';
 import { ProfileEditor } from '../components/ProfileEditor';
 import { CharacterLibrary } from '../components/CharacterLibrary';
 import { MatchHistoryPanel } from '../components/MatchHistoryPanel';
@@ -38,7 +41,6 @@ import { MusicLibraryManager } from '../components/MusicLibraryManager';
 import { AmbientLibraryManager } from '../components/AmbientLibraryManager';
 import { TokenLibraryManager } from '../components/TokenLibraryManager';
 import { SceneryLibraryManager } from '../components/SceneryLibraryManager';
-import { MapLibraryManager } from '../components/MapLibraryManager';
 import { PlaceLibraryManager } from '../components/PlaceLibraryManager';
 import { Map2DLibraryManager } from '../components/Map2DLibraryManager';
 import type { Map2D } from '../lib/map2dLibrary';
@@ -52,7 +54,7 @@ import { useMenuMusicStore } from '../state/menuMusic';
 
 type Role = 'gm' | 'player';
 type View = 'hub' | 'profile' | 'library' | 'connect' | 'history' | 'daily' | 'gm-area' | 'extras';
-type GmAreaTab = 'music' | 'ambient' | 'tokens' | 'scenery' | 'maps' | 'places';
+type GmAreaTab = 'music' | 'ambient' | 'tokens' | 'scenery' | 'beasts' | 'places';
 type ExtrasTab = 'minigames';
 
 const PALETTE = ['#e01e2b', '#7b2cbf', '#2fae66', '#e8b21e', '#3f7fd6', '#ff8fab', '#d4a373'];
@@ -127,6 +129,13 @@ export function Home() {
     codeFromLink || !hasLan ? 'internet' : 'lan',
   );
   const [gmAreaTab, setGmAreaTab] = useState<GmAreaTab>('music');
+  // Bestiário da Área do Mestre (Tarefa 5) — biblioteca local própria
+  // (ver lib/creatureLibrary.ts), fora de qualquer mesa, mesmo espírito de
+  // loadMyCharacters() acima.
+  const [myCreatures, setMyCreatures] = useState<Creature[]>(() => loadMyCreatures());
+  const [beastSelId, setBeastSelId] = useState<string | null>(null);
+  const [beastElFilter, setBeastElFilter] = useState<Element | null>(null);
+  const [beastQuery, setBeastQuery] = useState('');
   const [extrasTab, setExtrasTab] = useState<ExtrasTab>('minigames');
   // Item em destaque no menu principal (redesign Passo 2) — hover/foco troca
   // qual item fica grande, com descrição e dica "ENTER"; o clique continua
@@ -476,7 +485,7 @@ export function Home() {
       { key: 'ambient', label: 'Sons Ambiente', icon: <SpeakerIcon level={1} /> },
       { key: 'tokens', label: 'Tokens', icon: <TokensFloatIcon /> },
       { key: 'scenery', label: 'Cenário 2D', icon: <Scenery2DIcon /> },
-      { key: 'maps', label: 'Mapas', icon: <MapasFloatIcon /> },
+      { key: 'beasts', label: 'Criaturas', icon: <CreatureTabIcon /> },
       { key: 'places', label: 'Cenários 3D', icon: <SceneObjectToolIcon /> },
     ];
 
@@ -692,12 +701,138 @@ export function Home() {
             </div>
           )}
 
-          {gmAreaTab === 'maps' && (
-            <div className="rd-gm-panel" style={{ maxWidth: 900 }}>
-              <span className="rd-gm-eyebrow">Mapas</span>
-              <MapLibraryManager />
-            </div>
-          )}
+          {gmAreaTab === 'beasts' && (() => {
+            const q = beastQuery.trim().toLowerCase();
+            const shown = myCreatures.filter(
+              (c) => (!beastElFilter || c.el === beastElFilter) && (!q || c.name.toLowerCase().includes(q)),
+            );
+            const selected = myCreatures.find((c) => c.id === beastSelId) ?? null;
+            const refresh = (list: Creature[]) => setMyCreatures(list);
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 620 }}>
+                    <span className="rd-gm-eyebrow">Bestiário · {myCreatures.length}</span>
+                    <p className="rd-gm-desc">
+                      Crie as fichas das criaturas com calma antes da sessão. Dentro da mesa, na janela
+                      Combate, use "Importar monstro" pra trazer uma daqui pra cena.
+                    </p>
+                  </div>
+                  <button
+                    className="rd-gm-btn-primary"
+                    onClick={() => {
+                      const c = emptyCreature();
+                      const list = saveMyCreature(c);
+                      refresh(list);
+                      setBeastSelId(c.id);
+                    }}
+                  >
+                    + Nova criatura
+                  </button>
+                </div>
+
+                <div className="rd-gm-beast-toolbar">
+                  <label className="rd-gm-beast-search">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9c7dd6" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="M20 20l-4-4" />
+                    </svg>
+                    <input
+                      value={beastQuery}
+                      onChange={(e) => setBeastQuery(e.target.value)}
+                      placeholder="Buscar criatura"
+                      aria-label="Buscar criatura"
+                    />
+                  </label>
+                  <div role="group" aria-label="Filtrar por elemento" className="rd-gm-beast-filters">
+                    <button
+                      type="button"
+                      className={`rd-gm-beast-filter${beastElFilter === null ? ' on' : ''}`}
+                      style={beastElFilter === null ? { borderColor: '#b57cff', background: '#b57cff26', color: '#fff' } : undefined}
+                      onClick={() => setBeastElFilter(null)}
+                    >
+                      Todos
+                    </button>
+                    {ELEMENTS.map((e) => (
+                      <button
+                        key={e.key}
+                        type="button"
+                        className={`rd-gm-beast-filter${beastElFilter === e.key ? ' on' : ''}`}
+                        style={beastElFilter === e.key ? { borderColor: e.color, background: `${e.color}26`, color: '#fff' } : undefined}
+                        onClick={() => setBeastElFilter(e.key)}
+                      >
+                        <span className="cm-dot" style={{ background: e.color }} />
+                        {e.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rd-gm-beast-body">
+                  <div className="rd-gm-beast-list">
+                    {shown.map((c) => {
+                      const on = c.id === beastSelId;
+                      const accent = c.el ? ELEMENT_COLOR[c.el] : '#e0161e';
+                      return (
+                        <button
+                          key={c.id}
+                          className={`rd-gm-beast-row${on ? ' on' : ''}`}
+                          style={{ '--cm-accent': accent } as CSSProperties}
+                          onClick={() => setBeastSelId(c.id)}
+                        >
+                          {c.image ? (
+                            <span className="rd-gm-beast-portrait">
+                              <img src={c.image} alt="" />
+                            </span>
+                          ) : (
+                            <span className="rd-gm-beast-portrait">{(c.name.trim()[0] || '?').toUpperCase()}</span>
+                          )}
+                          <span className="rd-gm-beast-info">
+                            <span className="rd-gm-beast-name">{c.name}</span>
+                            <span className="rd-gm-beast-meta">
+                              {c.el && <span className="cm-dot" style={{ background: accent }} />}
+                              {c.el ? ELEMENTS.find((e) => e.key === c.el)?.name : 'Sem elemento'} · {c.size}
+                            </span>
+                            <span className="rd-gm-beast-stats">
+                              PV {c.pvMax} · DEF {c.defense} · {c.actions.length} {c.actions.length === 1 ? 'ação' : 'ações'}
+                            </span>
+                          </span>
+                          <span className="rd-gm-beast-vd">VD {c.vd}</span>
+                        </button>
+                      );
+                    })}
+                    {shown.length === 0 && <div className="cm-empty">Nenhuma criatura com esse filtro.</div>}
+                  </div>
+                  <div className="rd-gm-beast-detail">
+                    {selected ? (
+                      <CreatureCard
+                        key={selected.id}
+                        creature={selected}
+                        expanded
+                        onToggle={() => setBeastSelId(null)}
+                        onChange={(next) => refresh(saveMyCreature(next))}
+                        onDelete={() => {
+                          if (!confirm(`Excluir a ficha de "${selected.name}" da biblioteca?`)) return;
+                          const list = deleteMyCreature(selected.id);
+                          refresh(list);
+                          setBeastSelId(null);
+                        }}
+                        onRollAction={() => {}}
+                        onRollDamage={() => {}}
+                        onRollSkill={() => {}}
+                        onRollHability={() => {}}
+                      />
+                    ) : (
+                      <div className="rd-gm-beast-detail-empty">
+                        <CreatureTabIcon />
+                        Escolha uma criatura na lista ou crie uma nova.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {gmAreaTab === 'places' && (
             <div className="rd-gm-panel">
