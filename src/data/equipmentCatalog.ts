@@ -26,6 +26,14 @@ export interface WeaponStats {
   addsForce: boolean; // soma Força do personagem ao dano (corpo a corpo/arremesso = sim; disparo/fogo = não, salvo exceção)
 }
 
+// Estatísticas estruturadas de proteção (Capítulo 3, Tabela 3.6 — já
+// conferidas contra o livro) — antes só existiam em prosa dentro de
+// `notes`. Separa o valor de Defesa num campo próprio, igual já é feito
+// pra armas em `WeaponStats`.
+export interface ArmorStats {
+  defense: number; // bônus de Defesa fornecido pela proteção
+}
+
 export interface CatalogItem {
   id: string;
   name: string;
@@ -33,6 +41,7 @@ export interface CatalogItem {
   slots: number;
   notes: string;
   weapon?: WeaponStats;
+  armor?: ArmorStats;
 }
 
 export interface CatalogGroup {
@@ -113,9 +122,9 @@ export const EQUIPMENT_CATALOG: CatalogGroup[] = [
     id: 'protecoes',
     label: '🛡️ Proteções',
     items: [
-      { id: 'protecao-leve', name: 'Proteção Leve', category: 'I', slots: 2, notes: 'Defesa +5. Jaqueta de couro pesada ou colete de kevlar — uso comum de seguranças e policiais.' },
-      { id: 'protecao-pesada', name: 'Proteção Pesada', category: 'II', slots: 5, notes: 'Defesa +10. Resistência a balístico, corte, impacto e perfuração 2. –5 em testes de perícia com penalidade de carga (desconfortável/volumosa).' },
-      { id: 'escudo', name: 'Escudo', category: 'I', slots: 2, notes: 'Defesa +2 (acumula com proteção). Precisa ser empunhado numa mão. Conta como proteção pesada pra proficiência.' },
+      { id: 'protecao-leve', name: 'Proteção Leve', category: 'I', slots: 2, notes: 'Defesa +5. Jaqueta de couro pesada ou colete de kevlar — uso comum de seguranças e policiais.', armor: { defense: 5 } },
+      { id: 'protecao-pesada', name: 'Proteção Pesada', category: 'II', slots: 5, notes: 'Defesa +10. Resistência a balístico, corte, impacto e perfuração 2. –5 em testes de perícia com penalidade de carga (desconfortável/volumosa).', armor: { defense: 10 } },
+      { id: 'escudo', name: 'Escudo', category: 'I', slots: 2, notes: 'Defesa +2 (acumula com proteção). Precisa ser empunhado numa mão. Conta como proteção pesada pra proficiência.', armor: { defense: 2 } },
     ],
   },
   {

@@ -14,8 +14,11 @@
 //     (Calibre Grosso: 2d6 vira 3d6)
 //   - extraDamageDie: dado extra de tipo PRÓPRIO somado ao dano (Explosiva:
 //     +2d6, sem importar o dado base da arma)
-// Modificações sem nenhum desses campos (Tática, Discreta, Compensador...)
-// têm efeito só narrativo/de outra mecânica (sacar de graça, ocultar
+//   - rangeStepBonus: aumenta o alcance em N categorias (curto→médio→
+//     longo→extremo) — Mira Telescópica (pág. 60)
+//   - slotsDelta: muda o espaço ocupado pelo item (Discreta: -1)
+// Modificações sem nenhum desses campos (Tática, Compensador...) têm
+// efeito só narrativo/de outra mecânica (sacar de graça, ocultar
 // melhor...) — não mexem no ataque calculado pela ficha.
 export interface WeaponModEffect {
   atkBonus?: number;
@@ -24,6 +27,8 @@ export interface WeaponModEffect {
   critMultBonus?: number;
   extraDieSameType?: number; // quantos dados a mais do mesmo tipo
   extraDamageDie?: string; // ex. "2d6"
+  rangeStepBonus?: number; // categorias de alcance a mais
+  slotsDelta?: number; // mudança no espaço ocupado
 }
 
 export interface WeaponModDef {
@@ -54,7 +59,7 @@ export const WEAPON_MODIFICATIONS: WeaponModDef[] = [
     name: 'Discreta',
     scope: 'corpo a corpo, disparo e fogo',
     description: '+5 em testes pra ocultar e reduz o espaço em –1.',
-    effect: {},
+    effect: { slotsDelta: -1 },
   },
   {
     key: 'perigosa',
@@ -110,7 +115,7 @@ export const WEAPON_MODIFICATIONS: WeaponModDef[] = [
     name: 'Mira Telescópica',
     scope: 'só armas de fogo',
     description: 'Aumenta o alcance da arma em uma categoria e permite Ataque Furtivo em qualquer alcance.',
-    effect: {},
+    effect: { rangeStepBonus: 1 },
   },
   {
     key: 'silenciador',

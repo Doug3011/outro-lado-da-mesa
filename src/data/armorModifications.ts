@@ -2,14 +2,15 @@
 // mesmo mecanismo das modificações de arma (ver weaponModifications.ts):
 // pedido do usuário, "colocar modificações em itens de defesa tipo
 // coletes". `scope` é só informativo (tooltip), igual ao de
-// WeaponModDef — não é validado aqui. Só "Reforçada" tem efeito NUMÉRICO
-// conhecido (bate 1:1 com `defenseBonus` de deriveStats em
-// domain/character.ts); as outras (Antibombas, Blindada, Discreta) têm
-// efeito só narrativo (resistência a dano/área, espaço, ocultar) — sem
-// campo correspondente na ficha hoje, continuam só como texto, igual já
-// acontece com boa parte das modificações de arma.
+// WeaponModDef — não é validado aqui. "Reforçada" e "Blindada" têm efeito
+// NUMÉRICO conhecido (defenseBonus/rdBonus, batem com `deriveStats` em
+// domain/character.ts); todas as quatro mudam o espaço ocupado
+// (`slotsDelta`). "Antibombas" continua só narrativa (resistência contra
+// efeitos de área) — sem campo correspondente na ficha hoje.
 export interface ArmorModEffect {
   defenseBonus?: number;
+  rdBonus?: number; // resistência a dano fixa (Blindada: vira RD 5)
+  slotsDelta?: number; // mudança no espaço ocupado
 }
 
 export interface ArmorModDef {
@@ -33,21 +34,21 @@ export const ARMOR_MODIFICATIONS: ArmorModDef[] = [
     name: 'Blindada',
     scope: 'só proteção pesada',
     description: 'Resistência a dano 5 e +1 espaço.',
-    effect: {},
+    effect: { rdBonus: 5, slotsDelta: 1 },
   },
   {
     key: 'discreta-protecao',
     name: 'Discreta',
     scope: 'só proteção leve',
     description: '–1 espaço, +5 em Crime pra ocultar (mesmo sem treino).',
-    effect: {},
+    effect: { slotsDelta: -1 },
   },
   {
     key: 'reforcada',
     name: 'Reforçada',
     scope: 'proteção leve ou pesada',
     description: '+2 na Defesa e +1 espaço. Não acumula com Discreta.',
-    effect: { defenseBonus: 2 },
+    effect: { defenseBonus: 2, slotsDelta: 1 },
   },
 ];
 
