@@ -29,7 +29,11 @@ export interface WeaponStats {
 // Estatísticas estruturadas de proteção (Capítulo 3, Tabela 3.6 — já
 // conferidas contra o livro) — antes só existiam em prosa dentro de
 // `notes`. Separa o valor de Defesa num campo próprio, igual já é feito
-// pra armas em `WeaponStats`.
+// pra armas em `WeaponStats`. Só pra EXIBIÇÃO (campo próprio em vez de
+// texto único, pedido (a) do usuário) — o cálculo de Defesa derivada já
+// funciona hoje via `EQUIPMENT_EFFECTS` (data/equipmentEffects.ts) +
+// `equipmentDefenseBonus`, então este campo não duplica nenhuma conta,
+// só alimenta o editor redesenhado (3.2) quando ele existir.
 export interface ArmorStats {
   defense: number; // bônus de Defesa fornecido pela proteção
 }

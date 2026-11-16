@@ -267,9 +267,23 @@ export function countTrained(char: Character): number {
   return Object.values(char.skills).filter((s) => s.training > 0).length;
 }
 
-// Espacos de inventario usados.
+// Espaços ocupados por UM item, já considerando o slotsDelta de
+// modificações/maldições que mudam o espaço (Discreta, Blindada,
+// Reforçada — tanto de arma quanto de proteção; as duas chaves de
+// modificação não colidem, ver InventoryItem.modifications). Vale
+// independente de estar equipado — o espaço é do item em si.
+export function effectiveSlots(item: InventoryItem): number {
+  const modDelta = (item.modifications ?? []).reduce(
+    (a, k) => a + (WEAPON_MOD_BY_KEY[k]?.effect.slotsDelta ?? ARMOR_MOD_BY_KEY[k]?.effect.slotsDelta ?? 0),
+    0,
+  );
+  const curseDelta = (item.curses ?? []).reduce((a, k) => a + (WEAPON_CURSE_BY_KEY[k]?.effect.slotsDelta ?? 0), 0);
+  return Math.max(0, item.slots + modDelta + curseDelta);
+}
+
+// Espaços de inventario usados.
 export function loadUsed(char: Character): number {
-  return char.inventory.reduce((a, it) => a + it.slots * it.qty, 0);
+  return char.inventory.reduce((a, it) => a + effectiveSlots(it) * it.qty, 0);
 }
 
 // Categoria final de um item (base + modificações + maldições) — pág. 60
@@ -323,12 +337,22 @@ export function equipmentSkillBonus(char: Character, skillKey: string): number {
   }, 0);
 }
 
+const RANGE_STEPS = ['curto', 'médio', 'longo', 'extremo'] as const;
 const RANGE_LABEL: Record<string, string> = {
   curto: 'Curto',
   médio: 'Médio',
   longo: 'Longo',
   extremo: 'Extremo',
 };
+
+// Aplica rangeStepBonus (Mira Telescópica, +1 categoria — pág. 60) ao
+// alcance base da arma, sem passar de "extremo".
+function applyRangeStepBonus(range: WeaponStats['range'], steps: number): string {
+  if (!range) return '—';
+  if (steps <= 0) return RANGE_LABEL[range];
+  const idx = Math.min(RANGE_STEPS.length - 1, RANGE_STEPS.indexOf(range) + steps);
+  return RANGE_LABEL[RANGE_STEPS[idx]];
+}
 
 function parseDiceTerm(s: string): { count: number; sides: number } | null {
   const m = /^(\d+)d(\d+)$/i.exec(s.trim());
@@ -417,6 +441,8 @@ export function computeWeaponAttack(
   const testName = w.skill === 'luta' ? 'Luta' : 'Pontaria';
   const test = atkBonus ? `${testName} +${atkBonus}` : testName;
 
+  const rangeStepBonus = allEffects.reduce((a, m) => a + (m.effect.rangeStepBonus ?? 0), 0);
+
   const notesParts: string[] = [];
   if (mods.length) notesParts.push(`Modificações: ${mods.map((m) => m.name).join(', ')}`);
   if (curses.length) notesParts.push(`Maldições: ${curses.map((c) => c.name).join(', ')}`);
@@ -427,7 +453,7 @@ export function computeWeaponAttack(
     test,
     damage,
     type: w.damageType,
-    range: w.range ? RANGE_LABEL[w.range] : '—',
+    range: applyRangeStepBonus(w.range, rangeStepBonus),
     crit,
     notes: notesParts.join(' | '),
   };

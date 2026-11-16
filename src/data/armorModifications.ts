@@ -2,14 +2,18 @@
 // mesmo mecanismo das modificações de arma (ver weaponModifications.ts):
 // pedido do usuário, "colocar modificações em itens de defesa tipo
 // coletes". `scope` é só informativo (tooltip), igual ao de
-// WeaponModDef — não é validado aqui. "Reforçada" e "Blindada" têm efeito
-// NUMÉRICO conhecido (defenseBonus/rdBonus, batem com `deriveStats` em
-// domain/character.ts); todas as quatro mudam o espaço ocupado
-// (`slotsDelta`). "Antibombas" continua só narrativa (resistência contra
-// efeitos de área) — sem campo correspondente na ficha hoje.
+// WeaponModDef — não é validado aqui. "Reforçada" tem `defenseBonus`
+// (soma em `equipmentDefenseBonus`, domain/character.ts). Todas as quatro
+// que mudam espaço usam `slotsDelta` (somado em `effectiveSlots`).
+// `rdBonus` (Blindada, RD 5) é só guardado aqui por enquanto — a ficha de
+// personagem ainda não tem um campo de "resistência a dano" pra exibir
+// (diferente da ficha de criatura, que já tem `damageResistance`); não
+// foi pedido explicitamente, então não inventei essa tela ainda. "Antibombas"
+// continua só narrativa (resistência contra efeitos de área) — sem campo
+// correspondente na ficha hoje.
 export interface ArmorModEffect {
   defenseBonus?: number;
-  rdBonus?: number; // resistência a dano fixa (Blindada: vira RD 5)
+  rdBonus?: number; // resistência a dano fixa (Blindada: vira RD 5) — ainda não consumido, ver comentário acima
   slotsDelta?: number; // mudança no espaço ocupado
 }
 

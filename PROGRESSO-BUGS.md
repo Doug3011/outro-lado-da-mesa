@@ -464,8 +464,8 @@ avise quando quiser que eu publique.
 - [x] 3.1 Dados/regras (ArmorStats, rangeStepBonus, rdBonus/slotsDelta,
       limite de carga real 5×Força) — falta só a penalidade real de
       Sobrecarregado, que fica junto do toggle (3.4)
-- [~] 3.3 Categoria final calculada — função pura criada, ainda não
-      ligada à UI
+- [~] 3.3 Categoria final calculada — função pura criada e testada,
+      ainda não ligada à UI (entra junto do redesign visual, 3.2)
 - [ ] 3.4 Toggle "Limite de inventário: ativado/desativado" (inclui a
       penalidade real de Sobrecarregado — ainda não implementada)
 - [ ] 3.2 Visual novo (lista + editor de item, baseado nos mockups)
@@ -508,4 +508,40 @@ avise quando quiser que eu publique.
     (-5 Defesa, -5 perícia, -3m deslocamento), o toggle de ativar/
     desativar o limite (3.4), e o redesign visual da aba Inventário +
     editor de item baseado nos mockups (3.2).
+  - `npx tsc --noEmit` e `npm run build` limpos.
+- Notas/progresso (passo 3 — ligar rangeStepBonus e slotsDelta nos
+  cálculos que já existiam, pra não deixar dado novo sem nenhum
+  consumidor):
+  - `domain/character.ts`: `computeWeaponAttack` agora soma o
+    `rangeStepBonus` de mods/maldições equipadas e desloca o alcance
+    base da arma em N categorias (curto→médio→longo→extremo, sem passar
+    de extremo) — Mira Telescópica agora realmente aumenta o alcance
+    mostrado na aba Combate, não só guarda o dado.
+  - Nova função `effectiveSlots(item)`: soma o `slotsDelta` das
+    modificações (olha tanto `WEAPON_MOD_BY_KEY` quanto
+    `ARMOR_MOD_BY_KEY` pela mesma chave — não colidem) e das maldições
+    de arma, com piso em 0. `loadUsed` passou a somar `effectiveSlots`
+    em vez do `item.slots` cru — uma arma com Discreta agora ocupa
+    menos espaço de verdade na carga total, não só no texto.
+  - `rdBonus` (Blindada) e o `armor: ArmorStats` do catálogo ficaram
+    guardados mas ainda SEM consumidor de propósito: a ficha de
+    personagem não tem campo de "resistência a dano" pra exibir (só a
+    ficha de criatura tem `damageResistance`), e isso não foi pedido
+    explicitamente — documentei isso direto no comentário dos arquivos
+    (`armorModifications.ts`, `equipmentCatalog.ts`) pra não parecer bug
+    se alguém notar que não tem efeito ainda. `ArmorStats` serve pro
+    redesign visual (3.2), que vai mostrar Defesa/Categoria/Espaços em
+    campos próprios em vez de um texto só.
+  - Testado: criei um script com `tsx` chamando as funções reais do
+    `domain/character.ts` direto (sem passar pela ficha visual, que
+    precisa passar por várias etapas do assistente de criação pra
+    chegar na aba Inventário) — confirmei: limite de carga com Força 3
+    = 15 (igual já estava testado); Pistola sem mod = alcance "Curto";
+    Pistola + Mira Telescópica = alcance "Médio" (subiu uma categoria
+    certo); item com modificação Discreta (-1) foi de 1 pra 0 espaços;
+    categoria final de base I + 1 modificação + 2 maldições = 5 (V),
+    batendo a regra real (+1, +2 na primeira maldição, +1 na segunda).
+    Também abri o assistente de criação de ficha ao vivo (CDP) até a
+    etapa de atributos sem nenhum erro de JS, confirmando que a mudança
+    não quebrou a tela de ficha.
   - `npx tsc --noEmit` e `npm run build` limpos.
