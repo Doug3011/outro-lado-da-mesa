@@ -886,3 +886,14 @@ Nenhuma outra mudança nesta sessão — só esse bug.
       abas de uma mesa nova (Ficha, Mestre, Tokens, Mapas, Combate, Quadro,
       Músicas) abrem sem erro de JS.
   - `npx tsc --noEmit` e `npm run build` limpos.
+  - **Publicado como v2.5.0** (pedido explícito do usuário): commit, push,
+    instalador gerado e release publicada (não-draft) no GitHub, confirmada
+    como "Latest" e com `latest.yml` válido (checksum batendo).
+  - **Sobre a v2.4.1 não ter chegado**: confirmado que a release v2.4.1 em
+    si sempre esteve certa (release publicada, `latest.yml` válido) — a
+    internet desta máquina caiu bem nessa janela (confirmado: `git push`
+    e checagem de DNS falharam ao mesmo tempo, depois voltaram); como o
+    app só checa atualização ao abrir, um "fechar e abrir" durante a queda
+    não tinha como funcionar. Agora, com a internet de volta, abrir o app
+    de novo baixa direto a v2.5.0 (pula a v2.4.1, que de qualquer forma já
+    está toda incluída nela).
