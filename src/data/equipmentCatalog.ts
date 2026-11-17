@@ -54,6 +54,15 @@ export interface CatalogGroup {
   items: CatalogItem[];
 }
 
+// Rótulo de exibição do alcance — compartilhado entre o editor de
+// inventário e o catálogo (os dois mostram o alcance de uma arma).
+export const RANGE_LABEL: Record<string, string> = {
+  curto: 'Curto',
+  médio: 'Médio',
+  longo: 'Longo',
+  extremo: 'Extremo',
+};
+
 export const EQUIPMENT_CATALOG: CatalogGroup[] = [
   {
     id: 'armas',

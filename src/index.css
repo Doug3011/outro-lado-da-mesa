@@ -1282,6 +1282,880 @@ label {
   animation: toastIn 0.25s ease-out;
 }
 
+/* =====================================================================
+   Inventário: etapa nova (catálogo com grupos/filtros/busca, item livre,
+   lista compacta + editor ao clicar) — baseado no mockup
+   "Criar-Agente.dc.html" (etapa Inventário). Namespace `invx-` escolhido
+   de propósito (não existia no projeto) pra nunca colidir com nada já
+   existente — ver o bug do v2.4.1 (`inv-item` colidiu com o Quadro de
+   investigação). Cores reaproveitam as variáveis já estabelecidas
+   (--rd-sangue bate exatamente com o vermelho do mockup, #E0161E).
+   ===================================================================== */
+.invx-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .invx-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.invx-card {
+  position: relative;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+.invx-card:hover {
+  border-color: var(--rd-sangue);
+  transform: translateY(-2px);
+}
+.invx-card.catalog {
+  border-color: color-mix(in srgb, var(--rd-sangue) 45%, var(--line));
+  background: linear-gradient(150deg, color-mix(in srgb, var(--rd-sangue) 14%, transparent), var(--bg-2) 60%);
+}
+.invx-card.free.open {
+  border-color: var(--rd-sangue);
+  background: var(--bg-3);
+}
+.invx-card-icon {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invx-card.catalog .invx-card-icon {
+  background: color-mix(in srgb, var(--rd-sangue) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rd-sangue) 45%, transparent);
+  color: var(--rd-sangue);
+}
+.invx-card.free .invx-card-icon {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+}
+.invx-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.invx-card-title {
+  font-family: var(--font-disp);
+  font-size: 18px;
+  font-weight: 700;
+}
+.invx-card-desc {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.invx-card-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.invx-card-preview span {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+}
+.invx-card-chev {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+.invx-card.free.open .invx-card-chev {
+  transform: rotate(180deg);
+}
+
+/* ---- Item livre: form rápido ---- */
+.invx-free-form {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: rd-rise 0.25s ease-out both;
+}
+.invx-free-name {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--text);
+  padding: 0 12px;
+  font-family: var(--font-disp);
+  font-size: 18px;
+  font-weight: 600;
+}
+.invx-kind-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.invx-kind-chip {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text-dim);
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.invx-kind-chip .invx-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.invx-kind-chip.on {
+  color: var(--text);
+  font-weight: 600;
+}
+.invx-free-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 8px;
+}
+@media (max-width: 560px) {
+  .invx-free-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.invx-stepper {
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  padding: 6px 6px 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.invx-stepper-label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.invx-stepper-label span:first-child {
+  font-family: var(--font-disp);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}
+.invx-stepper-label span:last-child {
+  font-family: var(--font-disp);
+  font-size: 20px;
+  font-weight: 700;
+}
+.invx-step-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.1s;
+}
+.invx-step-btn:hover {
+  background: var(--bg-2);
+}
+.invx-step-btn:active {
+  transform: scale(0.9);
+}
+.invx-cat-radio-wrap {
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  padding: 8px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.invx-cat-radio-wrap > span {
+  font-family: var(--font-disp);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}
+.invx-cat-radio {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--bg-3);
+}
+.invx-cat-radio button {
+  height: 28px;
+  border-radius: 6px;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-disp);
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-faint);
+}
+.invx-cat-radio button.on {
+  background: var(--rd-sangue);
+  color: #fff;
+}
+.invx-free-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.invx-free-desc > span {
+  font-family: var(--font-disp);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+}
+.invx-free-desc textarea {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+  padding: 0;
+  font-family: inherit;
+}
+.invx-free-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.invx-free-hint {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.invx-free-add {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 0;
+  font-family: var(--font-disp);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background: var(--rd-sangue);
+  color: #fff;
+}
+.invx-free-add:disabled {
+  background: var(--bg-3);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+/* ---- Lista compacta da mochila ---- */
+.invx-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.invx-list-head-label {
+  font-family: var(--font-disp);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--rd-sangue);
+}
+.invx-list-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--text-dim);
+}
+.invx-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  background: var(--bg-2);
+  cursor: pointer;
+  animation: rd-rise 0.25s ease-out both;
+}
+.invx-row:hover {
+  border-color: var(--rd-sangue);
+}
+.invx-row.expanded {
+  border-color: var(--rd-sangue);
+  background: var(--bg-3);
+}
+.invx-row-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invx-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.invx-row-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.invx-row-name {
+  font-family: var(--font-disp);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.invx-row-summary {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.invx-badge {
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-family: var(--font-disp);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.invx-badge.mod {
+  background: color-mix(in srgb, var(--rd-sangue) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rd-sangue) 45%, transparent);
+  color: #ff8a8e;
+}
+.invx-badge.curse {
+  background: linear-gradient(135deg, var(--purple), var(--rd-energia-purple-soft));
+  color: #fff;
+  animation: invx-curse-glow 2.4s ease-in-out infinite;
+}
+.invx-badge.free {
+  background: var(--bg-3);
+  color: var(--text-dim);
+}
+.invx-row-qty {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.invx-row-qty-val {
+  min-width: 26px;
+  text-align: center;
+  font-family: var(--font-disp);
+  font-size: 14px;
+  font-weight: 700;
+}
+.invx-row-pills {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.invx-pill {
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+}
+.invx-pill.cat-up {
+  background: rgba(255, 181, 71, 0.12);
+  border-color: #6a5418;
+  color: #ffd08a;
+}
+.invx-row-remove {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invx-row-remove:hover {
+  color: var(--rd-sangue);
+}
+.invx-empty {
+  padding: 26px 14px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+/* ---- Editor expandido ao clicar na linha (reaproveita .inv-cat-final/
+   .inv-stats-grid/.inv-preview/.inv-fx-* já existentes do redesign
+   anterior — só o invólucro muda) ---- */
+.invx-detail {
+  margin: -2px 0 0;
+  padding: 12px;
+  border-radius: 0 0 12px 12px;
+  border: 1px solid var(--rd-sangue);
+  border-top: 0;
+  background: var(--bg-3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: rd-rise 0.2s ease-out both;
+}
+
+/* ---- Catálogo do livro: diálogo novo ---- */
+.invx-cat-overlay {
+  animation: invx-fade 0.2s ease-out both;
+}
+.invx-cat-dialog {
+  width: 100%;
+  max-width: 1040px;
+  height: 100%;
+  max-height: 86vh;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--rd-sangue);
+  background: var(--bg-1);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: rd-rise 0.3s ease-out both;
+}
+.invx-cat-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--rd-sangue) 14%, transparent), transparent 60%);
+}
+.invx-cat-head-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--rd-sangue) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rd-sangue) 45%, transparent);
+  color: var(--rd-sangue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invx-cat-head-titles {
+  display: flex;
+  flex-direction: column;
+}
+.invx-cat-head-title {
+  font-family: var(--font-disp);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.invx-cat-head-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.invx-cat-search {
+  flex: 1;
+  max-width: 340px;
+  margin-left: auto;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+}
+.invx-cat-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+.invx-cat-close {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invx-cat-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.invx-cat-nav {
+  flex: 0 0 212px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-1);
+  padding: 10px 8px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.invx-cat-nav-title {
+  font-family: var(--font-disp);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+  padding: 0 6px 3px;
+}
+.invx-cat-nav-item {
+  width: 100%;
+  height: 36px;
+  padding: 0 7px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+}
+.invx-cat-nav-item.on {
+  background: color-mix(in srgb, var(--rd-sangue) 18%, transparent);
+  border-color: color-mix(in srgb, var(--rd-sangue) 55%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+.invx-cat-nav-item-ico {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.invx-cat-nav-item-name {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.invx-cat-nav-item-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.invx-cat-body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.invx-cat-subfilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.invx-cat-subfilter {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text-dim);
+}
+.invx-cat-subfilter.on {
+  border-color: var(--rd-sangue);
+  background: color-mix(in srgb, var(--rd-sangue) 18%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+.invx-cat-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+.invx-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+.invx-cat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--card-accent, var(--line));
+  background: var(--bg-2);
+  animation: rd-rise 0.25s ease-out both;
+}
+.invx-cat-card.in-inv {
+  border-color: var(--green);
+}
+.invx-cat-card-head {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.invx-cat-card-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--card-accent, var(--line)) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--line)) 45%, transparent);
+  color: var(--card-accent, var(--text-dim));
+}
+.invx-cat-card-name {
+  font-family: var(--font-disp);
+  font-size: 16px;
+  font-weight: 700;
+}
+.invx-cat-card-kind {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.invx-cat-card-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  gap: 5px;
+}
+.invx-cat-card-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 3px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.invx-cat-card-stat.big {
+  border-color: color-mix(in srgb, var(--rd-sangue) 40%, var(--line));
+  background: color-mix(in srgb, var(--rd-sangue) 8%, var(--bg-1));
+}
+.invx-cat-card-stat label {
+  font-family: var(--font-disp);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+}
+.invx-cat-card-stat.big label {
+  color: #ff8a8e;
+}
+.invx-cat-card-stat span {
+  font-family: var(--font-disp);
+  font-weight: 700;
+  font-size: 12px;
+}
+.invx-cat-card-stat.big span {
+  font-size: 15px;
+}
+.invx-cat-card-note {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.invx-cat-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+.invx-cat-in-inv-tag {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  animation: rd-pop 0.3s ease-out;
+}
+.invx-cat-add-btn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  border: 0;
+  background: var(--rd-sangue);
+  color: #fff;
+}
+.invx-cat-add-btn.added {
+  background: transparent;
+  border: 1px solid var(--green);
+  color: #9ff0c0;
+}
+.invx-cat-apply-select {
+  flex: 1;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--text);
+  padding: 0 8px;
+  font-size: 12.5px;
+}
+.invx-cat-empty {
+  padding: 36px 14px;
+  border-radius: 14px;
+  border: 1.5px dashed var(--line);
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.invx-cat-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.invx-cat-tray-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+.invx-cat-tray-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.invx-cat-done {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--rd-sangue);
+  color: #fff;
+  font-family: var(--font-disp);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+@keyframes invx-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes invx-curse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(155, 92, 255, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(181, 124, 255, 0.8);
+  }
+}
+
 /* ---------- habilidades (aba Combate) ---------- */
 /* botões extras ao lado do título da seção (ex. "Expandir/Recolher todas"
    quando a lista de habilidades é longa — ver CharacterSheet.tsx) */

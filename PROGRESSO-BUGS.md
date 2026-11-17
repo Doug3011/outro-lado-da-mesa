@@ -765,3 +765,124 @@ avise quando quiser que eu publique.
     push, instalador gerado e release publicada (não-draft) no GitHub.
 
 Nenhuma outra mudança nesta sessão — só esse bug.
+
+---
+
+## 13. Etapa de Inventário nova (criação de agente + ficha pronta) — CONCLUÍDA
+
+- [x] Mockup lido (`Criar-Agente.dc.html`, etapa Inventário) e replicado com
+      fidelidade (cores, fontes, espaçamentos, layout, animações) usando os
+      componentes/variáveis já do app, com os dados reais do catálogo
+- [x] Catálogo do livro redesenhado: grupos (ITENS/MELHORIAS/MALDIÇÕES/
+      AMALDIÇOADOS), sub-filtro de armas (Corpo a corpo/Disparo/Fogo), busca,
+      cards com estatística própria, "Aplicar" de verdade em modificação/
+      maldição (arma, proteção e acessório)
+- [x] "Item livre": nome, tipo (chips), quantidade, espaços, categoria,
+      descrição
+- [x] Lista da mochila compacta (quantidade −/+, espaços, categoria final);
+      clicar no item abre o editor detalhado de sempre
+- [x] Mesmo componente usado na criação (CharacterWizard) e na ficha pronta
+      (CharacterSheet) — não foi preciso duplicar nada, os dois já
+      compartilhavam o `InventoryEditor`
+- [x] Rolagem conferida nos dois lugares (ficha e assistente)
+- [x] Testado (CDP, instância isolada)
+- Notas:
+  - `src/components/EquipmentCatalogDialog.tsx`: reescrito. Grupos/sub-
+    filtros/busca batem com o que já existia de verdade em
+    `data/equipmentCatalog.ts` (a taxonomia do catálogo real já seguia
+    exatamente ITENS/MELHORIAS/MALDIÇÕES/AMALDIÇOADOS do mockup — não foi
+    preciso mudar nenhum dado). Diferença importante da versão antiga deste
+    diálogo: modificação/maldição agora de verdade "aplica" numa arma/
+    proteção/acessório já no inventário (escreve em `modifications`/
+    `curses` do item certo, com um `<select>` "Aplicar em qual item?") —
+    a versão antiga só adicionava o mod/maldição como se fosse um item novo
+    qualquer, sem efeito nenhum.
+  - Acessórios (Utensílio/Vestimenta): modificação/maldição de acessório
+    (pág. "Melhoria/Maldição: Acessórios") não tem arquivo de efeito
+    numérico próprio no livro (diferente de arma/proteção, que já tinham
+    `weaponModifications.ts`/`armorModifications.ts` com bônus reais) — pra
+    não inventar um sistema de efeito que o livro não define, a aplicação
+    em acessório soma na categoria (igual tudo mais) e mostra o chip +
+    descrição oficial completa, mas não altera nenhum número além da
+    categoria. Documentado direto no comentário do código.
+  - `src/components/InventoryEditor.tsx`: reescrito. Dois cartões de
+    entrada ("Catálogo do livro" / "Item livre") substituem os botões
+    pequenos de antes; "Item livre" é um formulário guiado (nome, tipo,
+    quantidade, espaços, categoria I-IV, descrição) que no fim só cria um
+    `InventoryItem` comum (sem `catalogId`) — não precisou de campo novo no
+    modelo de dados. A lista virou compacta (ícone, nome, badges de mod/
+    maldição/livre, quantidade com −/+, espaços, categoria final) e clicar
+    na linha abre o editor detalhado que já existia (campos separados,
+    descrição de mod/maldição, preview "na aba Combate", categoria
+    explicada) — nada do que já funcionava foi perdido, só mudou de
+    sempre-aberto pra abrir sob demanda.
+  - `src/data/equipmentCatalog.ts`: só uma adição pequena, `RANGE_LABEL`
+    exportado (antes vivia duplicado dentro do antigo InventoryEditor).
+  - `src/index.css`: todas as classes novas usam o prefixo `invx-`,
+    escolhido de propósito por nunca ter existido no projeto — zero risco
+    de repetir o bug do v2.4.1 (colisão de nome de classe com o Quadro de
+    investigação). Cores reaproveitam variáveis já existentes
+    (`--rd-sangue` bate exatamente com o vermelho do mockup, #E0161E;
+    `--purple`/`--green`/`--bg-1/2/3`/`--line`/`--text*` cobrem o resto) em
+    vez de copiar hexadecimais do mockup que destoariam do resto da ficha.
+    Reaproveitei as animações que já existiam e batiam exatamente com o
+    mockup (`rd-rise` = `ca-rise`, `rd-pop` ≈ `ca-pop`) e só criei duas
+    novas de verdade sem equivalente (`invx-fade` pro fundo do diálogo,
+    `invx-curse-glow` pro brilho pulsante do badge de maldição).
+  - **Limite de carga**: o mockup mostra "Força + 5" no rodapé da etapa —
+    como combinado, NÃO usei esse número (está errado). O rodapé mostrado
+    na etapa de criação continua o texto que já existia antes desta leva
+    ("Sem limite de itens..."), e a ficha pronta continua usando a regra
+    real já corrigida no lote anterior (5 × Força, mínimo 2 — `loadHint`
+    em `CharacterSheet.tsx`, inalterado nesta leva).
+  - **Categoria automática**: o pedido descreveu "+1 por modificação, +2
+    por maldição" (igual pra toda maldição) — como também combinado antes,
+    a regra que está implementada é a real do livro (pág. 144): +1 por
+    modificação, +2 na PRIMEIRA maldição do item e +1 em cada maldição
+    seguinte (não um valor fixo igual pra todas). Isso já estava certo
+    desde o lote anterior (`finalItemCategory`), só confirmando que
+    continua assim.
+  - Testado via CDP (instância isolada, porta 47399/APPDATA próprio):
+    - Assistente de criação: nome + distribuição de atributos (9 pontos) +
+      Continuar até a etapa Inventário — os dois cartões aparecem certo.
+    - Catálogo: abri, busquei "Pistola" (2 resultados corretos), adicionei
+      a Pistola; fui em Melhorias → Para armas (16 modificações certas) e
+      apliquei "Mira Telescópica" na Pistola pelo `<select>`; fui em
+      Maldições → Para armas (12 maldições certas) e apliquei "Energética"
+      na mesma Pistola — tray confirmou os dois "→ Pistola". Fechei
+      ("PRONTO").
+    - Lista compacta: linha da Pistola mostrou os badges "MIRA
+      TELESCÓPICA" e "ENERGÉTICA" e "CAT IV" (I + 1 mod + 1ª maldição = 4,
+      bate a regra real). Cliquei na linha: editor abriu com "Categoria
+      final: IV (I + 1 mod. + 1 maldição)", os dois chips marcados com a
+      descrição oficial completa carregada embaixo, grid de Dano/Crítico/
+      Alcance/Tipo certo.
+    - Item livre: criei "Foto da irmã" (tipo Outro) — apareceu na lista com
+      badge "LIVRE". Testei quantidade (+1 na Pistola, foi pra ×2),
+      remover a Foto da irmã (toast "removido" + Desfazer) e desfazer
+      (voltou). Zero erros de JS em toda a sequência de criação.
+    - Terminei de criar o agente ("Criar agente"). Na ficha pronta, aba
+      Inventário: botão "Limite de inventário: ativado" presente; a
+      Pistola continuou equipada, e o preview "Na aba Combate" mostrou
+      "Pontaria · 1d12 balístico · crítico 18/x2 · Médio" — alcance já
+      subiu pra Médio por causa da Mira Telescópica. Conferi na aba
+      Combate de verdade: os mesmos valores apareceram nos campos da
+      ficha ("Pistola"/"Pontaria"/"1d12"/"balístico"/"18/x2"/"Médio").
+    - Testei acessório: adicionei "Utensílio" do catálogo (grupo
+      Equipamento geral), fui em Melhorias → Para acessórios (4
+      modificações certas: Aprimorado/Discreto/Função Adicional/
+      Instrumental) e apliquei "Aprimorado" nele — badge "APRIMORADO"
+      apareceu na linha, categoria virou "CAT II" (I + 1 mod).
+    - Rolagem: na ficha pronta, adicionei 12 itens livres extras (15 no
+      total) — a página passou a ter `scrollHeight` (3323px) maior que a
+      `clientHeight` (781px), e rolar até o fim revelou o último item.
+      No assistente de criação, mesmo teste (12 itens): o contêiner certo
+      (`.rd-cw-main`, já tinha `overflow-y:auto` de um bug antigo
+      corrigido numa leva anterior) ficou com `scrollHeight` 1292px contra
+      `clientHeight` 589px, e rolar revelou o último item — rolagem
+      funcionando nos dois lugares.
+    - Reconferido sem regressão: todas as abas da Área do Mestre (Músicas,
+      Sons Ambiente, Tokens, Cenário 2D, Cenários 3D, Criaturas) e todas as
+      abas de uma mesa nova (Ficha, Mestre, Tokens, Mapas, Combate, Quadro,
+      Músicas) abrem sem erro de JS.
+  - `npx tsc --noEmit` e `npm run build` limpos.
