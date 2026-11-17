@@ -14,3 +14,8 @@ desktop/node_modules
 *.log
 .vscode/*
 !.vscode/extensions.json
+
+# Ambiente de teste online (scripts/online-test) — artefatos de execução,
+# não fazem parte do script em si.
+scripts/online-test/cluster-roles.json
+scripts/online-test/last-join-results.json
