@@ -167,129 +167,146 @@ export const ORIGIN_LIST: OriginDef[] = [
     power: 'Cicatrizes Psicológicas',
     powerNote: 'Recebe +1 de Sanidade máxima e resiste melhor ao medo.',
   },
-  // --- Suplemento "Sobrevivendo ao Horror" (Tabela de novas origens) ---
-  // Para estas 20 origens só temos o NOME do poder (não a descrição completa
-  // do livro) — powerNote fica como resumo genérico plausível a partir do
-  // nome, sem inventar mecânica numérica específica.
+  // --- Suplemento "Sobrevivendo ao Horror" (Tabela 1.1: Novas Origens,
+  // págs. 7-13) — texto completo lido e conferido direto do PDF nesta
+  // leva (antes só tínhamos o nome do poder; os resumos abaixo são
+  // paráfrase própria do texto real, no mesmo padrão das origens do
+  // livro básico acima — não é mais um resumo "genérico plausível" a
+  // partir só do nome).
   {
     name: 'Amigo dos Animais',
     skills: ['adestramento', 'percepcao'],
     power: 'Companheiro Animal',
-    powerNote: 'Poder de origem: Companheiro Animal — tem um animal aliado ao seu lado.',
+    powerNote:
+      'Tem um animal aliado que dá bônus crescente com o NEX: +2 numa perícia, depois o bônus de um tipo de aliado, depois a habilidade desse aliado.',
   },
   {
     name: 'Astronauta',
     skills: ['ciencias', 'fortitude'],
     power: 'Acostumado ao Extremo',
-    powerNote: 'Poder de origem: Acostumado ao Extremo — resiste melhor a condições ambientais extremas.',
+    powerNote:
+      'Gasta PE para reduzir em 5 o dano de fogo, frio ou mental sofrido (custo sobe a cada uso na mesma cena).',
   },
   {
     name: 'Chef do Outro Lado',
     skills: ['ocultismo', 'profissao'],
     power: 'Fome do Outro Lado',
-    powerNote: 'Poder de origem: Fome do Outro Lado — pratos com um toque paranormal.',
+    powerNote:
+      'Usa partes de criaturas do Outro Lado como ingrediente pra preparar um prato com efeito variável (RD ou vulnerabilidade), a um custo permanente de Sanidade.',
   },
   {
     name: 'Colegial',
     skills: ['atualidades', 'tecnologia'],
     power: 'Poder da Amizade',
-    powerNote: 'Poder de origem: Poder da Amizade — bônus ligado a agir junto de aliados/amigos.',
+    powerNote:
+      'Perto do seu melhor amigo (trocando olhares), recebe +2 em todos os testes de perícia; perde PE máximo se ele morrer.',
   },
   {
     name: 'Cosplayer',
     skills: ['artes', 'vontade'],
     power: 'Não é fantasia, é cosplay!',
-    powerNote: 'Poder de origem: Não é fantasia, é cosplay! — ganha algo do personagem que está interpretando.',
+    powerNote:
+      'Usa Artes no lugar de Enganação pra se disfarçar; +2 em testes relacionados ao cosplay que estiver usando.',
   },
   {
     name: 'Diplomata',
     skills: ['atualidades', 'diplomacia'],
     power: 'Conexões',
-    powerNote: 'Poder de origem: Conexões — tem contatos úteis a quem recorrer.',
+    powerNote:
+      '+2 em Diplomacia. Também pode gastar PE e tempo contatando um NPC pra substituir um teste de perícia por Diplomacia.',
   },
   {
     name: 'Explorador',
     skills: ['fortitude', 'sobrevivencia'],
     power: 'Manual do Sobrevivente',
-    powerNote: 'Poder de origem: Manual do Sobrevivente — bônus pra lidar com o ermo e situações de sobrevivência.',
+    powerNote:
+      'Gasta PE pra +5 em testes de resistência a armadilha/clima/doença/fome/sede/sufocamento/veneno; sono precário conta como normal.',
   },
   {
     name: 'Experimento',
     skills: ['atletismo', 'fortitude'],
     power: 'Mutação',
-    powerNote: 'Poder de origem: Mutação — sofreu uma alteração física/biológica que lhe dá uma vantagem.',
+    powerNote:
+      'Resistência a dano 2 e +2 numa perícia à escolha baseada em Força/Agilidade/Vigor, mas −O em Diplomacia.',
   },
   {
     name: 'Fanático por Criaturas',
     skills: ['investigacao', 'ocultismo'],
     power: 'Conhecimento Oculto',
-    powerNote: 'Poder de origem: Conhecimento Oculto — sabe mais sobre criaturas e fenômenos paranormais.',
+    powerNote:
+      'Usa Ocultismo pra identificar criatura a partir de pistas indiretas (sem saber o tipo exato); +2 contra ela até o fim da missão.',
   },
   {
     name: 'Fotógrafo',
     skills: ['artes', 'percepcao'],
     power: 'Através da Lente',
-    powerNote: 'Poder de origem: Através da Lente — vê/registra detalhes que passariam desapercebidos através de uma câmera.',
+    powerNote: 'Gasta PE pra +5 em Investigação/Percepção ao buscar pistas através de câmera/fotos.',
   },
   {
     name: 'Inventor Paranormal',
     skills: ['profissao', 'vontade'],
     power: 'Invenção Paranormal',
-    powerNote: 'Poder de origem: Invenção Paranormal — constrói um dispositivo próprio com um efeito paranormal.',
+    powerNote:
+      'Tem um invento que replica um ritual de 1º círculo escolhido, ativado com um teste de Profissão (engenheiro).',
   },
   {
     name: 'Jovem Místico',
     skills: ['ocultismo', 'religiao'],
     power: 'A Culpa é das Estrelas',
-    powerNote: 'Poder de origem: A Culpa é das Estrelas — usa astrologia/misticismo pra prever ou influenciar algo.',
+    powerNote: 'Gasta PE e rola 1d6 contra um número da sorte por +2 em testes de perícia até o fim da cena.',
   },
   {
     name: 'Legista do Turno da Noite',
     skills: ['ciencias', 'medicina'],
     power: 'Luto Habitual',
-    powerNote: 'Poder de origem: Luto Habitual — lida melhor com corpos e cenas de morte, ficando menos abalado.',
+    powerNote:
+      'Sofre só metade do dano mental em cenas ligadas à rotina de necrotério; gasta PE pra +5 em Medicina (primeiros socorros/necropsia).',
   },
   {
     name: 'Mateiro',
     skills: ['percepcao', 'sobrevivencia'],
     power: 'Mapa Celeste',
-    powerNote: 'Poder de origem: Mapa Celeste — se orienta por céu/natureza, evitando se perder.',
+    powerNote: 'Nunca se perde vendo o céu; gasta PE pra rolar de novo um teste de Sobrevivência.',
   },
   {
     name: 'Mergulhador',
     skills: ['atletismo', 'fortitude'],
     power: 'Fôlego de Nadador',
-    powerNote: 'Poder de origem: Fôlego de Nadador — aguenta mais tempo embaixo d’água e nada melhor.',
+    powerNote:
+      '+5 PV; prende a respiração por 2×Vigor rodadas; nadando, avança o deslocamento normal (não à metade).',
   },
   {
     name: 'Motorista',
     skills: ['pilotagem', 'reflexos'],
     power: 'Mãos no Volante',
-    powerNote: 'Poder de origem: Mãos no Volante — bônus ao dirigir/pilotar veículos.',
+    powerNote:
+      'Sem penalidade de ataque num veículo em movimento; pilotando, gasta PE pra +5 em Pilotagem ou num teste de resistência.',
   },
   {
     name: 'Nerd Entusiasta',
     skills: ['ciencias', 'tecnologia'],
     power: 'O Inteligentão',
-    powerNote: 'Poder de origem: O Inteligentão — bônus relacionado a conhecimento técnico/científico.',
+    powerNote: 'O dado de bônus da ação de interlúdio ler sobe de 1d6 pra 2d6.',
   },
   {
     name: 'Profetizado',
     skills: 'choice',
     power: 'Luta ou Fuga',
-    powerNote: 'Poder de origem: Luta ou Fuga — reage com mais eficácia num momento decisivo de perigo. Perícias: Vontade + 1 livre à escolha.',
+    powerNote:
+      '+2 em Vontade. Ao encontrar uma referência à própria premonição de morte, ganha +2 PE temporários até o fim da cena.',
   },
   {
     name: 'Psicólogo',
     skills: ['intuicao', 'profissao'],
     power: 'Terapia',
-    powerNote: 'Poder de origem: Terapia — ajuda alguém a lidar com trauma/condição mental.',
+    powerNote:
+      'Usa Profissão (psicólogo) como Diplomacia; gasta PE pra usar esse teste no lugar de um teste de resistência a dano mental falho (seu ou de aliado próximo).',
   },
   {
     name: 'Repórter Investigativo',
     skills: ['atualidades', 'investigacao'],
     power: 'Encontrar a Verdade',
-    powerNote: 'Poder de origem: Encontrar a Verdade — bônus pra descobrir informações escondidas.',
+    powerNote: 'Usa Investigação no lugar de Diplomacia pra persuadir; gasta PE pra +5 em Investigação.',
   },
 ];
 

@@ -873,15 +873,44 @@ Nenhuma outra mudança nesta sessão — só esse bug.
       verdade — 8 poderes verificados contra o PDF
 - [x] Corrigir também poder de TRILHA nunca sendo removido ao trocar de
       trilha (bug irmão, mesma causa raiz)
-- [ ] Poderes de CLASSE restantes (só 2 de ~90 já ligados)
-- [ ] Poderes de TRILHA restantes (só 4 de ~76 já ligados/confirmados)
-- [ ] Poderes PARANORMAIS
-- [ ] Poderes GERAIS (`data/generalPowers.ts`, ainda não auditado)
-- [ ] Afinidades elementais
-- [ ] Origens do suplemento "Sobrevivendo ao Horror" (20 origens — só o
-      NOME do poder está correto hoje, a descrição é um resumo
-      inventado; falta ler o PDF do suplemento pra confirmar)
+- [x] Texto real das 20 origens do suplemento "Sobrevivendo ao Horror"
+      lido e conferido direto do PDF (antes só tinha o nome do poder;
+      `powerNote` agora é paráfrase do texto de verdade, igual as origens
+      do livro básico) — 3 delas ligadas de verdade (Conexões, Fôlego de
+      Nadador, Luta ou Fuga); as outras 17 ficam como texto (mecânica
+      condicional/gasta PE/precisa de campo que a ficha não tem — motivo
+      anotado em cada uma, ver notas abaixo)
+- [ ] Poderes de CLASSE restantes (6 de ~90 já ligados: Balística
+      Avançada, Reflexos Defensivos, Mochileiro, Correria Desesperada,
+      Ninja Urbano, e o já corrigido Iniciativa Aprimorada que é de
+      trilha)
+- [ ] Poderes de TRILHA restantes (2 de ~76 já ligados/confirmados:
+      Iniciativa Aprimorada, Casca Grossa/Inventário Otimizado/Presença
+      Poderosa já eram hardcoded de antes)
+- [ ] Poderes PARANORMAIS (lidos alguns candidatos em
+      `data/paranormalPowers.ts`, mas os resumos lá são paráfrase própria
+      NÃO conferida contra o PDF ainda — Precognição "+2 Defesa e
+      resistência", Sensitivo "+5 Diplomacia/Intimidação/Intuição" e
+      Visão do Oculto "+5 Percepção" parecem simples e prontas pra ligar,
+      mas preciso ler o PDF pág. 114-117 primeiro pra confirmar o número
+      exato antes de cadastrar)
+- [ ] Poderes GERAIS (`data/generalPowers.ts`, 33 poderes — resumos
+      também não conferidos contra o PDF ainda; muitos parecem seguir o
+      padrão "+5 em Perícia X" pelo nome, mas isso é só suposição até ler
+      o livro)
+- [ ] Afinidades elementais (ainda não investigado como afetam a ficha
+      além da escolha de elemento em NEX 50%)
 - [ ] Tabela de entrega completa (por enquanto só a Parte 1 do lote 1)
+
+### Melhoria no mecanismo (lote 2, mesma leva)
+
+`AbilityEffect` ganhou `skillBonuses`/`weaponDamageBonuses` (plural, lista)
+além dos campos singulares já existentes — alguns poderes dão o mesmo
+bônus em MAIS de uma perícia/categoria de arma de uma vez (ex. Reflexos
+Defensivos: Fortitude+Reflexos+Vontade; Ninja Urbano: corpo-a-corpo+
+disparo). Os agregadores (`abilitySkillBonus`/`abilityWeaponDamageBonus`)
+somam os dois formatos, sem quebrar os poderes já cadastrados no formato
+singular.
 
 ### Causa raiz (por que "ligar o cálculo automático" nunca mudava nada)
 
@@ -933,8 +962,15 @@ Defesa, e uma linha nova "Resistências (habilidades)" ao lado de Proteção.
 | Patrulha | Policial | Livro básico, pág. 20 | +2 em Defesa | ✅ Funcionando (campo `defenseBonus` existia mas nunca era lido — corrigido) |
 | Eu Já Sabia | Teórico da Conspiração | Livro básico, pág. 21 | Resistência a dano mental = Intelecto | ✅ Funcionando (nova linha "Resistências" na ficha, não existia nenhuma antes) |
 | Traços do Outro Lado | Cultista Arrependido | Livro básico, pág. 18 | Sanidade máxima da classe pela metade (o poder paranormal à escolha continua manual, como habilidade de texto) | ✅ Funcionando (só a metade de Sanidade; poder escolhido fica texto) |
-| Iniciativa Aprimorada | Trilha Operações Especiais (NEX 10%) | Livro básico, pág. 32 (trilhas) | +5 em Iniciativa (a ação de movimento extra na 1ª rodada continua só texto, é só-cena) | ✅ Corrigido (já existia no mapa, nunca funcionava por causa da causa raiz nº 1) |
-| Balística Avançada | Poder de classe (Especialista) | Livro básico, pág. 39 | +2 no dano com armas de fogo | ✅ Corrigido — confirmei no código que `addClassPowerPick` TAMBÉM usa `name (NEX N%)`, então tinha o mesmo bug da causa raiz nº 1 (nunca funcionava de verdade); a correção do `stripNexSuffix` conserta os dois de uma vez, sem precisar de código extra |
+| Iniciativa Aprimorada | Trilha Operações Especiais (NEX 10%) | Livro básico, pág. 27 | +5 em Iniciativa (a ação de movimento extra na 1ª rodada continua só texto, é só-cena) | ✅ Corrigido (já existia no mapa, nunca funcionava por causa da causa raiz nº 1) — texto conferido letra por letra contra o PDF |
+| Balística Avançada | Poder de classe (Especialista) | Livro básico, pág. 29 | +2 no dano com armas de fogo | ✅ Corrigido — confirmei no código que `addClassPowerPick` TAMBÉM usa `name (NEX N%)`, então tinha o mesmo bug da causa raiz nº 1 (nunca funcionava de verdade); a correção do `stripNexSuffix` conserta os dois de uma vez, sem precisar de código extra — texto conferido contra o PDF |
+| Reflexos Defensivos | Poder de classe (Combatente) | Livro básico, pág. 25 | +2 em Defesa, +2 em Fortitude/Reflexos/Vontade (testes de resistência) | ✅ Funcionando — texto conferido contra o PDF |
+| Mochileiro | Poder de classe (Combatente, Sobrevivendo ao Horror) | Suplemento, pág. 14 | +5 espaços de carga (a 2ª vestimenta ativa fica de fora, sem campo pra isso) | ✅ Funcionando — texto conferido contra o PDF |
+| Correria Desesperada | Poder de classe (Combatente, Sobrevivendo ao Horror) | Suplemento, pág. 14 | +3m de deslocamento (o +O em testes pra fugir fica de fora, é só-cena de perseguição) | ✅ Funcionando — texto conferido contra o PDF |
+| Ninja Urbano | Poder de classe (Especialista) | Livro básico, pág. 29 | +2 no dano corpo a corpo e +2 no dano de disparo (a proficiência em si não é um número da ficha) | ✅ Funcionando — texto conferido contra o PDF |
+| Conexões | Diplomata | Sobrevivendo ao Horror, pág. 9 | +2 em Diplomacia | ✅ Funcionando — texto lido direto do PDF (antes só tinha o nome do poder) |
+| Fôlego de Nadador | Mergulhador | Sobrevivendo ao Horror, pág. 12 | +5 PV | ✅ Funcionando — idem |
+| Luta ou Fuga | Profetizado | Sobrevivendo ao Horror, pág. 13-14 | +2 em Vontade | ✅ Funcionando — idem |
 
 **Poderes de origem vistos mas que ficam só como texto** (não são bônus
 permanente — exigem gastar PE/testar DT/evento específico, regra 8 do

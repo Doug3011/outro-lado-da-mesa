@@ -24,11 +24,19 @@ export type AttrKey = 'AGI' | 'FOR' | 'INT' | 'PRE' | 'VIG';
 export interface AbilityEffect {
   // Bônus fixo numa perícia (ex. "+5 em Iniciativa").
   skillBonus?: { skill: string; amount: number };
+  // Igual acima, mas pra mais de uma perícia de uma vez (ex. "+2 em
+  // Defesa e em testes de resistência" = Fortitude + Reflexos + Vontade,
+  // os três testes de resistência do livro).
+  skillBonuses?: { skill: string; amount: number }[];
   // 'fogo' = arma de disparo balístico ou de chamas (pistola, fuzil,
   // lança-chamas...); 'disparo' = arco/besta (Pontaria, mas não é arma de
   // fogo); 'corpo-a-corpo' = perícia Luta. Ver weaponCategory() em
   // character.ts.
   weaponDamageBonus?: { category: 'fogo' | 'disparo' | 'corpo-a-corpo'; amount: number };
+  // Igual acima, mas pra mais de uma categoria de uma vez (ex. Ninja
+  // Urbano: "+2 em rolagens de dano com armas de corpo a corpo e de
+  // disparo" — duas categorias, mesmo valor cada).
+  weaponDamageBonuses?: { category: 'fogo' | 'disparo' | 'corpo-a-corpo'; amount: number }[];
   // Bônus fixo de Defesa.
   defenseBonus?: number;
   // PV máximo: fixo + por "cada 5% de NEX" (steps = floor(nex/5) — mesma
@@ -93,4 +101,50 @@ export const ABILITY_EFFECTS: Record<string, AbilityEffect> = {
   // poder escolhido à parte; aqui só a metade de Sanidade, que É
   // automatizável.
   'Traços do Outro Lado': { sanMaxHalved: true },
+
+  // ---------------- Poderes de classe (livro básico) ----------------
+  // Combatente, pág. 25: "Você recebe +2 em Defesa e em testes de
+  // resistência." — testes de resistência do livro são Fortitude/
+  // Reflexos/Vontade.
+  'Reflexos Defensivos': {
+    defenseBonus: 2,
+    skillBonuses: [
+      { skill: 'fortitude', amount: 2 },
+      { skill: 'reflexos', amount: 2 },
+      { skill: 'vontade', amount: 2 },
+    ],
+  },
+  // Combatente (Sobrevivendo ao Horror, pág. 14): "Seu limite de carga
+  // aumenta em 5 espaços e você pode se beneficiar de uma vestimenta
+  // adicional." (a vestimenta extra não tem campo pra automatizar —
+  // teria que mexer no limite de "só 2 vestimentas ativas" do catálogo,
+  // fica de fora por enquanto).
+  Mochileiro: { loadLimitBonus: 5 },
+  // Combatente (Sobrevivendo ao Horror, pág. 14): "Você recebe +3m em seu
+  // deslocamento e +O em testes de perícia para fugir em uma perseguição"
+  // — só a parte do deslocamento é sempre-ativa; o +O em fuga é limitado
+  // à cena de perseguição (texto).
+  'Correria Desesperada': { displacementBonus: 3 },
+  // Especialista, pág. 29: "Você recebe proficiência com armas táticas de
+  // ataque corpo a corpo e de disparo (exceto de fogo) e +2 em rolagens
+  // de dano com armas de corpo a corpo e de disparo."
+  'Ninja Urbano': {
+    weaponDamageBonuses: [
+      { category: 'corpo-a-corpo', amount: 2 },
+      { category: 'disparo', amount: 2 },
+    ],
+  },
+
+  // ---------------- Poderes de origem (Sobrevivendo ao Horror) ----------------
+  // Diplomata, pág. 9: "Você recebe +2 em Diplomacia. [...]" (o resto do
+  // poder — substituir um teste por Diplomacia gastando PE — é texto).
+  Conexões: { skillBonus: { skill: 'diplomacia', amount: 2 } },
+  // Mergulhador, pág. 12: "Você recebe +5 PV e pode prender a respiração
+  // [...]" (prender a respiração e nadar sem penalidade ficam de fora,
+  // não têm campo na ficha).
+  'Fôlego de Nadador': { pvMaxBonus: 5 },
+  // Profetizado, pág. 13-14: "Você recebe +2 em Vontade. [...]" (o bônus
+  // de PE temporário ao ver uma referência à própria premonição é
+  // condicional, fica como texto).
+  'Luta ou Fuga': { skillBonus: { skill: 'vontade', amount: 2 } },
 };

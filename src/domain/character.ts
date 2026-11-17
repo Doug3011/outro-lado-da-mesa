@@ -512,6 +512,9 @@ function abilityWeaponDamageBonus(char: Character, category: 'fogo' | 'disparo' 
   let total = 0;
   for (const { eff } of activeAbilityEffects(char)) {
     if (eff.weaponDamageBonus && eff.weaponDamageBonus.category === category) total += eff.weaponDamageBonus.amount;
+    for (const b of eff.weaponDamageBonuses ?? []) {
+      if (b.category === category) total += b.amount;
+    }
   }
   return total;
 }
@@ -1050,6 +1053,9 @@ export function abilitySkillBonus(char: Character, skillKey: string): number {
   let total = 0;
   for (const { eff } of activeAbilityEffects(char)) {
     if (eff.skillBonus && eff.skillBonus.skill === skillKey) total += eff.skillBonus.amount;
+    for (const b of eff.skillBonuses ?? []) {
+      if (b.skill === skillKey) total += b.amount;
+    }
   }
   return total;
 }
