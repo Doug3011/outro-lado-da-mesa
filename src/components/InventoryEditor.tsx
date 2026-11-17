@@ -165,7 +165,7 @@ export function InventoryEditor({
         const catChanged = modCount > 0 || curseCount > 0;
         const attack = attacks?.find((a) => a.linkedInventoryId === it.id);
         return (
-          <div className="list-item inv-item" key={it.id}>
+          <div className="list-item inv-slot" key={it.id}>
             <div className="li-head">
               <input
                 value={it.name}

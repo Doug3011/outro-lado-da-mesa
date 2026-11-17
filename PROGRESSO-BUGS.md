@@ -718,3 +718,50 @@ publicado (`git push`/release) — só commits locais, como sempre.
 
 Nenhum commit foi publicado (`git push`)/lançado como versão nova —
 avise quando quiser que eu publique.
+
+---
+
+## 12. Bug relatado depois do v2.4.0: Inventário não rolava + visual "antigo" — CORRIGIDO E PUBLICADO (v2.4.1)
+
+- [x] Causa raiz encontrada
+- [x] Corrigido
+- [x] Testado (CDP, instância isolada porta 47399/APPDATA próprio)
+- [x] Publicado (v2.4.1)
+- Notas:
+  - Causa raiz: colisão de nome de classe CSS. O card de item do
+    inventário novo (`InventoryEditor.tsx`) usava a classe `inv-item`
+    ("**inv**entário"), mas essa classe JÁ EXISTIA no `index.css` pros
+    itens do Quadro de **inv**estigação (foto/documento/nota soltos no
+    corkboard, com `position: absolute`). Resultado: todo item do
+    Inventário virava `position: absolute`, saindo do fluxo normal da
+    página — por isso a tela não tinha o que rolar (o painel não crescia
+    com os itens) e por isso o item "escapava" do card escuro do tema e
+    aparecia solto contra outro fundo da página (exatamente o visual
+    "antigo"/branco relatado — o design novo sempre esteve certo no
+    código, só não aparecia por causa disso).
+  - A Tarefa 11 (3.2, redesign visual) e a 3.1/3.3/3.4 (regras de carga/
+    categoria/toggle) continuam implementadas exatamente como estavam —
+    não foi preciso refazer nada disso, só parar de colidir com a classe
+    do Quadro.
+  - Correção: renomeei a classe do item do inventário de `inv-item` pra
+    `inv-slot` (`InventoryEditor.tsx`) — a classe `.inv-item` do Quadro
+    de investigação em `index.css` não foi tocada (continua servindo o
+    corkboard normalmente). Conferido que nenhuma outra classe nova do
+    redesign (`inv-cat-final`, `inv-stats-grid`, `inv-stat`, `inv-preview`,
+    `inv-fx-*`, `inv-undo-toast`) colidia com mais nada no CSS.
+  - Testado via CDP (instância isolada): injetei uma ficha de teste com
+    18 itens no inventário. Depois da correção: `position` do item
+    voltou a `static`, fundo do card ficou escuro (`rgba(18, 13, 17,
+    0.9)`, tema certo), a página passou a ter `scrollHeight` (5655px)
+    maior que a `clientHeight` (781px) — ou seja, agora tem o que rolar
+    — e rolar a janela até o fim revelou o último item certinho. Zero
+    erros de JS. Reconferido sem regressão: todas as abas da ficha
+    (Combate, Habilidades, Rituais, Inventário, Progressão, Descrição) e
+    todas as abas da Área do Mestre (Músicas, Sons Ambiente, Tokens,
+    Cenário 2D, Cenários 3D, Criaturas) abrem sem erro.
+  - `npx tsc --noEmit` e `npm run build` limpos.
+  - **Publicado como v2.4.1** (correção leve e isolada — autorização
+    permanente já combinada, sem precisar perguntar de novo): commit,
+    push, instalador gerado e release publicada (não-draft) no GitHub.
+
+Nenhuma outra mudança nesta sessão — só esse bug.
