@@ -572,6 +572,8 @@ export function abilityPeMaxBonus(char: Character): BonusBreakdown {
     if (eff.peMaxBonus) items.push({ label: a.name, amount: eff.peMaxBonus });
     if (eff.peMaxPerOddNexStep && oddSteps > 0) items.push({ label: a.name, amount: eff.peMaxPerOddNexStep * oddSteps });
     if (eff.peMaxPerNexStep && steps > 0) items.push({ label: a.name, amount: eff.peMaxPerNexStep * steps });
+    const steps10 = Math.floor(char.nex / 10);
+    if (eff.peMaxPer10NexStep && steps10 > 0) items.push({ label: a.name, amount: eff.peMaxPer10NexStep * steps10 });
   }
   const merged = mergeBonusItems(items);
   return { total: merged.reduce((s, i) => s + i.amount, 0), items: merged };
@@ -623,6 +625,7 @@ export function abilityLoadLimitBonus(char: Character): BonusBreakdown {
   const items: BonusItem[] = [];
   for (const { a, eff } of activeAbilityEffects(char)) {
     if (eff.loadLimitBonus) items.push({ label: a.name, amount: eff.loadLimitBonus });
+    if (eff.loadLimitFromAttr) items.push({ label: a.name, amount: char.attributes[eff.loadLimitFromAttr] });
   }
   return { total: items.reduce((s, i) => s + i.amount, 0), items };
 }
@@ -1079,10 +1082,20 @@ export function classInnateProgress(char: Character): string[] {
 // caso único hardcoded (Operações Especiais/Iniciativa Aprimorada).
 export function abilitySkillBonus(char: Character, skillKey: string): number {
   let total = 0;
+  const alreadyTrained = (char.skills[skillKey]?.training ?? 0) > 0;
   for (const { eff } of activeAbilityEffects(char)) {
     if (eff.skillBonus && eff.skillBonus.skill === skillKey) total += eff.skillBonus.amount;
     for (const b of eff.skillBonuses ?? []) {
       if (b.skill === skillKey) total += b.amount;
+    }
+    for (const b of eff.skillBonusFromAttr ?? []) {
+      if (b.skill === skillKey) total += char.attributes[b.attr];
+    }
+    // "Recebe treinamento em [perícia] ou, se já treinado, +2 nela" —
+    // simula o treino como +5 "ao vivo" sem mexer no campo salvo (ver
+    // comentário de `trainOrBonus` em data/abilityEffects.ts).
+    if (eff.trainOrBonus && eff.trainOrBonus.skill === skillKey) {
+      total += alreadyTrained ? eff.trainOrBonus.bonusIfTrained : 5;
     }
   }
   return total;

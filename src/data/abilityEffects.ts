@@ -70,11 +70,29 @@ export interface AbilityEffect {
   pePerTurnBonus?: number;
   // Deslocamento (m): bônus fixo.
   displacementBonus?: number;
-  // Espaços de carga: bônus fixo (ex. Mochileiro).
+  // Espaços de carga: bônus fixo (ex. Mochileiro) ou igual a um atributo
+  // (ex. Inventário Organizado: "soma seu Intelecto no limite de
+  // espaços").
   loadLimitBonus?: number;
+  loadLimitFromAttr?: AttrKey;
   // Resistência a dano por tipo — valor fixo OU igual a um atributo (ex.
   // "resistência a dano mental igual ao seu Intelecto").
   damageResistance?: { type: string; amount?: number; fromAttr?: AttrKey }[];
+  // Bônus numa perícia igual a um atributo (ex. Observador: "soma seu
+  // Intelecto em Intuição").
+  skillBonusFromAttr?: { skill: string; attr: AttrKey }[];
+  // PE máximo: fixo + por "cada 10% de NEX" (steps = floor(nex/10)) —
+  // só a Vontade Inabalável usa essa cadência diferente de 5%.
+  peMaxPer10NexStep?: number;
+  // Padrão repetido em quase todo "Poder Geral" do suplemento Sobrevivendo
+  // ao Horror (pág. 33-36): "Você recebe treinamento em [perícia] ou, se
+  // já for treinado nesta perícia, recebe +2 nela." — como essa perícia
+  // nunca bloqueia rolagem sem treino nesta ficha (onlyTrained só muda o
+  // "*" visual, ver ordem.ts), simular o treino como +5 "ao vivo" (sem
+  // mexer no campo de treino salvo) dá o mesmo resultado prático: destreinado
+  // vira só este poder valendo como treino (+5); já treinado, vira o
+  // bônus extra descrito (+2, quase sempre).
+  trainOrBonus?: { skill: string; bonusIfTrained: number };
 }
 
 export const ABILITY_EFFECTS: Record<string, AbilityEffect> = {
@@ -200,4 +218,54 @@ export const ABILITY_EFFECTS: Record<string, AbilityEffect> = {
   // exemplo, se escolher este poder em NEX 50%, recebe 20 PV." — confere:
   // floor(50/5) × 2 = 20.
   'Sangue de Ferro': { pvMaxPerNexStep: 2 },
+
+  // ---------------- Poderes gerais (Sobrevivendo ao Horror, pág. 33-36) ----------------
+  // Todos seguem "recebe treinamento em [perícia] ou, se já treinado,
+  // +2 nela" — ver comentário de `trainOrBonus` acima pra como isso é
+  // simulado sem mexer no campo de treino salvo. O resto de cada
+  // descrição (ações especiais, substituições de perícia, 1x/cena etc.)
+  // fica só como texto — não são bônus permanentes.
+  Acrobático: { trainOrBonus: { skill: 'acrobacia', bonusIfTrained: 2 } },
+  'Ás do Volante': { trainOrBonus: { skill: 'pilotagem', bonusIfTrained: 2 } },
+  // "Além disso, recebe +3m em seu deslocamento." — parte extra sempre-ativa.
+  Atlético: { trainOrBonus: { skill: 'atletismo', bonusIfTrained: 2 }, displacementBonus: 3 },
+  'Dedos Ágeis': { trainOrBonus: { skill: 'crime', bonusIfTrained: 2 } },
+  // "Detector de Mentiras": a penalidade de -10 em Enganação PROVOCADA
+  // NOS OUTROS pra mentir pra você não tem campo nesta ficha (é um efeito
+  // em quem mente, não em você) — só a parte de treino é automatizável.
+  'Detector de Mentiras': { trainOrBonus: { skill: 'intuicao', bonusIfTrained: 2 } },
+  'Especialista em Emergências': { trainOrBonus: { skill: 'medicina', bonusIfTrained: 2 } },
+  // "Você soma seu Intelecto no limite de espaços que pode carregar."
+  'Inventário Organizado': { loadLimitFromAttr: 'INT' },
+  Informado: { trainOrBonus: { skill: 'atualidades', bonusIfTrained: 2 } },
+  Interrogador: { trainOrBonus: { skill: 'intimidacao', bonusIfTrained: 2 } },
+  'Mentiroso Nato': { trainOrBonus: { skill: 'enganacao', bonusIfTrained: 2 } },
+  // "Além disso, soma seu Intelecto em Intuição."
+  Observador: {
+    trainOrBonus: { skill: 'investigacao', bonusIfTrained: 2 },
+    skillBonusFromAttr: [{ skill: 'intuicao', attr: 'INT' }],
+  },
+  'Pai de Pet': { trainOrBonus: { skill: 'adestramento', bonusIfTrained: 2 } },
+  'Palavras de Devoção': { trainOrBonus: { skill: 'religiao', bonusIfTrained: 2 } },
+  Persuasivo: { trainOrBonus: { skill: 'diplomacia', bonusIfTrained: 2 } },
+  'Pesquisador Científico': { trainOrBonus: { skill: 'ciencias', bonusIfTrained: 2 } },
+  Proativo: { trainOrBonus: { skill: 'iniciativa', bonusIfTrained: 2 } },
+  'Pensamento Tático': { trainOrBonus: { skill: 'tatica', bonusIfTrained: 2 } },
+  // "Você recebe +3 PE e recebe treinamento em Ocultismo. Se já for
+  // treinado nesta perícia, recebe +2 nela." — os +3 PE são sempre-ativos,
+  // separados do treino/bônus de Ocultismo.
+  'Personalidade Esotérica': { peMaxBonus: 3, trainOrBonus: { skill: 'ocultismo', bonusIfTrained: 2 } },
+  'Rato de Computador': { trainOrBonus: { skill: 'tecnologia', bonusIfTrained: 2 } },
+  'Resposta Rápida': { trainOrBonus: { skill: 'reflexos', bonusIfTrained: 2 } },
+  Talentoso: { trainOrBonus: { skill: 'artes', bonusIfTrained: 2 } },
+  'Teimosia Obstinada': { trainOrBonus: { skill: 'vontade', bonusIfTrained: 2 } },
+  Tenacidade: { trainOrBonus: { skill: 'fortitude', bonusIfTrained: 2 } },
+  'Sentidos Aguçados': { trainOrBonus: { skill: 'percepcao', bonusIfTrained: 2 } },
+  Sobrevivencialista: { trainOrBonus: { skill: 'sobrevivencia', bonusIfTrained: 2 } },
+  Sorrateiro: { trainOrBonus: { skill: 'furtividade', bonusIfTrained: 2 } },
+  // "Você recebe +1 PV para cada 5% de NEX [...] e +2 em Fortitude." —
+  // sem o "ou" de treino aqui, é sempre-ativo direto.
+  'Vitalidade Reforçada': { pvMaxPerNexStep: 1, skillBonus: { skill: 'fortitude', amount: 2 } },
+  // "Você recebe +1 PE para cada 10% de NEX [...] e +2 em Vontade."
+  'Vontade Inabalável': { peMaxPer10NexStep: 1, skillBonus: { skill: 'vontade', amount: 2 } },
 };

@@ -899,10 +899,20 @@ Nenhuma outra mudança nesta sessão — só esse bug.
       Conhecimento/Energia/Morte/Sangue já cobertos; falta conferir se
       sobra algum passivo nas descrições de Afinidade de cada um, que
       ainda não toquei)
-- [ ] Poderes GERAIS (`data/generalPowers.ts`, 33 poderes — resumos
-      também não conferidos contra o PDF ainda; muitos parecem seguir o
-      padrão "+5 em Perícia X" pelo nome, mas isso é só suposição até ler
-      o livro)
+- [x] Poderes GERAIS conferidos contra o PDF (Sobrevivendo ao Horror,
+      pág. 33-36) e ligados: **26 de 33**. Quase todos seguem o mesmo
+      padrão "recebe treinamento em [perícia] ou, se já treinado, +2
+      nela" (mecanismo novo `trainOrBonus`, ver abaixo). Os 7 que ficam
+      só como texto: Atraente (bônus só contra quem se sente atraído por
+      você, condicional demais), Estigmado (converte dano, sem número
+      fixo), Foco em Perícia (é "+O", um dado extra, não um bônus fixo —
+      mecanismo diferente, não implementado ainda), Racionalidade
+      Inflexível (troca o atributo-base de Vontade/PE, mudança grande
+      demais pra uma leva de "bônus simples"), Provisões de Emergência e
+      Parceiro (sem perícia nem número, só mecânica de história/aliado).
+      `data/generalPowers.ts`: os 34 `summary` reescritos como paráfrase
+      do texto real (igual já tinha feito com `origins.ts`) — antes eram
+      resumo genérico a partir só do nome.
 - [ ] Afinidades elementais (ainda não investigado como afetam a ficha
       além da escolha de elemento em NEX 50%)
 - [ ] Tabela de entrega completa (por enquanto só a Parte 1 do lote 1)
@@ -994,6 +1004,12 @@ Defesa, e uma linha nova "Resistências (habilidades)" ao lado de Proteção.
 | Potencial Aprimorado | Poder paranormal (Morte, via Transcender) | Livro básico, pág. 115 | +1 PE a cada 5% de NEX (escala conforme sobe de NEX) | ✅ Funcionando — campo novo `peMaxPerNexStep` |
 | Sangue de Ferro | Poder paranormal (Sangue, via Transcender) | Livro básico, pág. 116 | +2 PV a cada 5% de NEX (escala conforme sobe de NEX) | ✅ Funcionando — reaproveita `pvMaxPerNexStep` |
 | Golpe Pesado | Poder de classe (Combatente) | Livro básico, pág. 25 | Arma corpo a corpo empunhada ganha +1 dado de dano do mesmo tipo | ✅ Funcionando — campo novo `extraDieSameType` de habilidade |
+| 24 Poderes Gerais (Acrobático, Ás do Volante, Atlético, Dedos Ágeis, Detector de Mentiras, Especialista em Emergências, Informado, Interrogador, Mentiroso Nato, Pai de Pet, Palavras de Devoção, Persuasivo, Pesquisador Científico, Proativo, Pensamento Tático, Rato de Computador, Resposta Rápida, Talentoso, Teimosia Obstinada, Tenacidade, Sentidos Aguçados, Sobrevivencialista, Sorrateiro) | Poder Geral | Sobrevivendo ao Horror, pág. 33-36 | "Recebe treinamento em [perícia] ou, se já treinado, +2 nela" — simulado como +5 ao vivo quando destreinado, +2 quando já treinado | ✅ Funcionando — mecanismo novo `trainOrBonus`, testado com os dois estados (destreinado e treinado) |
+| Observador | Poder Geral | Sobrevivendo ao Horror, pág. 34 | Treino/+2 em Investigação (acima) + soma Intelecto em Intuição | ✅ Funcionando — mecanismo novo `skillBonusFromAttr` |
+| Inventário Organizado | Poder Geral | Sobrevivendo ao Horror, pág. 33 | Soma Intelecto no limite de espaços de carga | ✅ Funcionando — mecanismo novo `loadLimitFromAttr` |
+| Personalidade Esotérica | Poder Geral | Sobrevivendo ao Horror, pág. 35 | +3 PE (fixo) + treino/+2 em Ocultismo | ✅ Funcionando |
+| Vitalidade Reforçada | Poder Geral | Sobrevivendo ao Horror, pág. 36 | +1 PV a cada 5% de NEX + 2 em Fortitude (sempre-ativo, sem "ou") | ✅ Funcionando |
+| Vontade Inabalável | Poder Geral | Sobrevivendo ao Horror, pág. 36 | +1 PE a cada 10% de NEX + 2 em Vontade (sempre-ativo) | ✅ Funcionando — mecanismo novo `peMaxPer10NexStep` |
 
 **Poderes de origem vistos mas que ficam só como texto** (não são bônus
 permanente — exigem gastar PE/testar DT/evento específico, regra 8 do
