@@ -1066,16 +1066,70 @@ CRIS); NEX 15%: PE por turno 4 (3 do NEX normal + 1 de Dedicação).
 
 ## PARTE 2 — Varredura de bugs (modo online)
 
-Ainda não iniciada — começa depois de fechar mais uma leva de poderes da
-Parte 1 (seguindo a ordem pedida: Parte 1 primeiro, Parte 2 depois). Vou
-usar instâncias Electron isoladas (porta/perfil próprios, já é o padrão
-deste projeto) pra simular mestre + jogadores, e o throttling de rede do
-Chrome DevTools Protocol (`Network.emulateNetworkConditions`, disponível
-via a mesma conexão CDP já usada nos testes) pra simular latência/perda de
-pacote por cliente — ferramenta escolhida porque já está disponível nesta
-máquina (CDP já em uso) e aplica throttling de verdade por conexão, sem
-precisar instalar nada novo. Scripts ficam salvos em
-`scratchpad`/documentados aqui pra rodar de novo depois, como pedido.
+> **Prioridade trocada a pedido do usuário** (limite semanal curto) —
+> Parte 1 pausada no meio pra focar aqui.
+
+### A) Ambiente de teste online — CRIADO
+
+- [x] Scripts salvos em `scripts/online-test/` (ver `README.md` lá) —
+      reusáveis, não é descartável: `launch-cluster.ps1` sobe 1 mestre +
+      N jogadores (padrão: 4) como instâncias Electron isoladas nesta
+      máquina (porta HTTP + perfil de dados + porta CDP próprios cada
+      uma); `join-table.mjs` faz o mestre hospedar (modo LAN) e cada
+      jogador entrar por endereço manual `127.0.0.1:<porta do mestre>`;
+      `join_one.mjs` entra com um jogador só, sem reiniciar o cluster;
+      `teardown.ps1` encerra tudo.
+- [x] Condição de rede por jogador: **CDP `Network.emulateNetworkConditions`**
+      (mesma ferramenta do painel Network do Chrome DevTools, throttling
+      de verdade, por cliente) — perfis de 50/150/300/600ms de latência
+      aplicados nos 4 jogadores, na ordem pedida, mais um perfil de banda
+      baixa (~256kbps down/64kbps up) pronto pra um 5º.
+- [x] **Perda de pacote**: NÃO incluída — o CDP não tem esse parâmetro
+      (só latência/banda). Simular de verdade exigiria uma ferramenta de
+      sistema tipo `clumsy` (usa um driver WinDivert no Windows), que não
+      está instalada — instalar um driver de rede é uma decisão que pede
+      sua autorização antes, não fiz sem perguntar. Fica pendente.
+- [x] Conexão direta falhando (fallback/relay): não testado ainda, mas o
+      mecanismo já existe pronto pra usar (`Network.emulateNetworkConditions`
+      com `offline: true`, função `setOffline()` já em `cdp_lib.mjs`).
+
+### B) Testado até agora
+
+- [x] **Conexão simultânea**: 1 mestre + 4 jogadores (cada um com uma
+      condição de rede diferente) conectados ao mesmo tempo. Presença
+      sincronizada nos dois sentidos — o mestre viu os 4 jogadores
+      aparecerem (confirmei via a lista de presença na tela dele) e cada
+      jogador viu os outros 3 + o mestre. Zero erro de JS em qualquer um
+      dos 5 clientes, mesmo o de 600ms de latência. Isso já prova que o
+      relay (WebSocket) propaga estado entre clientes de verdade sob
+      rede degradada, não só em condição perfeita.
+  - **Achado no processo**: a primeira tentativa (rodar os 5 clientes em
+    sequência rápida demais, sem confirmar cada entrada antes da
+    próxima) deixou tudo "desconectado" silenciosamente (sem erro de JS,
+    mas ninguém de fato na mesa) — corrigido fazendo cada jogador entrar
+    um de cada vez, confirmando "AO VIVO" antes do próximo. Script final
+    já usa essa sequência comprovada.
+- [ ] Propagação de funcionalidade específica (dados, tokens, música,
+      quadro, chat) — tentei automatizar e não achei os seletores certos
+      a tempo nesta passada (orçamento curto); fica pra próxima rodada
+      com o cluster já funcionando.
+- [ ] Teste de estresse (sessão longa, muitas ações rápidas, troca de
+      cenário repetida).
+- [ ] Uso de CPU/memória/FPS em cliente "fraco" (simular com throttling
+      de CPU do CDP, `Emulation.setCPUThrottlingRate` — ainda não usado).
+- [ ] Varredura geral (D): build/typecheck (já rodo isso toda hora nesta
+      sessão, sempre limpo), mas a varredura tela-por-tela dedicada ainda
+      não foi feita como item formal.
+- [ ] Relatório com severidade (E) — cedo pra isso, poucos achados ainda.
+
+### Resumo pra quem está com pouco tempo de leitura
+
+O ambiente de teste online **existe e funciona** — já provei que mestre
++ 4 jogadores conseguem se conectar e sincronizar presença mesmo com
+latência simulada de até 600ms, com os scripts salvos pra rodar de novo.
+O que falta é usar esse mesmo ambiente pra testar cada funcionalidade
+específica (isso é a maior parte do trabalho que resta) e depois os
+testes de estresse/varredura geral.
     - Item livre: criei "Foto da irmã" (tipo Outro) — apareceu na lista com
       badge "LIVRE". Testei quantidade (+1 na Pistola, foi pra ×2),
       remover a Foto da irmã (toast "removido" + Desfazer) e desfazer
