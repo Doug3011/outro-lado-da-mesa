@@ -14,7 +14,8 @@ import { unlockedTrilhaPowers, trilhaByName } from '../data/trilhas';
 import { CLASS_POWERS, CLASS_POWER_NEX_SLOTS } from '../data/classPowers';
 import { PARANORMAL_BY_KEY } from '../data/paranormalPowers';
 import { EQUIPMENT_EFFECTS, type EquipEffect } from '../data/equipmentEffects';
-import { ABILITY_EFFECTS } from '../data/abilityEffects';
+import { ABILITY_EFFECTS, type AbilityEffect } from '../data/abilityEffects';
+import { ORIGIN_BY_NAME } from '../data/origins';
 import type { CatalogItem, WeaponStats } from '../data/equipmentCatalog';
 import { WEAPON_MOD_BY_KEY, type WeaponModDef } from '../data/weaponModifications';
 import { WEAPON_CURSE_BY_KEY, type WeaponCurseDef } from '../data/weaponCurses';
@@ -75,6 +76,18 @@ export interface Ability {
   // efeito que vale a pena rolar direto da ficha (pedido do usuário: criar
   // habilidade nova e já rolar clicando nela, igual arma/ritual).
   rollDice?: string;
+}
+
+// Um bônus numérico com a fonte (pra mostrar "de onde vem cada bônus",
+// pedido do usuário) — usado pelos agregadores de efeito de habilidade
+// abaixo (abilityPvMaxBonus, abilityPeMaxBonus etc.).
+export interface BonusItem {
+  label: string;
+  amount: number;
+}
+export interface BonusBreakdown {
+  total: number;
+  items: BonusItem[];
 }
 
 // Escolha de um "Poder de Classe" (NEX 15/30/45/60/75/90). `abilityId` liga essa
@@ -205,14 +218,25 @@ export interface DerivedStats {
   pvMax: number;
   peMax: number;
   sanMax: number;
-  defense: number; // 10 + AGI + defenseBonus + bônus de itens equipados (já com -5 se sobrecarregado)
+  defense: number; // 10 + AGI + defenseBonus + bônus de itens equipados + bônus de habilidades (já com -5 se sobrecarregado)
   protectionTotal: number; // char.protection (manual) + bônus de itens equipados
-  loadLimit: number; // 5 por ponto de Forca (minimo 2 com Forca 0) — pag. 53 do livro
+  loadLimit: number; // 5 por ponto de Forca (minimo 2 com Forca 0) — pag. 53 do livro + bônus de habilidades
   overloaded: boolean; // acima do loadLimit e com o limite ativado — ver isOverloaded
   displacementPenalty: number; // 3 (m) quando sobrecarregado, senão 0 — subtrai de char.displacement na UI
+  displacementBonus: number; // bônus fixo de deslocamento vindo de habilidades (soma, não substitui)
   trainedBudget: number; // pericias treinadas: base da classe + Intelecto (+2 origem)
-  pePerTurn: number; // limite de PE por turno pelo NEX
+  pePerTurn: number; // limite de PE por turno pelo NEX + bônus de habilidades (ex. Dedicação)
   maxAttribute: number; // teto de atributo pelo NEX
+  // "De onde vem cada bônus" (pedido do usuário) — cada item já é só a
+  // PARTE extra de habilidade/trilha somada ao valor base da fórmula,
+  // pra mostrar ao lado do número final na ficha.
+  pvBreakdown: BonusItem[];
+  peBreakdown: BonusItem[];
+  sanBreakdown: BonusItem[];
+  pePerTurnBreakdown: BonusItem[];
+  defenseBreakdown: BonusItem[];
+  loadLimitBreakdown: BonusItem[];
+  damageResistances: DamageResistanceEntry[];
 }
 
 // Tudo que e formula pura das regras de criacao/progressao.
@@ -228,18 +252,51 @@ export function deriveStats(char: Character): DerivedStats {
   // Técnico (trilha de especialista) — Inventário Otimizado: soma Intelecto à carga.
   const inventarioOtimizado = char.trilha === 'Técnico' && char.nex >= 10 ? a.INT : 0;
   const overloaded = isOverloaded(char);
+
+  const pvBonus = abilityPvMaxBonus(char);
+  const sanBonus = abilitySanMaxBonus(char);
+  const peBonus = abilityPeMaxBonus(char);
+  const pePerTurnBonus = abilityPePerTurnBonus(char);
+  const defBonus = abilityDefenseBonus(char);
+  const dispBonus = abilityDisplacementBonus(char);
+  const loadBonus = abilityLoadLimitBonus(char);
+
+  // Traços do Outro Lado (origem Cultista Arrependido): "começa o jogo com
+  // metade da Sanidade normal para sua classe" — metade só da parte
+  // classe+NEX; Transcender (perda de Sanidade por NEX) e bônus de outras
+  // habilidades somam depois, sem serem afetados pela metade.
+  const sanBaseClassNex = c.sanBase + c.sanPerNex * steps;
+  const sanBaseHalved = sanBonus.halved ? Math.floor(sanBaseClassNex / 2) : sanBaseClassNex;
+
+  const pvMax = c.pvBase + a.VIG + c.pvPerNex * steps + cascaGrossa + pvBonus.total;
+  const peMax = (char.pdMode ? pdMax(char) : c.peBase + a.PRE + c.pePerNex * steps) + peBonus.total;
+  const sanMax = Math.max(1, sanBaseHalved - c.sanPerNex * transcendCount + sanBonus.total);
+  const defense =
+    10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char) + defBonus.total + (overloaded ? -5 : 0);
+  const loadLimit = Math.max(2, a.FOR * 5) + inventarioOtimizado + loadBonus.total;
+
   return {
-    pvMax: c.pvBase + a.VIG + c.pvPerNex * steps + cascaGrossa,
-    peMax: char.pdMode ? pdMax(char) : c.peBase + a.PRE + c.pePerNex * steps,
-    sanMax: Math.max(1, c.sanBase + c.sanPerNex * steps - c.sanPerNex * transcendCount),
-    defense: 10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char) + (overloaded ? -5 : 0),
+    pvMax,
+    peMax,
+    sanMax,
+    defense,
     protectionTotal: (char.protection || 0) + equipmentProtectionBonus(char),
-    loadLimit: Math.max(2, a.FOR * 5) + inventarioOtimizado,
+    loadLimit,
     overloaded,
     displacementPenalty: overloaded ? 3 : 0,
+    displacementBonus: dispBonus.total,
     trainedBudget: c.skillsTrained + a.INT + 2,
-    pePerTurn: pePerTurn(char.nex),
+    pePerTurn: pePerTurn(char.nex) + pePerTurnBonus.total,
     maxAttribute: char.nex >= 50 ? 5 : char.nex >= 20 ? 4 : 3,
+    pvBreakdown: cascaGrossa ? [{ label: 'Casca Grossa (trilha)', amount: cascaGrossa }, ...pvBonus.items] : pvBonus.items,
+    peBreakdown: peBonus.items,
+    sanBreakdown: sanBonus.items,
+    pePerTurnBreakdown: pePerTurnBonus.items,
+    defenseBreakdown: defBonus.items,
+    loadLimitBreakdown: inventarioOtimizado
+      ? [{ label: 'Inventário Otimizado (trilha)', amount: inventarioOtimizado }, ...loadBonus.items]
+      : loadBonus.items,
+    damageResistances: abilityDamageResistances(char),
   };
 }
 
@@ -416,16 +473,150 @@ function weaponCategory(w: WeaponStats): 'fogo' | 'disparo' | 'corpo-a-corpo' {
   return w.damageType === 'balístico' || w.damageType === 'fogo' ? 'fogo' : 'disparo';
 }
 
+// Poderes de trilha/classe sempre ganham o sufixo " (NEX N%)" no nome da
+// Ability (ver syncTrilhaAbilities/addClassPower abaixo) — tira esse
+// sufixo pra bater com a chave em ABILITY_EFFECTS (que usa o nome "puro"
+// do poder, igual aparece no livro). Poder de origem nunca tem sufixo,
+// então sobra igual. CAUSA RAIZ do bug relatado pelo usuário ("poderes
+// não mudam a ficha"): antes desta leva, a busca comparava `a.name` direto
+// — então todo poder de trilha/classe (sempre com esse sufixo) nunca
+// batia com nada no mapa, mesmo quando já existia uma entrada certa.
+function stripNexSuffix(name: string): string {
+  return name.replace(/\s*\(NEX\s*\d+%\)\s*$/, '');
+}
+
+// Lista (ability, efeito) de toda habilidade da ficha que tem efeito
+// numérico cadastrado — base de todos os agregadores abaixo, pra não
+// repetir o strip+lookup em cada um.
+function activeAbilityEffects(char: Character): { a: Ability; eff: AbilityEffect }[] {
+  const out: { a: Ability; eff: AbilityEffect }[] = [];
+  for (const a of char.abilities) {
+    const eff = ABILITY_EFFECTS[stripNexSuffix(a.name)];
+    if (eff) out.push({ a, eff });
+  }
+  return out;
+}
+
+// Junta itens do mesmo rótulo num só (ex.: Dedicação soma PE fixo + PE por
+// NEX ímpar — sem isso, o breakdown mostraria "Dedicação" duas vezes).
+function mergeBonusItems(items: BonusItem[]): BonusItem[] {
+  const byLabel = new Map<string, number>();
+  for (const i of items) byLabel.set(i.label, (byLabel.get(i.label) ?? 0) + i.amount);
+  return [...byLabel.entries()].map(([label, amount]) => ({ label, amount }));
+}
+
 // Bônus de dano de arma só de habilidades escolhidas com efeito cadastrado
 // pra essa categoria (ver data/abilityEffects.ts) — ex.: Balística
 // Avançada, +2 de dano com arma de fogo.
 function abilityWeaponDamageBonus(char: Character, category: 'fogo' | 'disparo' | 'corpo-a-corpo'): number {
   let total = 0;
-  for (const a of char.abilities) {
-    const eff = ABILITY_EFFECTS[a.name];
-    if (eff?.weaponDamageBonus && eff.weaponDamageBonus.category === category) total += eff.weaponDamageBonus.amount;
+  for (const { eff } of activeAbilityEffects(char)) {
+    if (eff.weaponDamageBonus && eff.weaponDamageBonus.category === category) total += eff.weaponDamageBonus.amount;
   }
   return total;
+}
+
+// Bônus de Defesa de habilidades (ex. Patrulha, origem Policial, +2).
+export function abilityDefenseBonus(char: Character): BonusBreakdown {
+  const items: BonusItem[] = [];
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.defenseBonus) items.push({ label: a.name, amount: eff.defenseBonus });
+  }
+  return { total: items.reduce((s, i) => s + i.amount, 0), items };
+}
+
+// PV máximo extra de habilidades (fixo + por "cada 5% de NEX").
+export function abilityPvMaxBonus(char: Character): BonusBreakdown {
+  const items: BonusItem[] = [];
+  const steps = Math.floor(char.nex / 5);
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.pvMaxBonus) items.push({ label: a.name, amount: eff.pvMaxBonus });
+    if (eff.pvMaxPerNexStep && steps > 0) items.push({ label: a.name, amount: eff.pvMaxPerNexStep * steps });
+  }
+  const merged = mergeBonusItems(items);
+  return { total: merged.reduce((s, i) => s + i.amount, 0), items: merged };
+}
+
+// Sanidade máxima extra de habilidades (fixo + por "cada 5% de NEX").
+// `halved` sinaliza se alguma habilidade ativa pede metade da Sanidade
+// base da classe (Traços do Outro Lado) — aplicado só na parte
+// classe+NEX, em deriveStats, não aqui.
+export function abilitySanMaxBonus(char: Character): BonusBreakdown & { halved: boolean } {
+  const items: BonusItem[] = [];
+  let halved = false;
+  const steps = Math.floor(char.nex / 5);
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.sanMaxBonus) items.push({ label: a.name, amount: eff.sanMaxBonus });
+    if (eff.sanMaxPerNexStep && steps > 0) items.push({ label: a.name, amount: eff.sanMaxPerNexStep * steps });
+    if (eff.sanMaxHalved) halved = true;
+  }
+  const merged = mergeBonusItems(items);
+  return { total: merged.reduce((s, i) => s + i.amount, 0), items: merged, halved };
+}
+
+// PE máximo extra de habilidades (fixo + "mais 1 PE a cada NEX ímpar" —
+// steps conta 15/25/35.../95, conferido contra o livro: "em NEX 5% seu
+// limite é 2, em NEX 10% é 3" é o pePerTurn normal, não este bônus).
+export function abilityPeMaxBonus(char: Character): BonusBreakdown {
+  const items: BonusItem[] = [];
+  const oddSteps = Math.floor(Math.max(0, char.nex - 5) / 10);
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.peMaxBonus) items.push({ label: a.name, amount: eff.peMaxBonus });
+    if (eff.peMaxPerOddNexStep && oddSteps > 0) items.push({ label: a.name, amount: eff.peMaxPerOddNexStep * oddSteps });
+  }
+  const merged = mergeBonusItems(items);
+  return { total: merged.reduce((s, i) => s + i.amount, 0), items: merged };
+}
+
+// Limite de PE por turno extra de habilidades (fixo — soma ao
+// pePerTurn(nex) normal).
+export function abilityPePerTurnBonus(char: Character): BonusBreakdown {
+  const items: BonusItem[] = [];
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.pePerTurnBonus) items.push({ label: a.name, amount: eff.pePerTurnBonus });
+  }
+  return { total: items.reduce((s, i) => s + i.amount, 0), items };
+}
+
+// Deslocamento extra de habilidades (fixo, em metros).
+export function abilityDisplacementBonus(char: Character): BonusBreakdown {
+  const items: BonusItem[] = [];
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.displacementBonus) items.push({ label: a.name, amount: eff.displacementBonus });
+  }
+  return { total: items.reduce((s, i) => s + i.amount, 0), items };
+}
+
+// Espaços de carga extra de habilidades (fixo — soma ao loadLimit normal).
+export function abilityLoadLimitBonus(char: Character): BonusBreakdown {
+  const items: BonusItem[] = [];
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    if (eff.loadLimitBonus) items.push({ label: a.name, amount: eff.loadLimitBonus });
+  }
+  return { total: items.reduce((s, i) => s + i.amount, 0), items };
+}
+
+// Resistência a dano por tipo vinda de habilidades (fixo OU igual a um
+// atributo, ex. "resistência a dano mental igual ao Intelecto") — soma
+// por tipo, com a lista de fontes pra mostrar de onde vem.
+export interface DamageResistanceEntry {
+  type: string;
+  amount: number;
+  sources: string[];
+}
+export function abilityDamageResistances(char: Character): DamageResistanceEntry[] {
+  const byType = new Map<string, DamageResistanceEntry>();
+  for (const { a, eff } of activeAbilityEffects(char)) {
+    for (const dr of eff.damageResistance ?? []) {
+      const amount = dr.amount ?? (dr.fromAttr ? char.attributes[dr.fromAttr] : 0);
+      if (amount <= 0) continue;
+      const cur = byType.get(dr.type) ?? { type: dr.type, amount: 0, sources: [] };
+      cur.amount += amount;
+      cur.sources.push(a.name);
+      byType.set(dr.type, cur);
+    }
+  }
+  return [...byType.values()];
 }
 
 // Monta o Attack (dano/crítico/teste) de uma arma do catálogo já com Força
@@ -576,25 +767,57 @@ export function createCharacter(ownerId: string, name = 'Novo Agente'): Characte
 // adiciona sozinho conforme o NEX sobe (a trilha em si é escolhida uma vez, na criação
 // ou na ficha; a partir daí a progressão 10/40/65/99 é automática).
 export function syncTrilhaAbilities(char: Character): Character {
-  if (!char.trilha) return char;
+  // Tira poder de uma trilha ANTERIOR (trocou de trilha, ou desmarcou) —
+  // regra do usuário: "trocou origem/classe/trilha: o bônus sai". Antes
+  // desta leva, poder de trilha só era ADICIONADO, nunca removido: trocar
+  // de trilha deixava o poder antigo preso na ficha pra sempre (e com ele,
+  // qualquer efeito numérico cadastrado em data/abilityEffects.ts).
+  const currentSource = char.trilha ? `Trilha: ${char.trilha}` : null;
+  const withoutStale = char.abilities.filter((a) => !a.source.startsWith('Trilha: ') || a.source === currentSource);
+  if (!char.trilha) {
+    return withoutStale.length === char.abilities.length ? char : { ...char, abilities: withoutStale };
+  }
   const unlocked = unlockedTrilhaPowers(char.classe, char.trilha, char.nex);
-  const source = `Trilha: ${char.trilha}`;
   const label = (nex: number, name: string) => `${name} (NEX ${nex}%)`;
-  const existing = new Set(
-    char.abilities.filter((a) => a.source === source).map((a) => a.name),
-  );
+  const existing = new Set(withoutStale.filter((a) => a.source === currentSource).map((a) => a.name));
   const missing = unlocked.filter((p) => !existing.has(label(p.nex, p.name)));
-  if (missing.length === 0) return char;
+  if (missing.length === 0 && withoutStale.length === char.abilities.length) return char;
   return {
     ...char,
     abilities: [
-      ...char.abilities,
+      ...withoutStale,
       ...missing.map((p) => ({
         id: uid(),
         name: label(p.nex, p.name),
-        source,
+        source: currentSource as string,
         description: p.summary,
       })),
+    ],
+  };
+}
+
+// Poder de origem — mesma ideia de syncTrilhaAbilities, mas 1 poder só
+// (sem NEX-staging): tira o poder de uma origem ANTERIOR e adiciona o da
+// origem atual, se ainda não estiver na ficha. Chamado quando `origem`
+// muda numa ficha já criada (CharacterWizard já adiciona o poder certo na
+// criação, mas trocar a origem DEPOIS, na ficha pronta, nunca tinha
+// mexido em `abilities` — bug irmão do de trilha acima).
+export function syncOriginAbility(char: Character): Character {
+  const def = char.origem ? ORIGIN_BY_NAME[char.origem] : undefined;
+  const currentSource = def ? `Origem: ${char.origem}` : null;
+  const withoutStale = char.abilities.filter((a) => !a.source.startsWith('Origem: ') || a.source === currentSource);
+  if (!def) {
+    return withoutStale.length === char.abilities.length ? char : { ...char, abilities: withoutStale };
+  }
+  const already = withoutStale.some((a) => a.source === currentSource && a.name === def.power);
+  if (already) {
+    return withoutStale.length === char.abilities.length ? char : { ...char, abilities: withoutStale };
+  }
+  return {
+    ...char,
+    abilities: [
+      ...withoutStale,
+      { id: uid(), name: def.power, source: currentSource as string, description: def.powerNote },
     ],
   };
 }
@@ -825,9 +1048,8 @@ export function classInnateProgress(char: Character): string[] {
 // caso único hardcoded (Operações Especiais/Iniciativa Aprimorada).
 export function abilitySkillBonus(char: Character, skillKey: string): number {
   let total = 0;
-  for (const a of char.abilities) {
-    const eff = ABILITY_EFFECTS[a.name];
-    if (eff?.skillBonus && eff.skillBonus.skill === skillKey) total += eff.skillBonus.amount;
+  for (const { eff } of activeAbilityEffects(char)) {
+    if (eff.skillBonus && eff.skillBonus.skill === skillKey) total += eff.skillBonus.amount;
   }
   return total;
 }

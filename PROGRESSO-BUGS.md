@@ -857,6 +857,142 @@ Nenhuma outra mudança nesta sessão — só esse bug.
       final: IV (I + 1 mod. + 1 maldição)", os dois chips marcados com a
       descrição oficial completa carregada embaixo, grid de Dano/Crítico/
       Alcance/Tipo certo.
+
+---
+
+# Lote 3 — Habilidades/poderes na ficha (Parte 1) + varredura online (Parte 2)
+
+> Pedido grande do usuário, em duas partes, nesta ordem. Trabalhando em modo
+> autônomo (autorização do próprio usuário) — cada passo testado e commitado
+> separado, igual sempre. Nada publicado sem pedir.
+
+## PARTE 1 — Habilidades e poderes que mudam a ficha
+
+- [x] Achar a causa raiz de por que a correção anterior não funcionou
+- [x] Lote 1 de poderes de ORIGEM (livro básico, Tabela 1.1) ligados de
+      verdade — 8 poderes verificados contra o PDF
+- [x] Corrigir também poder de TRILHA nunca sendo removido ao trocar de
+      trilha (bug irmão, mesma causa raiz)
+- [ ] Poderes de CLASSE restantes (só 2 de ~90 já ligados)
+- [ ] Poderes de TRILHA restantes (só 4 de ~76 já ligados/confirmados)
+- [ ] Poderes PARANORMAIS
+- [ ] Poderes GERAIS (`data/generalPowers.ts`, ainda não auditado)
+- [ ] Afinidades elementais
+- [ ] Origens do suplemento "Sobrevivendo ao Horror" (20 origens — só o
+      NOME do poder está correto hoje, a descrição é um resumo
+      inventado; falta ler o PDF do suplemento pra confirmar)
+- [ ] Tabela de entrega completa (por enquanto só a Parte 1 do lote 1)
+
+### Causa raiz (por que "ligar o cálculo automático" nunca mudava nada)
+
+Duas causas, as duas no mesmo lugar (`domain/character.ts` +
+`data/abilityEffects.ts`):
+
+1. **Causa principal**: a busca no mapa de efeitos (`ABILITY_EFFECTS[a.name]`)
+   comparava o nome da habilidade *direto*, sem tirar o sufixo
+   `" (NEX N%)"` que **todo** poder de trilha e de classe ganha ao ser
+   adicionado (`syncTrilhaAbilities`/`addClassPowerPick`, ver
+   `label = (nex, name) => \`${name} (NEX ${nex}%)\`
+`). Resultado: **nenhum**
+   poder de trilha ou de classe batia com o mapa, mesmo quando já existia
+   uma entrada certa pra ele (ex. "Iniciativa Aprimorada", cadastrada numa
+   leva anterior e nunca funcionou por causa disso). Só poder de ORIGEM
+   (nome sem sufixo) chegava a funcionar — só que nenhum poder de origem
+   tinha entrada no mapa ainda, incluindo "Dedicação", o exemplo do bug.
+2. **Causa secundária, achada testando a correção**: trocar a origem (ou a
+   trilha) numa ficha JÁ CRIADA nunca removia a habilidade da origem (ou
+   trilha) antiga, nem adicionava a nova — `CharacterSheet.tsx` só
+   atualizava o campo de texto `origem`/`trilha`, nunca `abilities`. O
+   assistente de criação (`CharacterWizard.tsx`) fazia isso certo, mas só
+   na criação. Por isso a regra do usuário ("removeu a habilidade ou
+   trocou origem/trilha: o bônus sai") virou parte do conserto, não só um
+   caso extra.
+
+### O que foi ligado (lote 1 — poderes de origem, livro básico)
+
+Novo campo `AbilityEffect` bem maior em `data/abilityEffects.ts` (antes só
+tinha `skillBonus`/`weaponDamageBonus`/`defenseBonus`, e `defenseBonus`
+nunca era sequer lido em lugar nenhum): `pvMaxBonus`/`pvMaxPerNexStep`,
+`sanMaxBonus`/`sanMaxPerNexStep`/`sanMaxHalved`, `peMaxBonus`/
+`peMaxPerOddNexStep`, `pePerTurnBonus`, `displacementBonus`,
+`loadLimitBonus`, `damageResistance` (fixo ou igual a um atributo). Tudo
+isso com função agregadora própria em `domain/character.ts`
+(`abilityPvMaxBonus`, `abilitySanMaxBonus` etc.), cada uma devolvendo o
+total **e** a lista "de onde vem" (pedido do usuário, item 7) — ligado em
+`deriveStats` e mostrado na ficha (`CharacterSheet.tsx`): tooltip nas
+barras de PV/PE/SAN, texto ao lado de "PE por turno" e da fórmula de
+Defesa, e uma linha nova "Resistências (habilidades)" ao lado de Proteção.
+
+| Habilidade | Origem | Livro/pág. | Efeito ligado na ficha | Status |
+|---|---|---|---|---|
+| Dedicação | Universitário | Livro básico, pág. 21 | +1 PE, +1 PE a cada NEX ímpar (15/25/35…95), +1 no limite de PE por turno | ✅ Funcionando (exemplo do bug relatado) |
+| Calejado | Desgarrado | Livro básico, pág. 18 | +1 PV a cada 5% de NEX | ✅ Funcionando |
+| Cicatrizes Psicológicas | Vítima | Livro básico, pág. 21 | +1 Sanidade máxima a cada 5% de NEX | ✅ Funcionando |
+| Mão Pesada | Lutador | Livro básico, pág. 19 | +2 no dano de ataques corpo a corpo | ✅ Funcionando (mesmo mecanismo de Balística Avançada) |
+| Para Bellum | Militar | Livro básico, pág. 20 | +2 no dano com armas de fogo | ✅ Funcionando |
+| Patrulha | Policial | Livro básico, pág. 20 | +2 em Defesa | ✅ Funcionando (campo `defenseBonus` existia mas nunca era lido — corrigido) |
+| Eu Já Sabia | Teórico da Conspiração | Livro básico, pág. 21 | Resistência a dano mental = Intelecto | ✅ Funcionando (nova linha "Resistências" na ficha, não existia nenhuma antes) |
+| Traços do Outro Lado | Cultista Arrependido | Livro básico, pág. 18 | Sanidade máxima da classe pela metade (o poder paranormal à escolha continua manual, como habilidade de texto) | ✅ Funcionando (só a metade de Sanidade; poder escolhido fica texto) |
+| Iniciativa Aprimorada | Trilha Operações Especiais (NEX 10%) | Livro básico, pág. 32 (trilhas) | +5 em Iniciativa (a ação de movimento extra na 1ª rodada continua só texto, é só-cena) | ✅ Corrigido (já existia no mapa, nunca funcionava por causa da causa raiz nº 1) |
+| Balística Avançada | Poder de classe (Especialista) | Livro básico, pág. 39 | +2 no dano com armas de fogo | ✅ Corrigido — confirmei no código que `addClassPowerPick` TAMBÉM usa `name (NEX N%)`, então tinha o mesmo bug da causa raiz nº 1 (nunca funcionava de verdade); a correção do `stripNexSuffix` conserta os dois de uma vez, sem precisar de código extra |
+
+**Poderes de origem vistos mas que ficam só como texto** (não são bônus
+permanente — exigem gastar PE/testar DT/evento específico, regra 8 do
+usuário): Saber é Poder, Técnica Medicinal (sem campo de "cura" na ficha
+pra somar automaticamente), Vislumbres do Passado, Magnum Opus (bônus só
+contra UMA pessoa específica, não geral), 110%, Ingrediente Secreto,
+O Crime Compensa, Processo Otimizado, Faro para Pistas, Patrocinador da
+Ordem, Posição de Combate, Acalentar (bônus só pra "acalmar", não pra todo
+teste de Religião — arriscado generalizar), Espírito Cívico, Motor de
+Busca, Desbravador (metade dele: "sem penalidade em terreno difícil" não
+tem campo pra desligar), Impostor. **Ferramenta Favorita** (Engenheiro) e
+**Ferramenta de Trabalho** (Operário) são passivos de verdade mas exigem
+escolher UM item/arma específico — não dá pra automatizar sem um campo de
+"item escolhido" novo na ficha (ficam como texto por enquanto, anotado como
+possível melhoria futura, não pedida explicitamente).
+
+### Testado (CDP, instância isolada porta 47399/APPDATA próprio)
+
+- Script direto (`tsx`) chamando `deriveStats` com cada habilidade isolada:
+  Dedicação em NEX 5/15/25 (PE por turno 2/4/6, PE máximo com o bônus
+  certo), Calejado em NEX20 (+4 PV), Cicatrizes em NEX20 (+4 SAN), Patrulha
+  (+2 Defesa), Eu Já Sabia (resistência mental = Intelecto=3), Traços do
+  Outro Lado (Sanidade 35→17, metade certa), Iniciativa Aprimorada COM o
+  sufixo "(NEX 10%)" de verdade (bônus de Iniciativa 0→5, confirma a
+  correção da causa raiz).
+- Ao vivo: injetei uma ficha "Universitário" (NEX5) com a habilidade
+  "Dedicação" já presente — calc-strip mostrou **"PE por turno: 2 (1 do
+  NEX + 1 de Dedicação)"**, batendo exatamente o formato pedido pelo
+  usuário no item 7 ("PE por turno: 2 (1 do NEX + 1 da Dedicação)").
+- Troquei a origem de "Universitário" pra "Policial" NA FICHA JÁ CRIADA
+  (não no assistente): "PE por turno" voltou pra "3" (Dedicação sumiu de
+  verdade), a fórmula de Defesa passou a mostrar "+ 2 de Patrulha", e a
+  aba Habilidades confirmou: "Dedicação" sumiu da lista, "Patrulha"
+  apareceu — tudo automático, sem precisar editar nada à mão. Zero erros
+  de JS.
+- Reconferido sem regressão: abas da ficha (Combate, Rituais, Inventário,
+  Descrição, Habilidades) e abas da Área do Mestre (Músicas, Sons
+  Ambiente, Tokens, Cenário 2D, Cenários 3D, Criaturas) abrem sem erro.
+- `npx tsc --noEmit` e `npm run build` limpos.
+
+### Teste pedido pelo usuário (Universitário NEX 5%/15%)
+
+Feito acima via script direto — NEX 5%: PE por turno 2 (confirma o número
+exato do bug relatado, "mostra... PE por turno: 1" virou 2, igual no
+CRIS); NEX 15%: PE por turno 4 (3 do NEX normal + 1 de Dedicação).
+
+## PARTE 2 — Varredura de bugs (modo online)
+
+Ainda não iniciada — começa depois de fechar mais uma leva de poderes da
+Parte 1 (seguindo a ordem pedida: Parte 1 primeiro, Parte 2 depois). Vou
+usar instâncias Electron isoladas (porta/perfil próprios, já é o padrão
+deste projeto) pra simular mestre + jogadores, e o throttling de rede do
+Chrome DevTools Protocol (`Network.emulateNetworkConditions`, disponível
+via a mesma conexão CDP já usada nos testes) pra simular latência/perda de
+pacote por cliente — ferramenta escolhida porque já está disponível nesta
+máquina (CDP já em uso) e aplica throttling de verdade por conexão, sem
+precisar instalar nada novo. Scripts ficam salvos em
+`scratchpad`/documentados aqui pra rodar de novo depois, como pedido.
     - Item livre: criei "Foto da irmã" (tipo Outro) — apareceu na lista com
       badge "LIVRE". Testei quantidade (+1 na Pistola, foi pra ×2),
       remover a Foto da irmã (toast "removido" + Desfazer) e desfazer

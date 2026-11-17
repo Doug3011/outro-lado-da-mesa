@@ -8,6 +8,7 @@ import {
   SKILLS,
   SKILL_BY_KEY,
   TRAINING_LEVELS,
+  pePerTurn,
   type AttrKey,
   type ClassKey,
   type Element,
@@ -34,6 +35,7 @@ import {
   ritualSlots,
   ritualsUsed,
   skillBonus,
+  syncOriginAbility,
   syncTrilhaAbilities,
   syncWeaponAttacks,
   trainingBumpBudget,
@@ -248,6 +250,9 @@ export function CharacterSheet({
       }
       if (TRILHA_KEYS.some((k) => k in p)) {
         next = syncTrilhaAbilities(next);
+      }
+      if ('origem' in p) {
+        next = syncOriginAbility(next);
       }
       if ('nex' in p && next.nex > d.nex) {
         const lines = describeNexGain(d, next);
@@ -620,7 +625,13 @@ export function CharacterSheet({
           {draft.inventoryLimitEnabled === false ? ' (sem limite)' : ` / ${derived.loadLimit}`}
           {derived.overloaded ? ' · SOBRECARREGADO' : ''}
         </span>
-        <span className="ok">PE por turno: {derived.pePerTurn}</span>
+        <span className="ok">
+          PE por turno: {derived.pePerTurn}
+          {derived.pePerTurnBreakdown.length > 0 &&
+            ` (${pePerTurn(draft.nex)} do NEX${derived.pePerTurnBreakdown
+              .map((b) => ` + ${b.amount} de ${b.label}`)
+              .join('')})`}
+        </span>
       </div>
 
       <div className="rd-sheet-grid">
@@ -686,7 +697,16 @@ export function CharacterSheet({
               <span className="rd-sheet-ministat-val">{draft.nex}%</span>
               <span className="rd-sheet-ministat-label">NEX</span>
             </div>
-            <div className="rd-sheet-ministat">
+            <div
+              className="rd-sheet-ministat"
+              title={
+                derived.pePerTurnBreakdown.length > 0
+                  ? `${pePerTurn(draft.nex)} do NEX${derived.pePerTurnBreakdown
+                      .map((b) => ` + ${b.amount} de ${b.label}`)
+                      .join('')}`
+                  : undefined
+              }
+            >
               <span className="rd-sheet-ministat-val">{derived.pePerTurn}</span>
               <span className="rd-sheet-ministat-label">PE / turno</span>
             </div>
@@ -700,10 +720,19 @@ export function CharacterSheet({
               />
               <span className="rd-sheet-ministat-label">
                 Desloc. (m)
-                {derived.displacementPenalty > 0 && (
-                  <span className="warn" title="Sobrecarregado">
+                {(derived.displacementPenalty > 0 || derived.displacementBonus > 0) && (
+                  <span
+                    className={derived.displacementPenalty > 0 ? 'warn' : 'ok'}
+                    title={
+                      derived.displacementBonus > 0
+                        ? `+${derived.displacementBonus}m de habilidade`
+                        : 'Sobrecarregado'
+                    }
+                  >
                     {' '}
-                    (-{derived.displacementPenalty}m: {draft.displacement - derived.displacementPenalty}m)
+                    ({derived.displacementBonus > 0 ? '+' : '-'}
+                    {derived.displacementBonus > 0 ? derived.displacementBonus : derived.displacementPenalty}m:{' '}
+                    {draft.displacement + derived.displacementBonus - derived.displacementPenalty}m)
                   </span>
                 )}
               </span>
@@ -719,6 +748,11 @@ export function CharacterSheet({
               extra={draft.pv.temp}
               extraLabel="PV temp"
               lockMax={draft.autoCalc}
+              breakdown={
+                derived.pvBreakdown.length > 0
+                  ? `Base da classe + VIG${derived.pvBreakdown.map((b) => ` + ${b.amount} de ${b.label}`).join('')}`
+                  : undefined
+              }
               onCur={(v) => patch({ pv: { ...draft.pv, current: v } })}
               onMax={(v) => patch({ pv: { ...draft.pv, max: v } })}
               onExtra={(v) => patch({ pv: { ...draft.pv, temp: v } })}
@@ -729,6 +763,11 @@ export function CharacterSheet({
               cur={draft.pe.current}
               max={draft.pe.max}
               lockMax={draft.autoCalc}
+              breakdown={
+                derived.peBreakdown.length > 0
+                  ? `Base da classe + PRE${derived.peBreakdown.map((b) => ` + ${b.amount} de ${b.label}`).join('')}`
+                  : undefined
+              }
               onCur={(v) => patch({ pe: { ...draft.pe, current: v } })}
               onMax={(v) => patch({ pe: { ...draft.pe, max: v } })}
             />
@@ -739,6 +778,11 @@ export function CharacterSheet({
                 cur={draft.sanity.current}
                 max={draft.sanity.max}
                 lockMax={draft.autoCalc}
+                breakdown={
+                  derived.sanBreakdown.length > 0
+                    ? `Base da classe${derived.sanBreakdown.map((b) => ` + ${b.amount} de ${b.label}`).join('')}`
+                    : undefined
+                }
                 onCur={(v) => patch({ sanity: { ...draft.sanity, current: v } })}
                 onMax={(v) => patch({ sanity: { ...draft.sanity, max: v } })}
               />
@@ -779,6 +823,8 @@ export function CharacterSheet({
                   <span className="rd-sheet-defense-formula">
                     10 + AGI {draft.attributes.AGI} + bônus {draft.defenseBonus}
                     {equipmentDefenseBonus(draft) > 0 ? ` + equipamento ${equipmentDefenseBonus(draft)}` : ''}
+                    {derived.defenseBreakdown.map((b) => ` + ${b.amount} de ${b.label}`).join('')}
+                    {derived.overloaded ? ' − 5 (sobrecarregado)' : ''}
                   </span>
                   <label className="rd-sheet-field" style={{ border: 0, paddingBottom: 0, maxWidth: 160 }}>
                     <span className="rd-sheet-field-label">Bônus</span>
@@ -833,6 +879,16 @@ export function CharacterSheet({
                 onChange={(e) => patch({ protection: Number(e.target.value) })}
               />
             </label>
+            {derived.damageResistances.length > 0 && (
+              <div className="rd-sheet-field" style={{ border: 0, paddingBottom: 0 }}>
+                <span className="rd-sheet-field-label">Resistências (habilidades)</span>
+                <div className="faint" style={{ fontSize: 12 }}>
+                  {derived.damageResistances
+                    .map((r) => `${r.type} ${r.amount} (${r.sources.join(', ')})`)
+                    .join(' · ')}
+                </div>
+              </div>
+            )}
             <label className="rd-sheet-field">
               <span className="rd-sheet-field-label">Proficiências</span>
               <input
@@ -1433,7 +1489,10 @@ export function CharacterSheet({
               onToggleLimit={() => patch({ inventoryLimitEnabled: draft.inventoryLimitEnabled === false })}
               loadHint={`Espaços usados: ${slotsUsed} · Limite (5 × Força, mínimo 2${
                 draft.trilha === 'Técnico' && draft.nex >= 10 ? ' + Intelecto (Inventário Otimizado)' : ''
-              }): ${derived.loadLimit}${
+              }${derived.loadLimitBreakdown
+                .filter((b) => b.label !== 'Inventário Otimizado (trilha)')
+                .map((b) => ` + ${b.amount} de ${b.label}`)
+                .join('')}): ${derived.loadLimit}${
                 derived.overloaded
                   ? ' · Sobrecarregado: -5 na Defesa, -5 em perícias com penalidade de carga, -3m de deslocamento'
                   : ''
@@ -1585,6 +1644,10 @@ function RdBar(props: {
   extra?: number;
   extraLabel?: string;
   lockMax?: boolean;
+  // "De onde vem cada bônus" (pedido do usuário) — texto de tooltip
+  // mostrando a conta completa do máximo, só quando há bônus de
+  // habilidade somado (sem isso, não aparece tooltip nenhum).
+  breakdown?: string;
   onCur: (v: number) => void;
   onMax: (v: number) => void;
   onExtra?: (v: number) => void;
@@ -1592,7 +1655,7 @@ function RdBar(props: {
   const pct = props.max > 0 ? Math.max(0, Math.min(100, (props.cur / props.max) * 100)) : 0;
   return (
     <div className="rd-sheet-bar">
-      <div className="rd-sheet-bar-head">
+      <div className="rd-sheet-bar-head" title={props.breakdown}>
         <span>{props.name}</span>
         <b>{Math.round(pct)}%</b>
       </div>
