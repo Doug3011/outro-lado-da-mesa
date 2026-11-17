@@ -915,7 +915,15 @@ Nenhuma outra mudança nesta sessão — só esse bug.
       resumo genérico a partir só do nome.
 - [ ] Afinidades elementais (ainda não investigado como afetam a ficha
       além da escolha de elemento em NEX 50%)
-- [ ] Tabela de entrega completa (por enquanto só a Parte 1 do lote 1)
+- [ ] Tabela de entrega completa — a tabela por habilidade já existe
+      acima (nome/origem/livro+pág./efeito/status), mas falta consolidar
+      numa seção só; **pausado aqui a pedido do usuário** (limite semanal
+      — prioridade virou a Parte 2). Retomar depois com "continua de
+      onde parou": faltam poderes de trilha restantes (a maioria é
+      "gasta PE", mas alguns como "Técnica Letal" — Guerreiro, +2 margem
+      de ameaça SÓ corpo a corpo — ainda dão pra ligar com um campo novo
+      tipo `critThreatBonus` por categoria de arma), classe restantes,
+      afinidades, e os 8 poderes gerais que ficaram de fora.
 
 ### Terceira causa raiz (achada ligando poder paranormal)
 
