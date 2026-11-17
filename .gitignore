@@ -19,3 +19,4 @@ desktop/node_modules
 # não fazem parte do script em si.
 scripts/online-test/cluster-roles.json
 scripts/online-test/last-join-results.json
+scripts/online-test/internet-room-code.json

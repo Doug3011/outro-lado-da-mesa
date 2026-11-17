@@ -1078,6 +1078,11 @@ CRIS); NEX 15%: PE por turno 4 (3 do NEX normal + 1 de Dedicação).
       uma); `join-table.mjs` faz o mestre hospedar (modo LAN) e cada
       jogador entrar por endereço manual `127.0.0.1:<porta do mestre>`;
       `join_one.mjs` entra com um jogador só, sem reiniciar o cluster;
+      `host_internet.mjs`/`join_internet.mjs` fazem o mesmo mas pelo modo
+      "Pela internet" (Supabase, com código de mesa em vez de endereço) —
+      precisa do `.env` com `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
+      (já configurado neste projeto); `test-3d.mjs` cobre a cena 3D nos
+      dois modos (local-render e transmissão WebRTC) de ponta a ponta;
       `teardown.ps1` encerra tudo.
 - [x] Condição de rede por jogador: **CDP `Network.emulateNetworkConditions`**
       (mesma ferramenta do painel Network do Chrome DevTools, throttling
@@ -1089,9 +1094,26 @@ CRIS); NEX 15%: PE por turno 4 (3 do NEX normal + 1 de Dedicação).
       sistema tipo `clumsy` (usa um driver WinDivert no Windows), que não
       está instalada — instalar um driver de rede é uma decisão que pede
       sua autorização antes, não fiz sem perguntar. Fica pendente.
-- [x] Conexão direta falhando (fallback/relay): não testado ainda, mas o
-      mecanismo já existe pronto pra usar (`Network.emulateNetworkConditions`
-      com `offline: true`, função `setOffline()` já em `cdp_lib.mjs`).
+- [x] Conexão direta falhando (fallback/relay): testado, mas **não** do
+      jeito que eu esperava — ver "Limitação achada" abaixo. O que
+      funcionou de verdade foi matar o processo inteiro de um jogador
+      (fechar o app) e reabrir: a presença no mestre atualizou
+      corretamente (4→3 jogadores) e o jogador voltou a entrar "atrasado"
+      recebendo o estado da mesa (e, na mesa 3D, o vídeo) do zero sem
+      problema.
+- [x] **Limitação achada (importante pra próximos testes)**: `Network.emulateNetworkConditions`
+      com `offline: true` **não derruba uma conexão já aberta** neste
+      Chromium (WebSocket `/lan/room` E WebRTC) — testei os dois (ligar
+      "offline" por 4-8s num jogador já conectado, numa mesa LAN e numa
+      mesa pela internet) e em nenhum dos dois casos a tela mudou de "AO
+      VIVO", o vídeo continuou chegando normalmente, e não voltou nenhum
+      evento de queda. É uma limitação conhecida do Chromium (essa
+      emulação bloqueia requisição NOVA, não socket já aberto) — não é
+      bug do app. Pra testar queda de verdade, as opções que funcionam
+      são: matar o processo (jeito mais realista, testado abaixo) ou
+      forçar o estado da `RTCPeerConnection` via DevTools (jeito já usado
+      na tarefa 2 do progresso, mais cirúrgico pra ver o código de
+      reconexão reagir).
 
 ### B) Testado até agora
 
@@ -1109,6 +1131,55 @@ CRIS); NEX 15%: PE por turno 4 (3 do NEX normal + 1 de Dedicação).
     mas ninguém de fato na mesa) — corrigido fazendo cada jogador entrar
     um de cada vez, confirmando "AO VIVO" antes do próximo. Script final
     já usa essa sequência comprovada.
+- [x] **Transmissão da mesa 3D — testada a fundo, dois modos diferentes**
+      (achado de arquitetura importante: o app usa um mecanismo DIFERENTE
+      pra cada modo de mesa, não é "um 3D só"):
+  - **Modo Rede local** (host:porta): cada cliente desenha a PRÓPRIA cena
+    3D localmente (WebGL) a partir do cenário sincronizado (chão/objetos
+    via WebSocket) — sem vídeo nenhum. Testado: mestre cria cenário 3D em
+    branco → propaga pros 4 jogadores (50/150/300/600ms) → todos trocam
+    pra "Cenário 2" sozinhos, cada um com seu próprio `<canvas>`
+    renderizando, zero erro de JS mesmo a 600ms.
+  - **Modo Pela internet** (Supabase, sem Radmin/VPN): o MESTRE transmite
+    a própria tela 3D por WebRTC (`AvBroadcastController.tsx`) e cada
+    jogador recebe vídeo de verdade — bem mais pesado pro mestre, bem
+    mais leve pro jogador. Esse caminho só tinha sido testado antes
+    (tarefa 2) com 2 clientes e estado forçado manualmente; aqui testei
+    com mestre + 4 jogadores reais (50/150/300/600ms) ao mesmo tempo:
+    - Hospedei pela internet (código `newRoomCode`, Supabase), os 4
+      jogadores entraram com o código, cena 3D criada no mestre.
+    - Confirmei vídeo de verdade chegando nos 4 (`videoWidth/Height
+      1280x720`, `readyState 4`, tocando) **inclusive no de 600ms**, sem
+      nenhum erro de JS.
+    - **Achado que quase virou falso-bug**: na primeira rodada, os 4
+      jogadores mostravam vídeo com `0x0` (tela "Preparando a mesa…"
+      travada). Investigando, a causa foi do MEU ambiente de teste, não
+      do app: rodar 5 janelas do Electron empilhadas no mesmo desktop faz
+      o Windows/Chromium marcar a maioria como "ocluída" e congelar o
+      `canvas` do mestre (fica travado nos 300x150 padrão do HTML, nunca
+      chega a desenhar nada de verdade pra capturar). Minimizar e
+      restaurar a janela do mestre resolveu na hora (canvas voltou pro
+      tamanho real, vídeo passou a chegar certo nos 4). Anotado aqui
+      porque qualquer teste futuro com várias janelas empilhadas pode
+      cair na mesma pegadinha — não mexe com transmissão de verdade.
+    - **Jogador caindo e voltando**: matei o processo do jogador de
+      600ms (fechar o app de verdade), confirmei a presença no mestre cair
+      de 4 pra 3, reabri o mesmo jogador do zero e ele reconectou sozinho
+      com o mesmo código — recebeu o vídeo da cena 3D do zero
+      (1280x720, tocando, zero erro), ou seja, "jogador atrasado"/"voltou
+      depois de cair" funciona igual bem no modo internet.
+    - **Não testado** (limitação do método, ver nota de "offline" acima):
+      queda TRANSITÓRIA de rede (cair e voltar sozinho em poucos segundos
+      sem fechar o app) e qualidade/travamento sob perda de pacote de
+      verdade — o CDP não consegue simular isso em cima de uma conexão já
+      aberta. O código de reconexão pra esse caso específico (ICE
+      restart → recriar conexão) já tinha sido verificado antes (tarefa 2)
+      forçando o estado manualmente, não refiz aqui por ser redundante.
+    - **Quantos aguenta**: testado até 4 jogadores assistindo ao mesmo
+      tempo, todos com vídeo bom; não testei além disso (mais que isso
+      pesaria mais pro PC do mestre, que é upload de vídeo pra cada um —
+      vale testar um número maior numa rodada futura se for importante
+      saber o teto real).
 - [ ] Propagação de funcionalidade específica (dados, tokens, música,
       quadro, chat) — tentei automatizar e não achei os seletores certos
       a tempo nesta passada (orçamento curto); fica pra próxima rodada
