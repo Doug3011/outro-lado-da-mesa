@@ -887,13 +887,12 @@ Nenhuma outra mudança nesta sessão — só esse bug.
 - [ ] Poderes de TRILHA restantes (2 de ~76 já ligados/confirmados:
       Iniciativa Aprimorada, Casca Grossa/Inventário Otimizado/Presença
       Poderosa já eram hardcoded de antes)
-- [ ] Poderes PARANORMAIS (lidos alguns candidatos em
-      `data/paranormalPowers.ts`, mas os resumos lá são paráfrase própria
-      NÃO conferida contra o PDF ainda — Precognição "+2 Defesa e
-      resistência", Sensitivo "+5 Diplomacia/Intimidação/Intuição" e
-      Visão do Oculto "+5 Percepção" parecem simples e prontas pra ligar,
-      mas preciso ler o PDF pág. 114-117 primeiro pra confirmar o número
-      exato antes de cadastrar)
+- [x] 3 poderes paranormais conferidos contra o PDF (pág. 114-115) e
+      ligados: Precognição, Sensitivo, Visão do Oculto — achada uma
+      TERCEIRA causa raiz no processo (ver abaixo)
+- [ ] Poderes PARANORMAIS restantes (3 de ~20+ já ligados — faltam os de
+      Energia/Morte/Sangue, a maioria parece ser "gasta PE"/"uma vez por
+      cena", então deve sobrar poucos passivos de verdade)
 - [ ] Poderes GERAIS (`data/generalPowers.ts`, 33 poderes — resumos
       também não conferidos contra o PDF ainda; muitos parecem seguir o
       padrão "+5 em Perícia X" pelo nome, mas isso é só suposição até ler
@@ -901,6 +900,17 @@ Nenhuma outra mudança nesta sessão — só esse bug.
 - [ ] Afinidades elementais (ainda não investigado como afetam a ficha
       além da escolha de elemento em NEX 50%)
 - [ ] Tabela de entrega completa (por enquanto só a Parte 1 do lote 1)
+
+### Terceira causa raiz (achada ligando poder paranormal)
+
+Poder paranormal escolhido pelo poder de classe Transcender guarda o nome
+da Ability como `"Transcender: Precognição (NEX 15%)"` — **prefixo E
+sufixo ao mesmo tempo** (`addClassPowerPick`, ramo `transcender`, monta
+`name = \`Transcender: ${pdef.name}\`` e DEPOIS todo mundo passa pelo
+mesmo `\`${name} (NEX ${nex}%)\`` de novo). `stripNexSuffix` (da correção
+da causa raiz nº 1) só tirava o sufixo — sem tirar o prefixo
+"Transcender: " também, nenhum poder paranormal batia com o mapa de
+efeitos, mesmo depois da primeira correção. Ajustado pra tirar os dois.
 
 ### Melhoria no mecanismo (lote 2, mesma leva)
 
@@ -971,6 +981,9 @@ Defesa, e uma linha nova "Resistências (habilidades)" ao lado de Proteção.
 | Conexões | Diplomata | Sobrevivendo ao Horror, pág. 9 | +2 em Diplomacia | ✅ Funcionando — texto lido direto do PDF (antes só tinha o nome do poder) |
 | Fôlego de Nadador | Mergulhador | Sobrevivendo ao Horror, pág. 12 | +5 PV | ✅ Funcionando — idem |
 | Luta ou Fuga | Profetizado | Sobrevivendo ao Horror, pág. 13-14 | +2 em Vontade | ✅ Funcionando — idem |
+| Precognição | Poder paranormal (Conhecimento, via Transcender) | Livro básico, pág. 114 | +2 em Defesa, +2 em Fortitude/Reflexos/Vontade | ✅ Corrigido — **3ª causa raiz achada**: poder paranormal escolhido por Transcender guarda o nome como `"Transcender: Precognição (NEX 15%)"` (prefixo E sufixo ao mesmo tempo) — `stripNexSuffix` tirava só o sufixo; sem tirar o prefixo também, nenhum poder paranormal batia com o mapa. Corrigido. |
+| Sensitivo | Poder paranormal (Conhecimento, via Transcender) | Livro básico, pág. 114 | +5 em Diplomacia, Intimidação e Intuição | ✅ Funcionando (mesma correção acima) |
+| Visão do Oculto | Poder paranormal (Conhecimento, via Transcender) | Livro básico, pág. 115 | +5 em Percepção (enxergar no escuro fica como texto, sem campo) | ✅ Funcionando (mesma correção acima) |
 
 **Poderes de origem vistos mas que ficam só como texto** (não são bônus
 permanente — exigem gastar PE/testar DT/evento específico, regra 8 do

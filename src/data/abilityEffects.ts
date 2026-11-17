@@ -147,4 +147,28 @@ export const ABILITY_EFFECTS: Record<string, AbilityEffect> = {
   // de PE temporário ao ver uma referência à própria premonição é
   // condicional, fica como texto).
   'Luta ou Fuga': { skillBonus: { skill: 'vontade', amount: 2 } },
+
+  // ---------------- Poderes paranormais (livro básico, pág. 114-115) ----------------
+  // Conhecimento, pág. 114: "Você recebe +2 em Defesa e em testes de
+  // resistência." — mesmo padrão de Reflexos Defensivos.
+  Precognição: {
+    defenseBonus: 2,
+    skillBonuses: [
+      { skill: 'fortitude', amount: 2 },
+      { skill: 'reflexos', amount: 2 },
+      { skill: 'vontade', amount: 2 },
+    ],
+  },
+  // Conhecimento, pág. 114: "[...] recebendo +5 em testes de Diplomacia,
+  // Intimidação e Intuição."
+  Sensitivo: {
+    skillBonuses: [
+      { skill: 'diplomacia', amount: 5 },
+      { skill: 'intimidacao', amount: 5 },
+      { skill: 'intuicao', amount: 5 },
+    ],
+  },
+  // Conhecimento, pág. 115: "Você recebe +5 em testes de Percepção e
+  // enxerga no escuro." (enxergar no escuro não tem campo na ficha).
+  'Visão do Oculto': { skillBonus: { skill: 'percepcao', amount: 5 } },
 };

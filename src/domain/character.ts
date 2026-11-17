@@ -482,7 +482,11 @@ function weaponCategory(w: WeaponStats): 'fogo' | 'disparo' | 'corpo-a-corpo' {
 // — então todo poder de trilha/classe (sempre com esse sufixo) nunca
 // batia com nada no mapa, mesmo quando já existia uma entrada certa.
 function stripNexSuffix(name: string): string {
-  return name.replace(/\s*\(NEX\s*\d+%\)\s*$/, '');
+  // Poder paranormal escolhido via Transcender ganha o prefixo
+  // "Transcender: " ALÉM do sufixo "(NEX N%)" (ver addClassPowerPick) —
+  // sem tirar os dois, "Transcender: Precognição (NEX 15%)" nunca bate
+  // com a chave "Precognição" no mapa.
+  return name.replace(/\s*\(NEX\s*\d+%\)\s*$/, '').replace(/^Transcender:\s*/, '');
 }
 
 // Lista (ability, efeito) de toda habilidade da ficha que tem efeito
