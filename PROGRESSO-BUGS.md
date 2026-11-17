@@ -1180,10 +1180,31 @@ CRIS); NEX 15%: PE por turno 4 (3 do NEX normal + 1 de Dedicação).
       pesaria mais pro PC do mestre, que é upload de vídeo pra cada um —
       vale testar um número maior numa rodada futura se for importante
       saber o teto real).
-- [ ] Propagação de funcionalidade específica (dados, tokens, música,
-      quadro, chat) — tentei automatizar e não achei os seletores certos
-      a tempo nesta passada (orçamento curto); fica pra próxima rodada
-      com o cluster já funcionando.
+- [x] **Música (WebRTC, modo internet) — testada, pedido direto do
+      usuário** (ele perguntou se o bug antigo de "tela preta"/música não
+      saindo ainda existia). Importei uma faixa de teste no mestre
+      (`make_test_tone.mjs` gera um WAV sem precisar de música de
+      verdade), toquei "pra mesa toda" e conferi nos 2 jogadores
+      (150ms/600ms) via um gancho no construtor `Audio` (RemoteAudioSink.tsx
+      cria o áudio com `new Audio()`, sem elemento no DOM — não dá pra
+      achar com querySelector, só interceptando o construtor ANTES de
+      entrar na mesa, ver `join_internet_audio_hook.mjs`): nos dois,
+      `volume: 0.7` (não zero — a correção antiga do bug "volume mudo de
+      perfil novo" continua valendo), `currentTime` avançando de verdade
+      (conferi duas vezes com 3s de intervalo), `paused: false`,
+      `readyState: 4`, zero erro de JS. Script final: `test-music.mjs`.
+  - **Resposta direta pro usuário**: o bug de tela preta na mesa 3D e o de
+    música não saindo pros jogadores **não se repetiram** nos testes de
+    hoje (mestre + até 4 jogadores, 50 a 600ms de latência, conexão nova
+    E jogador caindo/reabrindo o app). O que eu NÃO consegui re-testar
+    hoje é a queda TRANSITÓRIA no meio da transmissão (rede cai e volta
+    sozinha em poucos segundos sem fechar o app) — o CDP não consegue
+    simular isso numa conexão já aberta (ver limitação acima). Esse caso
+    específico só foi verificado forçando o estado manualmente na tarefa
+    2 (antes desta sessão), não de novo agora.
+- [ ] Propagação de outras funcionalidades (dados, tokens, 2D, quadro,
+      chat) — ainda não testada nesta rodada (orçamento curto); fica pra
+      próxima com o cluster já funcionando.
 - [ ] Teste de estresse (sessão longa, muitas ações rápidas, troca de
       cenário repetida).
 - [ ] Uso de CPU/memória/FPS em cliente "fraco" (simular com throttling

@@ -105,6 +105,28 @@ fazer. Fica como item pendente, não inventado nem aproximado silenciosamente.
   presença atualiza certo e o jogador recupera o estado (inclusive vídeo
   da mesa 3D) ao reentrar com o mesmo código.
 
+## Testar música (`test-music.mjs`)
+
+Música usa a MESMA conexão WebRTC da mesa 3D (`AvBroadcastController.tsx`,
+via `avMix.ts`) — não precisa de cena 3D aberta, só modo internet. O
+áudio recebido chega como `new Audio()` sem elemento no DOM
+(`RemoteAudioSink.tsx`), então os jogadores precisam entrar com
+`join_internet_audio_hook.mjs` (não o `join_internet.mjs` comum) — ele
+intercepta o construtor `Audio` ANTES de entrar na mesa, pra dar pra
+inspecionar depois.
+
+```powershell
+node join_internet_audio_hook.mjs 9602 jogador1 <CODIGO> latencia150
+node join_internet_audio_hook.mjs 9603 jogador2 <CODIGO> latencia600
+node make_test_tone.mjs tom_teste.wav      # gera um WAV de teste (tom 440Hz, 3s)
+node test-music.mjs tom_teste.wav          # importa, toca "pra mesa toda" e confere nos jogadores
+```
+
+Confere: `volume` (tem que ser > 0 — já existiu um bug de perfil novo
+começar mudo, ver comentário em `RemoteAudioSink.tsx`), `currentTime`
+avançando de verdade (duas leituras com uma pausa no meio), `paused`,
+`readyState` e zero erro de JS.
+
 ## Limitação achada: `offline: true` não derruba conexão já aberta
 
 `Network.emulateNetworkConditions({ offline: true })` **não corta** uma

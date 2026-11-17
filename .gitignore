@@ -20,3 +20,4 @@ desktop/node_modules
 scripts/online-test/cluster-roles.json
 scripts/online-test/last-join-results.json
 scripts/online-test/internet-room-code.json
+scripts/online-test/*.wav
