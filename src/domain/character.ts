@@ -567,12 +567,36 @@ export function abilitySanMaxBonus(char: Character): BonusBreakdown & { halved: 
 export function abilityPeMaxBonus(char: Character): BonusBreakdown {
   const items: BonusItem[] = [];
   const oddSteps = Math.floor(Math.max(0, char.nex - 5) / 10);
+  const steps = Math.floor(char.nex / 5);
   for (const { a, eff } of activeAbilityEffects(char)) {
     if (eff.peMaxBonus) items.push({ label: a.name, amount: eff.peMaxBonus });
     if (eff.peMaxPerOddNexStep && oddSteps > 0) items.push({ label: a.name, amount: eff.peMaxPerOddNexStep * oddSteps });
+    if (eff.peMaxPerNexStep && steps > 0) items.push({ label: a.name, amount: eff.peMaxPerNexStep * steps });
   }
   const merged = mergeBonusItems(items);
   return { total: merged.reduce((s, i) => s + i.amount, 0), items: merged };
+}
+
+// Margem de ameaça extra de habilidades (ex. Golpe de Sorte, +1, em
+// TODOS os ataques — diferente de weaponDamageBonus, que é por
+// categoria de arma).
+export function abilityCritThreatBonus(char: Character): number {
+  let total = 0;
+  for (const { eff } of activeAbilityEffects(char)) {
+    if (eff.critThreatBonus) total += eff.critThreatBonus;
+  }
+  return total;
+}
+
+// "+1 dado do mesmo tipo" de habilidade numa categoria de arma (ex.
+// Golpe Pesado, só corpo a corpo) — mesma ideia de
+// abilityWeaponDamageBonus, mas pra extraDieSameType.
+function abilityExtraDieSameType(char: Character, category: 'fogo' | 'disparo' | 'corpo-a-corpo'): number {
+  let total = 0;
+  for (const { eff } of activeAbilityEffects(char)) {
+    if (eff.extraDieSameType && eff.extraDieSameType.category === category) total += eff.extraDieSameType.amount;
+  }
+  return total;
 }
 
 // Limite de PE por turno extra de habilidades (fixo — soma ao
@@ -665,7 +689,7 @@ export function computeWeaponAttack(
   const baseDamageStr = w.damage.includes('/') ? w.damage.split('/')[1] : w.damage;
   const parsed = parseDiceTerm(baseDamageStr) ?? { count: 1, sides: 6 };
   const extraSameType = allEffects.reduce((a, m) => a + (m.effect.extraDieSameType ?? 0), 0);
-  const diceCount = parsed.count + extraSameType;
+  const diceCount = parsed.count + extraSameType + abilityExtraDieSameType(char, weaponCategory(w));
   const flatBonus =
     (w.addsForce ? char.attributes.FOR : 0) +
     allEffects.reduce((a, m) => a + (m.effect.dmgBonus ?? 0), 0) +
@@ -677,7 +701,7 @@ export function computeWeaponAttack(
   else if (flatBonus < 0) damage += `${flatBonus}`;
   for (const d of extraDice) damage += `+${d}`;
 
-  const critThreatBonus = allEffects.reduce((a, m) => a + (m.effect.critThreatBonus ?? 0), 0);
+  const critThreatBonus = allEffects.reduce((a, m) => a + (m.effect.critThreatBonus ?? 0), 0) + abilityCritThreatBonus(char);
   const critMultBonus = allEffects.reduce((a, m) => a + (m.effect.critMultBonus ?? 0), 0);
   const critRange = Math.max(2, (w.critRange ?? 20) - critThreatBonus);
   const critMult = (w.critMult ?? 2) + critMultBonus;

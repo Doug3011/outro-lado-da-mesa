@@ -53,6 +53,19 @@ export interface AbilityEffect {
   // nex-5)/10) — conta certa pra 15/25/35.../95, conferida contra o livro).
   peMaxBonus?: number;
   peMaxPerOddNexStep?: number;
+  // PE máximo: fixo + por "cada 5% de NEX" — mesmo padrão de PV/Sanidade
+  // acima (steps = floor(nex/5)), usado por poderes paranormais tipo
+  // "+1 PE por NEX, aumenta quando sobe de NEX" (Potencial Aprimorado).
+  peMaxPerNexStep?: number;
+  // Margem de ameaça: bônus fixo em TODOS os ataques, não só uma
+  // categoria de arma (ex. Golpe de Sorte: "+1 na margem de ameaça").
+  // Mesmo campo/nome do efeito de modificação de arma (critThreatBonus),
+  // só que de habilidade — somado junto em computeWeaponAttack.
+  critThreatBonus?: number;
+  // "+1 dado do mesmo tipo" só numa categoria de arma (ex. Golpe Pesado:
+  // só corpo a corpo). Mesmo campo/nome do efeito de modificação de arma
+  // (extraDieSameType), só que de habilidade.
+  extraDieSameType?: { category: 'fogo' | 'disparo' | 'corpo-a-corpo'; amount: number };
   // Limite de PE por turno: bônus fixo (soma ao pePerTurn(nex) normal).
   pePerTurnBonus?: number;
   // Deslocamento (m): bônus fixo.
@@ -103,6 +116,9 @@ export const ABILITY_EFFECTS: Record<string, AbilityEffect> = {
   'Traços do Outro Lado': { sanMaxHalved: true },
 
   // ---------------- Poderes de classe (livro básico) ----------------
+  // Combatente, pág. 25: "Enquanto estiver empunhando uma arma corpo a
+  // corpo, o dano dela aumenta em mais um dado do mesmo tipo."
+  'Golpe Pesado': { extraDieSameType: { category: 'corpo-a-corpo', amount: 1 } },
   // Combatente, pág. 25: "Você recebe +2 em Defesa e em testes de
   // resistência." — testes de resistência do livro são Fortitude/
   // Reflexos/Vontade.
@@ -171,4 +187,17 @@ export const ABILITY_EFFECTS: Record<string, AbilityEffect> = {
   // Conhecimento, pág. 115: "Você recebe +5 em testes de Percepção e
   // enxerga no escuro." (enxergar no escuro não tem campo na ficha).
   'Visão do Oculto': { skillBonus: { skill: 'percepcao', amount: 5 } },
+
+  // ---------------- Poderes paranormais (livro básico, pág. 115-116) ----------------
+  // Energia, pág. 115: "Seus ataques recebem +1 na margem de ameaça."
+  'Golpe de Sorte': { critThreatBonus: 1 },
+  // Morte, pág. 115: "Você recebe +1 ponto de esforço por NEX. Quando
+  // sobe de NEX, os PE que recebe por este poder aumentam de acordo. Por
+  // exemplo, se escolher este poder em NEX 30%, recebe 6 PE." — confere:
+  // floor(30/5) × 1 = 6.
+  'Potencial Aprimorado': { peMaxPerNexStep: 1 },
+  // Sangue, pág. 116: "Você recebe +2 pontos de vida por NEX. [...] Por
+  // exemplo, se escolher este poder em NEX 50%, recebe 20 PV." — confere:
+  // floor(50/5) × 2 = 20.
+  'Sangue de Ferro': { pvMaxPerNexStep: 2 },
 };

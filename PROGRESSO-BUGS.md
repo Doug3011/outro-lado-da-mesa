@@ -890,9 +890,15 @@ Nenhuma outra mudança nesta sessão — só esse bug.
 - [x] 3 poderes paranormais conferidos contra o PDF (pág. 114-115) e
       ligados: Precognição, Sensitivo, Visão do Oculto — achada uma
       TERCEIRA causa raiz no processo (ver abaixo)
-- [ ] Poderes PARANORMAIS restantes (3 de ~20+ já ligados — faltam os de
-      Energia/Morte/Sangue, a maioria parece ser "gasta PE"/"uma vez por
-      cena", então deve sobrar poucos passivos de verdade)
+- [x] Energia/Morte/Sangue conferidos contra o PDF (pág. 115-116) — 4
+      ligados (Golpe de Sorte, Potencial Aprimorado, Sangue de Ferro,
+      Golpe Pesado — este último é de classe, não paranormal, achado no
+      mesmo lote). Resto de Energia/Morte/Sangue é "gasta PE"/"uma vez
+      por X", fica como texto.
+- [ ] Poderes PARANORMAIS restantes (7 de ~20+ já ligados no total —
+      Conhecimento/Energia/Morte/Sangue já cobertos; falta conferir se
+      sobra algum passivo nas descrições de Afinidade de cada um, que
+      ainda não toquei)
 - [ ] Poderes GERAIS (`data/generalPowers.ts`, 33 poderes — resumos
       também não conferidos contra o PDF ainda; muitos parecem seguir o
       padrão "+5 em Perícia X" pelo nome, mas isso é só suposição até ler
@@ -984,6 +990,10 @@ Defesa, e uma linha nova "Resistências (habilidades)" ao lado de Proteção.
 | Precognição | Poder paranormal (Conhecimento, via Transcender) | Livro básico, pág. 114 | +2 em Defesa, +2 em Fortitude/Reflexos/Vontade | ✅ Corrigido — **3ª causa raiz achada**: poder paranormal escolhido por Transcender guarda o nome como `"Transcender: Precognição (NEX 15%)"` (prefixo E sufixo ao mesmo tempo) — `stripNexSuffix` tirava só o sufixo; sem tirar o prefixo também, nenhum poder paranormal batia com o mapa. Corrigido. |
 | Sensitivo | Poder paranormal (Conhecimento, via Transcender) | Livro básico, pág. 114 | +5 em Diplomacia, Intimidação e Intuição | ✅ Funcionando (mesma correção acima) |
 | Visão do Oculto | Poder paranormal (Conhecimento, via Transcender) | Livro básico, pág. 115 | +5 em Percepção (enxergar no escuro fica como texto, sem campo) | ✅ Funcionando (mesma correção acima) |
+| Golpe de Sorte | Poder paranormal (Energia, via Transcender) | Livro básico, pág. 115 | +1 na margem de ameaça (reduz o número pra crítico) em TODOS os ataques | ✅ Funcionando — campo novo `critThreatBonus` de habilidade |
+| Potencial Aprimorado | Poder paranormal (Morte, via Transcender) | Livro básico, pág. 115 | +1 PE a cada 5% de NEX (escala conforme sobe de NEX) | ✅ Funcionando — campo novo `peMaxPerNexStep` |
+| Sangue de Ferro | Poder paranormal (Sangue, via Transcender) | Livro básico, pág. 116 | +2 PV a cada 5% de NEX (escala conforme sobe de NEX) | ✅ Funcionando — reaproveita `pvMaxPerNexStep` |
+| Golpe Pesado | Poder de classe (Combatente) | Livro básico, pág. 25 | Arma corpo a corpo empunhada ganha +1 dado de dano do mesmo tipo | ✅ Funcionando — campo novo `extraDieSameType` de habilidade |
 
 **Poderes de origem vistos mas que ficam só como texto** (não são bônus
 permanente — exigem gastar PE/testar DT/evento específico, regra 8 do
