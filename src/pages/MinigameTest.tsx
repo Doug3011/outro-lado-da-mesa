@@ -288,8 +288,8 @@ function deriveMinigameStats(classe: ClassKey, attributes: Record<AttrKey, numbe
   const c = CLASS_BY_KEY[classe];
   const steps = nexSteps(nex);
   return {
-    pvMax: c.pvBase + attributes.VIG + c.pvPerNex * steps,
-    peMax: c.peBase + attributes.PRE + c.pePerNex * steps,
+    pvMax: c.pvBase + attributes.VIG + (c.pvPerNex + attributes.VIG) * steps,
+    peMax: c.peBase + attributes.PRE + (c.pePerNex + attributes.PRE) * steps,
     defense: 10 + attributes.AGI,
   };
 }

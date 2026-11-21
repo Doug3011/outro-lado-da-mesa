@@ -203,6 +203,21 @@ export function CharacterSheet({
     timer.current = window.setTimeout(() => (onSave ? onSave(next) : upsertCharacter(next)), 350);
   };
 
+  // Ficha salva antes da correção da fórmula de PV/PE por NEX (o "+Vig"/"+Pre"
+  // de cada nível de exposição não era somado) ficava com o máximo errado até
+  // alguém mexer em NEX/atributo. Com o cálculo automático ligado, corrige ao
+  // abrir — só se o máximo guardado realmente diverge do calculado, e
+  // preservando o dano/gasto sofrido (applyDerived/carryOverCurrent).
+  useEffect(() => {
+    if (!draft.autoCalc) return;
+    const d = deriveStats(draft);
+    if (d.pvMax === draft.pv.max && d.peMax === draft.pe.max && d.sanMax === draft.sanity.max) return;
+    const applied = applyDerived(draft);
+    setDraft(applied);
+    push(applied);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.id]);
+
   // campos cuja mudança dispara recálculo dos derivados. NÃO inclui
   // 'autoCalc' de propósito — o próprio ato de marcar/desmarcar o checkbox
   // não deve, sozinho, mexer em PV/PE/SAN (bug relatado pelo usuário: ligar

@@ -208,8 +208,11 @@ function emptySkills(): Record<string, SkillState> {
 export function suggestedStats(classe: ClassKey, nex: number, vigor: number, presenca: number) {
   const c = CLASS_BY_KEY[classe];
   const steps = nexSteps(nex);
-  const pvMax = c.pvBase + vigor + c.pvPerNex * steps;
-  const peMax = c.peBase + presenca + c.pePerNex * steps;
+  // Tabela de classe (livro básico, cap. 1): cada novo nível de exposição
+  // dá "4 PV (+Vig)" / "2 PE (+Pre)" etc. — o atributo entra em CADA nível,
+  // não só no valor inicial.
+  const pvMax = c.pvBase + vigor + (c.pvPerNex + vigor) * steps;
+  const peMax = c.peBase + presenca + (c.pePerNex + presenca) * steps;
   const sanMax = c.sanBase + c.sanPerNex * steps;
   return { pvMax, peMax, sanMax };
 }
@@ -268,8 +271,10 @@ export function deriveStats(char: Character): DerivedStats {
   const sanBaseClassNex = c.sanBase + c.sanPerNex * steps;
   const sanBaseHalved = sanBonus.halved ? Math.floor(sanBaseClassNex / 2) : sanBaseClassNex;
 
-  const pvMax = c.pvBase + a.VIG + c.pvPerNex * steps + cascaGrossa + pvBonus.total;
-  const peMax = (char.pdMode ? pdMax(char) : c.peBase + a.PRE + c.pePerNex * steps) + peBonus.total;
+  // Ganho por nível de exposição = valor da classe + atributo (Vig/Pre), ver suggestedStats.
+  const pvMax = c.pvBase + a.VIG + (c.pvPerNex + a.VIG) * steps + cascaGrossa + pvBonus.total;
+  const peMax =
+    (char.pdMode ? pdMax(char) : c.peBase + a.PRE + (c.pePerNex + a.PRE) * steps) + peBonus.total;
   const sanMax = Math.max(1, sanBaseHalved - c.sanPerNex * transcendCount + sanBonus.total);
   const defense =
     10 + a.AGI + (char.defenseBonus || 0) + equipmentDefenseBonus(char) + defBonus.total + (overloaded ? -5 : 0);

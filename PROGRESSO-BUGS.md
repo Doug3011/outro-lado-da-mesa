@@ -1262,3 +1262,41 @@ testes de estresse/varredura geral.
     não tinha como funcionar. Agora, com a internet de volta, abrir o app
     de novo baixa direto a v2.5.0 (pula a v2.4.1, que de qualquer forma já
     está toda incluída nela).
+
+---
+
+## 14. Cálculo automático de PV/PE errado (tabela de classes) — CORRIGIDO
+
+> Pedido do usuário (20/11): o cálculo automático da ficha tem que seguir
+> totalmente a tabela de classes (print da tela de escolha de classe) e
+> "só essa parte por enquanto" — varredura online (Parte 2) **pausada** a
+> pedido dele; cluster de teste encerrado sem nenhuma mudança de código ali.
+
+- [x] Causa raiz encontrada
+- [x] Corrigido
+- [x] Testado (script com as funções reais + ao vivo, instância isolada porta 47399/APPDATA próprio)
+- Notas:
+  - Tabela (livro básico): Combatente 20+Vig / **4 PV (+Vig)** por nível,
+    2+Pre / **2 PE (+Pre)**, SAN 12 / 3; Especialista 16+Vig / 3 (+Vig),
+    3+Pre / 3 (+Pre), SAN 16 / 4; Ocultista 12+Vig / 2 (+Vig), 4+Pre /
+    4 (+Pre), SAN 20 / 5. Os números em `data/ordem.ts` já estavam certos.
+  - **Causa raiz**: a fórmula somava só o valor fixo da classe por nível
+    de exposição (`pvPerNex * steps`), esquecendo o "+Vig"/"+Pre" de CADA
+    nível — só o valor inicial tinha o atributo. Ex.: Combatente NEX 10%,
+    Vig 2 dava 26 PV em vez de 28. Sanidade e limite de PE/turno já
+    estavam certos. A regra opcional de PD (`pdMax`) já somava o atributo
+    certo.
+  - Corrigido em `deriveStats` e `suggestedStats` (`domain/character.ts`,
+    usados pela ficha e pelo assistente de criação) e na cópia da fórmula
+    em `pages/MinigameTest.tsx`.
+  - Fichas salvas antes da correção: com cálculo automático ligado, agora
+    se corrigem sozinhas ao abrir (`CharacterSheet.tsx`, efeito novo — só
+    age se o máximo guardado diverge do calculado, e preserva o dano/gasto
+    sofrido via `applyDerived`). Antes só recalculava ao editar NEX/atributo.
+  - Testado: `deriveStats` real — Combatente NEX5 Vig2 Pre1 = 22/3/12;
+    NEX10 = 28/6/15; Especialista NEX15 Vig1 Pre2 = 25/15/24; Ocultista
+    NEX99 Vig3 Pre3 = 110/140/115 (todos batendo à mão com a tabela).
+    Ao vivo: injetei uma ficha "antiga" (Combatente NEX10, PV 20/26 com 6
+    de dano, PE 5/5) e abri — virou PV 22/28, PE 6/6, SAN 15/15 e salvou,
+    zero erros de JS.
+  - `npx tsc --noEmit` e `npm run build` limpos.
