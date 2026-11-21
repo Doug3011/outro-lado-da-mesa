@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { activeScene, useTableStore } from '../store/useTableStore';
 import { useIdentity } from '../hooks/useIdentity';
 import { randomColor, uid } from '../lib/ids';
-import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
+import { fileToDownscaledDataURL, rowsForImage, urlToDownscaledDataURL } from '../lib/image';
 import { askText } from '../state/promptDialog';
 import { TOKEN_DRAG_MIME, tokenAssetUrl, type TokenDragPayload } from '../lib/tokenLibrary';
 import { keyLabel, useKeybinds } from '../lib/keybinds';
@@ -54,6 +54,7 @@ import {
   WARP_VERTEX_SHADER,
 } from '../lib/tokenWarp';
 import type { Token, TokenSprite } from '../types';
+import { DEFAULT_MAP } from '../types';
 
 const SEND_EVERY_MS = 45;
 
@@ -131,7 +132,9 @@ const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, re
           style={{
             backgroundImage: `url(${t.image})`,
             backgroundSize: free ? 'contain' : 'cover',
-            transform: t.rotation ? `rotate(${t.rotation}deg)` : undefined,
+            transform:
+              [t.rotation ? `rotate(${t.rotation}deg)` : '', t.flipX ? 'scaleX(-1)' : ''].join(' ').trim() ||
+              undefined,
           }}
         />
       )}
@@ -181,7 +184,7 @@ function WarpedTokenQuad({
     updateWarpTime(uniforms, state.clock.elapsedTime);
     if (!meshRef.current) return;
     const breath = breathingScale(state.clock.elapsedTime, token.id, breathingEnabled);
-    meshRef.current.scale.set(breath, breath, 1);
+    meshRef.current.scale.set(token.flipX ? -breath : breath, breath, 1);
   });
   // CSS `rotate()` é horário pra graus positivos; nesta cena orto com Y
   // crescendo pra baixo (ver câmera em TokenWarpOverlay2D), negar o ângulo
@@ -750,6 +753,16 @@ export function BattleMap() {
     patchToken({ lanternOn: !selected.lanternOn });
   };
 
+  // Espelha a imagem do token na horizontal (pedido do usuário: virar o token
+  // pro outro lado sem precisar girar 180° e deixar de cabeça pra baixo).
+  // Lê pelo selectedRef: o listener de teclado só se refaz ao trocar de token,
+  // então `selected` ali dentro ficaria velho e a 2ª tecla não desfaria.
+  const toggleFlip = () => {
+    const cur = selectedRef.current;
+    if (!cur) return;
+    upsertToken({ ...cur, flipX: !cur.flipX });
+  };
+
   // Sempre aponta pro token selecionado MAIS RECENTE, sem precisar que o
   // loop de animação abaixo dependa dele (ver por quê no comentário do
   // useEffect principal) — lido a cada frame/evento, nunca fica obsoleto.
@@ -863,6 +876,9 @@ export function BattleMap() {
       } else if (e.code === keybinds['token-toggle-lantern']) {
         e.preventDefault();
         toggleLantern();
+      } else if (e.code === keybinds['token-flip']) {
+        e.preventDefault();
+        toggleFlip();
       } else if (e.code === keybinds['token-open-panel']) {
         e.preventDefault();
         setPanelOpen(true);
@@ -968,7 +984,10 @@ export function BattleMap() {
   const onPickBackground = async (file: File | undefined) => {
     if (!file) return;
     const url = await fileToDownscaledDataURL(file, 2400);
-    if (url) updateMap({ background: url });
+    if (!url) return;
+    // grade acompanha a proporção da imagem (mesmas colunas) pra ela caber inteira
+    const rows = await rowsForImage(url, map.cols);
+    updateMap(rows ? { background: url, rows } : { background: url });
   };
 
   /* -------- zoom com Ctrl + scroll -------- */
@@ -1142,6 +1161,18 @@ export function BattleMap() {
                   resetar
                 </button>
               )}
+            </div>
+          )}
+          {selected.image && (
+            <div className="row" style={{ marginTop: 6, alignItems: 'center' }}>
+              <label style={{ flex: 'none' }}>Espelhar</label>
+              <button
+                className={'small' + (selected.flipX ? '' : ' ghost')}
+                title={`Inverte a imagem na horizontal (tecla ${keyLabel(keybinds['token-flip'])})`}
+                onClick={toggleFlip}
+              >
+                ⇋ {selected.flipX ? 'Invertido' : 'Normal'}
+              </button>
             </div>
           )}
           <div className="row" style={{ marginTop: 6, alignItems: 'center' }}>
@@ -1355,10 +1386,12 @@ export function BattleMap() {
             addScene();
             setShowMapPicker(false);
           }}
-          onPick={(dataUrl) => {
-            addScene();
-            if (dataUrl) updateMap({ background: dataUrl });
+          onPick={async (dataUrl) => {
             setShowMapPicker(false);
+            // cenário novo nasce com as colunas padrão; linhas seguem a proporção da imagem
+            const rows = dataUrl ? await rowsForImage(dataUrl, DEFAULT_MAP.cols) : null;
+            addScene();
+            if (dataUrl) updateMap(rows ? { background: dataUrl, rows } : { background: dataUrl });
           }}
           onPickMap2d={(map2d) => {
             addSceneFromMap2d(map2d);

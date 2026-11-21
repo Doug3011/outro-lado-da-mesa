@@ -2,7 +2,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { uid } from '../lib/ids';
-import { fileToDownscaledDataURL, urlToDownscaledDataURL } from '../lib/image';
+import { fileToDownscaledDataURL, rowsForImage, urlToDownscaledDataURL } from '../lib/image';
 import { sceneryAssetUrl } from '../lib/sceneryLibrary';
 import { fetchMap2D, saveMap2D, type Map2D } from '../lib/map2dLibrary';
 import { SCENERY_DRAG_MIME, SceneryLibraryManager, type SceneryDragPayload } from '../components/SceneryLibraryManager';
@@ -242,7 +242,11 @@ export function Prototype2D() {
   const onPickBackground = async (file: File | undefined) => {
     if (!file) return;
     const url = await fileToDownscaledDataURL(file, 2400);
-    if (url) setBackground(url);
+    if (!url) return;
+    setBackground(url);
+    // grade acompanha a proporção da imagem (mesmas colunas) pra ela caber inteira
+    const r = await rowsForImage(url, cols);
+    if (r) setRows(r);
   };
 
   useEffect(() => {

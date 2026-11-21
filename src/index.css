@@ -2437,7 +2437,9 @@ label {
 .grid-bg {
   position: absolute;
   inset: 0;
-  background-size: cover;
+  /* contain: a imagem aparece inteira, nunca cortada (a grade acompanha a proporção ao importar) */
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
 }
 .grid-lines {

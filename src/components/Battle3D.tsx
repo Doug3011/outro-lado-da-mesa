@@ -251,7 +251,7 @@ function TokenImage3D({ token, selected, editable, onSelect, onMove, onDragEnd, 
     const dz = camera.position.z - token.y;
     meshRef.current.rotation.y = Math.atan2(dx, dz);
     const breath = breathingScale(state.clock.elapsedTime, token.id, breathingEnabled);
-    meshRef.current.scale.set(breath, breath, breath);
+    meshRef.current.scale.set(token.flipX ? -breath : breath, breath, breath);
     if (warpUniforms) updateWarpTime(warpUniforms, state.clock.elapsedTime);
   });
   const onPointerDown = useGroundDrag(token.id, !editable, onSelect, onMove, controlsRef, onDragEnd, {

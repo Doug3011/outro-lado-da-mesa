@@ -1319,3 +1319,18 @@ testes de estresse/varredura geral.
   mudança, reenvia ao mudar); o Godot importou o arquivo gerado (ficha, identidade, atalhos,
   volumes, músicas, desafio). `npx tsc --noEmit` e `npm run build` OK.
 - NÃO publicado (usuário: "ainda não posta").
+
+## Mapa 2D: fundo inteiro + espelhar token (2026-11-21, trazido da versão Godot)
+
+- [x] **Fundo importado saía cortado.** Causa: `.grid-bg` era `background-size: cover` numa grade
+      30x20 fixa — mapa mais alto/largo que 3:2 perdia topo/rodapé. Agora `contain` + `no-repeat`,
+      e ao importar (botão "Importar" do Fundo, imagem do seletor de cenário, editor de mapa 2D da
+      Área do Mestre) as linhas da grade seguem a proporção da imagem com as mesmas colunas
+      (`rowsForImage` em `src/lib/image.ts`). Mapas já importados antes: importar de novo.
+- [x] **Espelhar token.** Campo `flipX` no Token; botão "⇋ Normal/Invertido" no painel do token
+      (só com imagem) e tecla **E** (configurável em Controles, `token-flip`). 2D: `scaleX(-1)`
+      junto do `rotate`; token com rig de animação e 3D: escala X negativa no mesh.
+      A tecla lê o token por `selectedRef` (o listener só se refaz ao trocar de token).
+- Testado ao vivo (CDP, mestre + 1 jogador LAN, build novo): mapa 600x1200 → grade 30x60
+  (palco 2880px), `contain`, jogador recebeu igual; botão e tecla E (2x) alternam e o jogador
+  recebe na hora; girar mantém o espelho. `npx tsc --noEmit` e `npm run build` limpos.

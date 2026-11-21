@@ -167,6 +167,22 @@ export function fileToStandingDataURL(file: File, maxDim: number, quality = 0.85
   });
 }
 
+// Fundo do mapa 2D: quantas linhas a grade precisa pra imagem caber INTEIRA com
+// as mesmas colunas (mesma correção da versão Godot — antes o fundo era "cover"
+// numa grade 30x20 fixa e cortava o topo/rodapé de mapas mais altos).
+export function rowsForImage(dataUrl: string, cols: number): Promise<number | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onerror = () => resolve(null);
+    img.onload = () => {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      resolve(w && h ? Math.max(5, Math.round((cols * h) / w)) : null);
+    };
+    img.src = dataUrl;
+  });
+}
+
 // Converte um arquivo de imagem (qualquer formato que o navegador decodifique:
 // png, jpg, webp, gif, bmp, svg...) para um data URL já reduzido, de modo que
 // caiba no localStorage / no JSONB da sala. Formatos que o canvas não decodifica

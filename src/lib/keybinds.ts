@@ -12,6 +12,7 @@ export type KeybindAction =
   | 'token-resize-down'
   | 'token-cycle-sprite'
   | 'token-toggle-lantern'
+  | 'token-flip'
   | 'token-open-panel';
 
 export const KEYBIND_LABELS: Record<KeybindAction, string> = {
@@ -21,6 +22,7 @@ export const KEYBIND_LABELS: Record<KeybindAction, string> = {
   'token-resize-down': 'Diminuir token',
   'token-cycle-sprite': 'Trocar variante de imagem do token',
   'token-toggle-lantern': 'Ligar/desligar lanterna do token (névoa modo Lanterna)',
+  'token-flip': 'Espelhar imagem do token',
   'token-open-panel': 'Abrir ficha do token selecionado',
 };
 
@@ -31,6 +33,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindAction, string> = {
   'token-resize-down': 'ArrowDown',
   'token-cycle-sprite': 'KeyR',
   'token-toggle-lantern': 'KeyL',
+  'token-flip': 'KeyE',
   'token-open-panel': 'Enter',
 };
 

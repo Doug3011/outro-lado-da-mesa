@@ -78,6 +78,7 @@ export interface Token {
   image?: string;
   shape?: 'circle' | 'free'; // legado — tokens com imagem sempre renderizam sem recorte agora
   rotation?: number; // graus (0-359) — gira só a imagem, pra simular virar de lado
+  flipX?: boolean; // espelha a imagem na horizontal (olhar pro outro lado sem ficar de cabeça pra baixo)
   x: number; // coordenada em celulas (pode ser fracionaria durante o arraste)
   y: number;
   size: number; // 1 = 1x1, 2 = 2x2 ... (múltiplo de célula, escolhido no seletor "Tamanho")
