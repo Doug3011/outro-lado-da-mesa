@@ -1300,3 +1300,22 @@ testes de estresse/varredura geral.
     de dano, PE 5/5) e abri — virou PV 22/28, PE 6/6, SAN 15/15 e salvou,
     zero erros de JS.
   - `npx tsc --noEmit` e `npm run build` limpos.
+
+## Ponte pra versão Godot — arquivo `export-godot.json` (2026-11-21)
+
+- [x] Pedido do usuário: quem atualizar o app antigo já fica com uma cópia local das fichas e
+  preferências, pra versão Godot (projeto `C:\Users\dougl\OutroLado-Godot-Teste`) importar
+  sozinha quando for instalada.
+- O quê: `src/lib/godotExport.ts` (iniciado em `App.tsx`) junta do localStorage `ordem:me`,
+  `profile`, `my-characters`, `my-creatures`, `keybinds`, `dice-sound-volume`,
+  `menu-music-volume`, `menu-track-selected`, `menu-tracks-unlocked`, `daily-challenge`,
+  `custom-dice` — no mesmo formato salvo, sem converter — e manda pra `/api/godot-export`
+  ao abrir, a cada 20s SÓ se mudou, ao esconder a janela e ao fechar (`sendBeacon`).
+  Servidor (`desktop/server.cjs` e `server/main.cjs`, iguais) grava
+  `%APPDATA%\OutroLado\export-godot.json` (temporário + rename) e só aceita do próprio PC
+  (403 vindo da rede). Só roda no executável (`hasLan`).
+- Testado: servidor isolado (ORDEM_PORT=47399, APPDATA de teste) — PUT/POST 200, corpo
+  inválido 400, outro IP 403; módulo com localStorage simulado (envia, não reenvia sem
+  mudança, reenvia ao mudar); o Godot importou o arquivo gerado (ficha, identidade, atalhos,
+  volumes, músicas, desafio). `npx tsc --noEmit` e `npm run build` OK.
+- NÃO publicado (usuário: "ainda não posta").

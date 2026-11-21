@@ -170,6 +170,13 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/map2d')) {
     if (handleMap2DApi(req, res, urlObj)) return;
   }
+  // Cópia das fichas/preferências pra versão Godot do app importar sozinha
+  // (ver src/lib/godotExport.ts). Só aceita do próprio computador — o servidor
+  // também escuta na rede local, e ninguém de fora deve conseguir gravar isso.
+  if (urlObj.pathname === '/api/godot-export' && (req.method === 'PUT' || req.method === 'POST')) {
+    handleGodotExport(req, res);
+    return;
+  }
   // Ficha no celular via QR code (ver FichaQr.tsx) — página standalone
   // (fora do bundle React), vira cliente da mesma sala WebSocket que o app
   // desktop já usa (ver server/fichaMobile.js pro porquê de não duplicar
@@ -190,6 +197,34 @@ const server = http.createServer((req, res) => {
 
 const SAVE_DIR = path.join(process.env.APPDATA || os.homedir(), 'OutroLado');
 const SAVE_FILE = path.join(SAVE_DIR, 'save.json');
+const GODOT_EXPORT_FILE = path.join(SAVE_DIR, 'export-godot.json');
+
+function isLoopback(addr) {
+  return addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+}
+
+function handleGodotExport(req, res) {
+  if (!isLoopback(req.socket.remoteAddress)) {
+    res.writeHead(403);
+    res.end();
+    return;
+  }
+  readJsonBody(req)
+    .then((body) => {
+      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('corpo inválido');
+      fs.mkdirSync(SAVE_DIR, { recursive: true });
+      // grava num temporário e renomeia: o Godot nunca lê um arquivo pela metade
+      const tmp = GODOT_EXPORT_FILE + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(body));
+      fs.renameSync(tmp, GODOT_EXPORT_FILE);
+      sendJson(res, 200, { ok: true });
+    })
+    .catch((err) => {
+      const tooLarge = err && String(err.message).includes('payload too large');
+      res.writeHead(tooLarge ? 413 : 400);
+      res.end();
+    });
+}
 
 const DEFAULT_MUSIC = { trackId: null, playing: false, startedAt: 0, positionAtStart: 0, loop: true };
 const DEFAULT_BOARD = { items: [], links: [], strokes: [] };

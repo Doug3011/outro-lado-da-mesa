@@ -11,6 +11,7 @@ import { MenuMusicController } from './components/MenuMusicController';
 import { PromptDialog } from './components/PromptDialog';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { toggleFullscreen } from './lib/fullscreen';
+import { startGodotExport } from './lib/godotExport';
 
 // MenuMusicController e SettingsGear usam useLocation() (pra saber se está
 // numa mesa) — com createBrowserRouter, isso só funciona dentro da árvore do
@@ -49,6 +50,11 @@ const router = createBrowserRouter([
 ]);
 
 export function App() {
+  // cópia das fichas/preferências em arquivo pra versão Godot importar (ver lib/godotExport.ts)
+  useEffect(() => {
+    startGodotExport();
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F11') {
