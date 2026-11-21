@@ -149,7 +149,8 @@ const TokenEl = memo(function TokenEl({ t, selected, cellSize, onPointerDown, re
           />
         </span>
       )}
-      <span className="tk-label">{t.label}</span>
+      {/* nome embaixo do token removido do mapa a pedido do usuário (não precisar renomear
+          todos os tokens) — continua no painel do token, na lista e no combate */}
     </div>
   );
 });

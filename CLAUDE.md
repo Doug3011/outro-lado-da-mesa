@@ -130,5 +130,5 @@ npm run dist:publish      # empacota E publica no GitHub Releases (precisa GH_TO
   rápidas, troca de cenário repetida), CPU/memória/FPS em cliente fraco,
   varredura tela-por-tela offline, relatório final por gravidade e as
   correções em si.
-- **Versão publicada atualmente**: v2.7.1 (ver GitHub Releases de
+- **Versão publicada atualmente**: v2.7.2 (ver GitHub Releases de
   `Doug3011/outro-lado-da-mesa`).

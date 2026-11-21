@@ -1334,3 +1334,9 @@ testes de estresse/varredura geral.
 - Testado ao vivo (CDP, mestre + 1 jogador LAN, build novo): mapa 600x1200 → grade 30x60
   (palco 2880px), `contain`, jogador recebeu igual; botão e tecla E (2x) alternam e o jogador
   recebe na hora; girar mantém o espelho. `npx tsc --noEmit` e `npm run build` limpos.
+
+## Nome do token fora do mapa 2D (2026-11-21, v2.7.2)
+
+- [x] Pedido do usuário: o nome embaixo de cada token (`.tk-label`) não aparece mais no mapa 2D
+      (evita renomear todos os tokens). Continua no painel do token, lista e combate; 3D inalterado.
+      `npx tsc --noEmit` e `npm run build` limpos.
